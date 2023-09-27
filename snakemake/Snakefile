@@ -1,0 +1,304 @@
+import os
+import glob
+
+# Define a function to extract the sample name from a fastq.gz filename
+def extract_sample_name(filename):
+    # Get the base filename without the directory
+    base_filename = os.path.basename(filename)
+    
+    # Split the filename by underscores
+    parts = base_filename.split('_')
+    
+    # Find the part that contains 'L001' and get the sample name before it
+    for i, part in enumerate(parts):
+        if 'L001' in part:
+            return '_'.join(parts[:i])
+
+# Directory containing the fastq.gz files
+directory = "data/batch_1"
+
+# Get a list of all fastq.gz files in the directory
+fastq_files = glob.glob(os.path.join(directory, "*.fastq.gz"))
+
+# Initialize a set to store unique sample names
+SAMPLES = set()
+
+# Iterate over the fastq.gz files and extract sample names
+for filename in fastq_files:
+    sample_name = extract_sample_name(filename)
+    SAMPLES.add(sample_name)
+
+# Convert the set to a sorted list for consistent order
+SAMPLES = sorted(list(SAMPLES))
+
+# Defining wildcard for haplotype
+wildcard_constraints:
+    hap = r'1|2'
+
+#Testing that SAMPLES list is correctly extracted
+rule print_samples:
+  output:
+        "results/test/samples.txt"
+  run:
+      with open(output[0], 'w') as f:
+          for sample in SAMPLES:
+              if sample.strip():  # Check if the sample name is not empty or whitespace
+                    f.write(sample + '\n')
+
+# final files desired (can change)
+rule all:
+  input:
+    "results/multiqc/multiqc_report.html",
+    expand("results/vcf/hap{hap}_all.vcf", hap = [1, 2])
+
+
+
+# Trim adapter ends off each sequence file using Trimmomatic 
+rule trim_reads:
+  input:
+    r1="data/batch_1/{sample}_L001_R1_001.fastq.gz",
+    r2="data/batch_1/{sample}_L001_R2_001.fastq.gz",
+  output:
+    r1="results/trimmed/{sample}_R1.fastq.gz",
+    r1_unp="results/trimmed/{sample}_R1_unpaired.fastq.gz",
+    r2="results/trimmed/{sample}_R2.fastq.gz",
+    r2_unp="results/trimmed/{sample}_R2_unpaired.fastq.gz"
+  log:
+    "results/logs/trim_reads/{sample}.log"
+  envmodules:
+    "trimmomatic/0.39"
+  params:
+    adapters="$EBROOTTRIMMOMATIC/adapters/TruSeq3-PE-2.fa"
+  shell:
+    "java -jar $EBROOTTRIMMOMATIC/trimmomatic-0.39.jar PE {input.r1} {input.r2} "
+    "{output.r1} {output.r1_unp} {output.r2} {output.r2_unp} "
+    "ILLUMINACLIP:{params.adapters}:2:30:10 "
+    "LEADING:3 "
+    "TRAILING:3 "
+    "SLIDINGWINDOW:4:15 "
+    "MINLEN:36 2> {log}"
+
+
+# Unzip trimmed files as fastqc 0.12.0 cannot properly read compressed files
+rule unzip_files:
+  input:
+    zipped_r1="results/trimmed/{sample}_R1.fastq.gz",
+    zipped_r2="results/trimmed/{sample}_R2.fastq.gz"
+  output: 
+    unzipped_r1="results/trimmed_unzip/{sample}_R1.fastq",
+    unzipped_r2="results/trimmed_unzip/{sample}_R2.fastq"
+  shell:
+    "gunzip -c {input.zipped_r1} > {output.unzipped_r1} && gunzip -c {input.zipped_r2} > {output.unzipped_r2}"
+
+
+# Run FastQC per each trimmed sequence file
+rule fastqc:
+  input:
+    fastq_r1="results/trimmed_unzip/{sample}_R1.fastq",
+    fastq_r2="results/trimmed_unzip/{sample}_R2.fastq"
+  output:
+    html_report_r1="results/fastqc/{sample}_R1_fastqc.html",
+    zip_report_r1="results/fastqc/{sample}_R1_fastqc.zip",
+    html_report_r2="results/fastqc/{sample}_R2_fastqc.html",
+    zip_report_r2="results/fastqc/{sample}_R2_fastqc.zip"
+  envmodules:
+    "fastqc/0.12.0"
+  shell:
+    "fastqc {input.fastq_r1} {input.fastq_r2} --outdir results/fastqc"
+
+
+# Create an aggregated FastQC report using MultiQC. '-f' flag forces a report even if incomplete data
+# Note that we create 1 multiqc for both batch 1 and 2
+rule multiqc:
+  input:
+    fastqc_dir="results/fastqc"
+  output:
+    html_report="results/multiqc/multiqc_report.html"
+  shell:
+    "multiqc -f -o results/multiqc {input.fastqc_dir} "
+
+
+# Creating faidx index for reference genome
+rule faidx_reference:
+  input:
+    "data/reference/hap{hap}/lupinehap{hap}.fasta",
+  output:
+    "data/reference/hap{hap}/lupinehap{hap}.fasta.fai",
+  log:
+    "results/logs/refgen/lupinehap{hap}_faidx.log",
+  envmodules:
+    "samtools/1.17"
+  shell:
+    "samtools faidx {input} 2> {log} "
+
+
+# Rules for indexing reference genomes (haplotypes 1 and 2)
+rule index_reference:
+  input:
+    "data/reference/hap{hap}/lupinehap{hap}.fasta"
+  output:
+    multiext("data/reference/hap{hap}/lupinehap{hap}.fasta", ".amb", ".ann", ".bwt", ".pac", ".sa"),
+  log:
+    "results/logs/refgen/lupinehap{hap}_bwa_index.log"
+  envmodules:
+    "bwa/0.7.17"
+  shell:
+    "bwa index {input} 2> {log}"
+
+# Rules for creating dictionary files
+rule create_dict:
+  input:
+    "data/reference/hap{hap}/lupinehap{hap}.fasta"
+  output:
+    "data/reference/hap{hap}/lupinehap{hap}.dict"
+  log:
+    "results/logs/refgen/hap{hap}_dict.log"
+  envmodules:
+    "samtools/1.17"
+  shell:
+    "samtools dict {input} > {output} 2> {log}"
+
+
+# Mapping reads to haplotypes
+rule map_reads:
+  input:
+    r1="results/trimmed/{sample}_R1.fastq.gz",
+    r2="results/trimmed/{sample}_R2.fastq.gz",
+    genome="data/reference/hap{hap}/lupinehap{hap}.fasta",
+    idx=multiext("data/reference/hap{hap}/lupinehap{hap}.fasta", ".amb", ".ann", ".bwt", ".pac", ".sa")
+  output:
+    "results/bam/hap{hap}/{sample}_hap{hap}.bam"
+  log:
+    "results/logs/map_reads/hap{hap}/{sample}_hap{hap}.log"
+  benchmark:
+    "results/benchmarks/map_reads/{sample}_hap{hap}.bmk"
+  envmodules:
+    "bwa/0.7.17",
+    "samtools/1.17"
+  threads: 8 
+  params:
+    RG="-R '@RG\\tID:{sample}\\tSM:{sample}\\tPL:ILLUMINA' "
+  shell:
+    " (bwa mem {params.RG} -t {threads} {input.genome} {input.r1} {input.r2} | "
+    " samtools view -u | "
+    " samtools sort - > {output}) 2> {log}"
+
+
+
+
+# Mark duplicates 
+rule mark_duplicates:
+  input:
+    "results/bam/hap{hap}/{sample}_hap{hap}.bam"
+  output:
+    bam="results/mkdup/hap{hap}/{sample}_hap{hap}_mkdup.bam",
+    bai="results/mkdup/hap{hap}/{sample}_hap{hap}_mkdup.bai",
+    metrics="results/qc/mkdup_metrics/{sample}_hap{hap}.metrics"
+  log:
+    "results/logs/mark_duplicates/hap{hap}/{sample}_hap{hap}.log"
+  envmodules:
+    "gatk/4.2.5.0"
+  shell:
+    " gatk MarkDuplicates  "
+    "  --CREATE_INDEX "
+    "  -I {input} "
+    "  -O {output.bam} "  
+    "  -M {output.metrics} "
+    "  2> {log} "
+
+
+# Calling genotype likelihoods (GLs) for variant calling using bam files w/ marked duplicates
+rule make_gvcfs:
+  input:
+    bam="results/mkdup/hap{hap}/{sample}_hap{hap}_mkdup.bam",
+    bai="results/mkdup/hap{hap}/{sample}_hap{hap}_mkdup.bai",
+    ref="data/reference/hap{hap}/lupinehap{hap}.fasta",
+    idx="data/reference/hap{hap}/lupinehap{hap}.dict",
+    fai="data/reference/hap{hap}/lupinehap{hap}.fasta.fai"
+  output:
+    gvcf="results/gvcf/hap{hap}/{sample}_hap{hap}.g.vcf.gz",
+    idx="results/gvcf/hap{hap}/{sample}_hap{hap}.g.vcf.gz.tbi",
+  params:
+    java_opts="-Xmx4g"
+  log:
+    "results/logs/make_gvcfs/{sample}_hap{hap}.log"
+  envmodules:
+    "gatk/4.2.5.0",
+    "StdEnv/2020"
+  threads: 4
+  shell:
+    " gatk --java-options \"{params.java_opts}\" HaplotypeCaller "
+    " --native-pair-hmm-threads {threads} "
+    " -R {input.ref} "
+    " -I {input.bam} "
+    " -O {output.gvcf} "
+    " -ERC GVCF > {log} 2> {log} "
+
+
+
+# create GenomicsDB workspace directory to store data for efficient joint genotyping
+# need separate rules for each haplotype
+rule hap1_import_genomics_db:
+  input:
+    gvcfs=expand("results/gvcf/hap1/{sample}_hap1.g.vcf.gz", sample=SAMPLES)
+  output:
+    gdb="results/genomics_db/hap1"
+  log:
+    "results/logs/import_genomics_db/hap1.log"
+  envmodules:
+    "gatk/4.2.5.0",
+    "StdEnv/2020"
+  shell:
+    " VS=$(for i in {input.gvcfs}; do echo -V $i; done); "
+    " gatk --java-options \"-Xmx4g\" GenomicsDBImport "
+    " --genomicsdb-shared-posixfs-optimizations "
+    "  $VS  "
+    "  --genomicsdb-workspace-path {output.gdb} "
+    "  2> {log} "
+
+rule hap2_import_genomics_db:
+  input:
+    gvcfs=expand("results/gvcf/hap2/{sample}_hap2.g.vcf.gz", sample=SAMPLES)
+  output:
+    gdb="results/genomics_db/hap2"
+  log:
+    "results/logs/import_genomics_db/hap2.log"
+  envmodules:
+    "gatk/4.2.5.0",
+    "StdEnv/2020"
+  shell:
+    " VS=$(for i in {input.gvcfs}; do echo -V $i; done); "
+    " gatk --java-options \"-Xmx4g\" GenomicsDBImport "
+    " --genomicsdb-shared-posixfs-optimizations "
+    "  $VS  "
+    "  --genomicsdb-workspace-path {output.gdb} "
+    "  2> {log} "
+
+
+# Produce VCF containing variant calls
+rule vcf_from_gdb:
+  input:
+    gdb="results/genomics_db/hap{hap}",
+    ref="data/reference/hap{hap}/lupinehap{hap}.fasta",
+    fai="data/reference/hap{hap}/lupinehap{hap}.fasta.fai",
+    idx="data/reference/hap{hap}/lupinehap{hap}.dict",
+  output:
+    vcf="results/vcf/hap{hap}_all.vcf"
+  log:
+    "results/logs/vcf_from_gdb/hap{hap}.log."
+  envmodules:
+    "gatk/4.2.5.0",
+    "StdEnv/2020"
+  shell:
+    " gatk --java-options \"-Xmx4g\" GenotypeGVCFs "
+    "  -R {input.ref}  "
+    "  -V gendb://{input.gdb} "
+    "  -O {output.vcf} 2> {log} "
+
+
+
+
+# Rule to detect minor allele frequency and remove?
+
+
+# Rule to run PCAngsd for PCAs of genotype likelihoods?

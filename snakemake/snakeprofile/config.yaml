@@ -1,0 +1,71 @@
+cluster:
+  mkdir -p results/slurm_logs/{rule} &&
+  sbatch
+    --cpus-per-task={threads}
+    --mem={resources.mem_mb}
+    --time={resources.time}
+    --job-name=smk-{rule}-{wildcards}
+    --output=results/slurm_logs/{rule}/{rule}-{wildcards}-%j.out
+    --error=results/slurm_logs/{rule}/{rule}-{wildcards}-%j.err
+    --parsable
+default-resources:
+  - time="02:00:00"
+  - mem_mb=2300
+restart-times: 0
+max-jobs-per-second: 10
+max-status-checks-per-second: 50
+local-cores: 1
+latency-wait: 120
+cores: 960
+jobs: 500
+keep-going: True
+rerun-incomplete: True
+printshellcmds: True
+use-envmodules: True
+rerun-trigger: mtime
+cluster-status: status-sacct-robust.sh
+cluster-cancel: scancel
+cluster-cancel-nargs: 4000
+
+
+
+
+
+
+set-threads:
+  map_reads: 8
+  multiqc: 2
+  mark_duplicates: 2
+  make_gvcfs: 4
+  hap1_import_genomics_db: 4
+  hap2_import_genomics_db: 4
+  vcf_from_gdb: 2
+set-resources:
+  trim_reads:
+    time: "03:00:00"
+  multiqc:
+    mem_mb: 6900
+    time: "04:00:00"
+  map_reads:
+    mem_mb: 23000
+    time: "143:59:00"
+    threads: 8
+  mark_duplicates:
+    mem_mb: 13800
+    time: "47:59:00"
+  make_gvcfs:
+    mem_mb: 13800
+    time: "47:59:00"
+    threads: 4
+  vcf_from_gdb:
+    mem_mb: 13800
+    time: "47:59:00"
+    threads: 2
+  hap1_import_genomics_db:
+    mem_mb: 13800
+    time: "47:59:00"
+    threads: 4
+  hap2_import_genomics_db:
+    mem_mb: 13800
+    time: "47:59:00"
+    threads: 4
