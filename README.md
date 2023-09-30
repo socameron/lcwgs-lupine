@@ -15,7 +15,7 @@ This Snakemake workflow is adapted for use on [Digital Research Alliance of Cana
 
 **TL;DR** Snakemake allows you to parallelize multiple jobs at once, while submitting jobs once tasks are complete. Snakemake rules are immensely easy to read and makes research more reproducible.
 
-Setting up this workflow on DRAC clusters is simplier than you think:
+Setting up this workflow on DRAC clusters is simpler than you think:
 
 1. First load Python and create and a virtual environment.
 
@@ -82,5 +82,12 @@ pip install -r requirements.txt
 python setup.py build_ext --inplace
 pip install .
 ```
+
+## Additional resources and references
+
+[A beginner's guide to low-coverage whole genome sequencing for population genomics](https://onlinelibrary.wiley.com/doi/abs/10.1111/mec.16077)
+[PCAngsd Version 1.2](https://github.com/Rosemeis/pcangsd)
+[My Website](https://www.cameronso.ca)
+
 
 
