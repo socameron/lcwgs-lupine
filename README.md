@@ -20,10 +20,9 @@ Setting up this workflow on DRAC clusters is simplier than you think:
 1. First load Python and create and a virtual environment.
 
 ```
-# We create a virtual environment in the scratch folder. I still haven't figured out if it's a better idea to do this in your home directory.
-cd scratch 
+# We create a virtual environment in the login node.
 module load python/3.10
-virtual --no-download ENV
+virtualenv --no-download ENV
 
 # Just labelled the virtual environment folder as 'ENV'
 # Activate virtual environment
