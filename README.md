@@ -11,7 +11,9 @@ The distinction between populations is their geographical position relative to t
 
 ## Snakemake workflow
 
-This Snakemake workflow is adapted for use on [Digital Research Alliance of Canada](alliancecan.ca/en) clusters. I specifically used the #Beluga cluster because it's located in Montreal. Setting up this workflow would not have been possible without [Eric Anderson](https://github.com/eriqande/mega-lcwgs-pw-fst-snakeflow) (Research Geneticist, NOAA) whom I met at [ConGen2023](https://www.umt.edu/ces/conferences/congen/). For more information about Snakemake's amazing abilities, see Eric Anderson's lecture slides [here](https://eriqande.github.io/con-gen-2023/slides/snake-slides.html#/section). TL;DR Snakemake allows you to parallelize multiple jobs at once, while submitting jobs once tasks are complete. Snakemake rules are immensely easy to read and makes research more reproducible.
+This Snakemake workflow is adapted for use on [Digital Research Alliance of Canada](alliancecan.ca/en) clusters. I specifically used the #Beluga cluster because it's located in Montreal. Setting up this workflow would not have been possible without [Eric Anderson](https://github.com/eriqande/mega-lcwgs-pw-fst-snakeflow) (Research Geneticist, NOAA) whom I met at [ConGen2023](https://www.umt.edu/ces/conferences/congen/). For more information about Snakemake's amazing abilities, see Eric Anderson's lecture slides [here](https://eriqande.github.io/con-gen-2023/slides/snake-slides.html#/section). 
+
+**TL;DR **Snakemake allows you to parallelize multiple jobs at once, while submitting jobs once tasks are complete. Snakemake rules are immensely easy to read and makes research more reproducible.
 
 Setting up this workflow on DRAC clusters is simplier than you think:
 
