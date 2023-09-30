@@ -1,6 +1,6 @@
 # Population Genetics - _Lupinus perennis_ (lcWGS)
 
-This is a Snakemake workflow for creating PCA plots (so far) from raw fastq.gz files using PCangsd. 
+This is a Snakemake workflow for creating PCA plots (so far) from raw fastq.gz files using PCAngsd. 
 
 ## About the _Lupinus perennis_ dataset
 
@@ -49,7 +49,7 @@ snakemake --version
 Using Snakemake on DRAC clusters requires 4 items. (1) The `Snakemake` file; (2) a snakeprofile folder containing (3) a `config.yaml` and (4) `status.sacct-robust.sh` file. The Snakemake file is where all rules are written for your workflow. The `config.yaml` specifies the resources allocated for each rule (although this can also be written into your Snakemake file) plus other system settings. The `status-sacct-robust.sh` file interacts Snakemake with the SLURM scheduler to send jobs via `sbatch`. 
 
 ```
-git clone https://github.com/socameron/lcwgs-lupine/tree/e5bb00027b645df6267f4256013f5ad3dfff6ad2/snakemake
+git clone https://github.com/socameron/lcwgs-lupine.git
 ```
 
 4. Check that data files have readable permissions
@@ -70,5 +70,18 @@ I use an `all` rule in Snakemake so I don't have to specify a file to request. R
 
 In case you're also new to the world of bioinformatics, I also use Cyberduck to access my data plus VS Code to edit code directly on DRAC servers.  
 
+## Installing PCAngsd
+
+To use PCAngsd, you'll need to install it from github and install it with a compiler. 
+
+```
+module load gcc python/3.10 angsd
+source ENV/bin/activate
+git clone https://github.com/Rosemeis/pcangsd.git
+cd pcangsd/
+pip install -r requirements.txt
+python setup.py build_ext --inplace
+pip install .
+```
 
 
