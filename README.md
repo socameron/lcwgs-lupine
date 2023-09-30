@@ -44,7 +44,7 @@ snakemake --version
 ```
 3. Download Snakemake files from my repository
 
-Using Snakemake on DRAC clusters requires 4 items. (1) The `Snakemake` file; (2) a snakeprofile folder containing (3) a `config.yaml` and (4) `status.sacct-robust.sh` file. The Snakemake file is where all rules are written for your workflow. The `config.yaml` specifies the resources allocated for each rule (although this can also be written into your Snakemake file) plus other system settings. The `status-sacct-robust.sh` file interacts Snakemake with the SLURM scheduler to send jobs via sbatch. 
+Using Snakemake on DRAC clusters requires 4 items. (1) The `Snakemake` file; (2) a snakeprofile folder containing (3) a `config.yaml` and (4) `status.sacct-robust.sh` file. The Snakemake file is where all rules are written for your workflow. The `config.yaml` specifies the resources allocated for each rule (although this can also be written into your Snakemake file) plus other system settings. The `status-sacct-robust.sh` file interacts Snakemake with the SLURM scheduler to send jobs via `sbatch`. 
 
 ```
 git clone https://github.com/socameron/lcwgs-lupine/tree/e5bb00027b645df6267f4256013f5ad3dfff6ad2/snakemake
