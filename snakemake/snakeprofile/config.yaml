@@ -40,6 +40,8 @@ set-threads:
   hap1_import_genomics_db: 4
   hap2_import_genomics_db: 4
   vcf_from_gdb: 2
+  angsd_hap1: 10
+  angsd_hap2: 10
 set-resources:
   trim_reads:
     time: "03:00:00"
@@ -69,3 +71,11 @@ set-resources:
     mem_mb: 13800
     time: "47:59:00"
     threads: 4
+  angsd_hap1:
+    mem_mb: 13800
+    time: "47:59:00"
+    threads: 10
+  angsd_hap2:
+    mem_mb: 13800
+    time: "47:59:00"
+    threads: 10

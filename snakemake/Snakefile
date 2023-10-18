@@ -31,9 +31,10 @@ for filename in fastq_files:
 # Convert the set to a sorted list for consistent order
 SAMPLES = sorted(list(SAMPLES))
 
-# Defining wildcard for haplotype
+# Defining wildcard for haplotype and sequence batch #
 wildcard_constraints:
-    hap = r'1|2'
+    hap = r'1|2',
+    batch = r'1|2'
 
 #Testing that SAMPLES list is correctly extracted
 rule print_samples:
@@ -49,11 +50,12 @@ rule print_samples:
 rule all:
   input:
     "results/multiqc/multiqc_report.html",
-    expand("results/vcf/hap{hap}_all.vcf", hap = [1, 2])
+    expand("results/beagle/{sample}_hap{hap}", hap = [1, 2], sample=SAMPLES)
 
 
 
 # Trim adapter ends off each sequence file using Trimmomatic 
+# When batch 2 is available, use wildcard {batch}
 rule trim_reads:
   input:
     r1="data/batch_1/{sample}_L001_R1_001.fastq.gz",
@@ -219,7 +221,8 @@ rule make_gvcfs:
     gvcf="results/gvcf/hap{hap}/{sample}_hap{hap}.g.vcf.gz",
     idx="results/gvcf/hap{hap}/{sample}_hap{hap}.g.vcf.gz.tbi",
   params:
-    java_opts="-Xmx4g"
+    java_opts="-Xmx4g",
+    tempdir="/tmp/bam"
   log:
     "results/logs/make_gvcfs/{sample}_hap{hap}.log"
   envmodules:
@@ -232,6 +235,7 @@ rule make_gvcfs:
     " -R {input.ref} "
     " -I {input.bam} "
     " -O {output.gvcf} "
+    " --tmp-dir {params.tempdir} "
     " -ERC GVCF > {log} 2> {log} "
 
 
@@ -240,40 +244,154 @@ rule make_gvcfs:
 # need separate rules for each haplotype
 rule hap1_import_genomics_db:
   input:
-    gvcfs=expand("results/gvcf/hap1/{sample}_hap1.g.vcf.gz", sample=SAMPLES)
+    ref="data/reference/hap1/lupinehap1.fasta"
   output:
     gdb="results/genomics_db/hap1"
+  params:
+    java_opts="-Xmx4g",
+    tempdir="/tmp/genomics_DB/hap1",
+    sample_map="data/genomicsDB/lupine_sample_map_hap1.txt"
   log:
     "results/logs/import_genomics_db/hap1.log"
   envmodules:
     "gatk/4.2.5.0",
     "StdEnv/2020"
+  threads: 4
   shell:
-    " VS=$(for i in {input.gvcfs}; do echo -V $i; done); "
-    " gatk --java-options \"-Xmx4g\" GenomicsDBImport "
-    " --genomicsdb-shared-posixfs-optimizations "
-    "  $VS  "
-    "  --genomicsdb-workspace-path {output.gdb} "
-    "  2> {log} "
+    """
+    gatk --java-options "{params.java_opts}" GenomicsDBImport 
+    --genomicsdb-shared-posixfs-optimizations 
+    --genomicsdb-workspace-path {output.gdb} 
+    --sample-name-map {params.sample_map}
+    --L genome 
+    -R {input.ref} 
+    --tmp-dir {params.tempdir} 
+    &> {log}
+    """
+    
 
 rule hap2_import_genomics_db:
   input:
-    gvcfs=expand("results/gvcf/hap2/{sample}_hap2.g.vcf.gz", sample=SAMPLES)
+    ref="data/reference/hap2/lupinehap2.fasta"
   output:
     gdb="results/genomics_db/hap2"
+  params:
+    java_opts="-Xmx4g",
+    tempdir="/tmp/genomics_DB/hap2",
+    sample_map="data/genomicsDB/lupine_sample_map_hap2.txt"
   log:
     "results/logs/import_genomics_db/hap2.log"
   envmodules:
     "gatk/4.2.5.0",
     "StdEnv/2020"
+  threads: 4
   shell:
-    " VS=$(for i in {input.gvcfs}; do echo -V $i; done); "
-    " gatk --java-options \"-Xmx4g\" GenomicsDBImport "
-    " --genomicsdb-shared-posixfs-optimizations "
-    "  $VS  "
-    "  --genomicsdb-workspace-path {output.gdb} "
-    "  2> {log} "
+    """
+    gatk --java-options "{params.java_opts}" GenomicsDBImport 
+    --genomicsdb-shared-posixfs-optimizations 
+    --genomicsdb-workspace-path {output.gdb} 
+    --sample-name-map {params.sample_map}
+    --L genome 
+    -R {input.ref} 
+    --tmp-dir {params.tempdir} 
+    &> {log}
+    """
 
+# Convert BAM files to .beagle file using angsd
+rule angsd_hap1:
+  input:
+    bam=expand("results/mkdup/hap1/{sample}_hap1_mkdup.bam", sample=SAMPLES) # Adjust the path to your BAM files
+  output:
+    prefix="results/angsd/hap1/angsd_hap1"
+  params:
+    ref="data/reference/hap1/lupinehap1.fasta",  # Provide the path to your reference genome
+    threads=10
+  log:
+    "results/logs/angsd/angsd_hap1.log"
+  envmodules:
+    "angsd/0.939"
+  threads: 10
+  shell:
+    """
+    angsd -b {input.bam}
+    -ref {params.ref}
+    -out {output.prefix}
+    -GL 2  # Genotype likelihoods based on Bayesian GATK models. Could swap for '1' for SAMtool models.
+    -doMajorMinor 1
+    -doMaf 2
+    -SNP_pval 1e-6
+    -minMapQ 30
+    -minQ 20
+    -minInd 1
+    -minMaf 0.05
+    -doGlf 2
+    -doPost 1
+    -doGeno 32  # Beagle output format
+    -threads {params.threads}
+    &> {log}
+    """
+
+rule angsd_hap2:
+  input:
+    bam=expand("results/mkdup/hap2/{sample}_hap2_mkdup.bam", sample=SAMPLES) # Can alternatively provide a text file list of BAM files
+  output:
+    prefix="results/angsd/hap2/angsd_hap2"
+  params:
+    ref="data/reference/hap2/lupinehap2.fasta",  # Provide the path to your reference genome
+    threads=10
+  log:
+    "results/logs/angsd/angsd_hap2.log"
+  envmodules:
+    "angsd/0.939"
+  threads: 10
+  shell:
+    """
+    angsd -b {input.bam}
+    -ref {params.ref}
+    -out {output.prefix}
+    -GL 2  # Genotype likelihoods based on Bayesian GATK models. Could swap for '1' for SAMtool models.
+    -doMajorMinor 1
+    -doMaf 2
+    -SNP_pval 1e-6
+    -minMapQ 30
+    -minQ 20
+    -minInd 1
+    -minMaf 0.05
+    -doGlf 2
+    -doPost 1
+    -doGeno 32  # Beagle output format
+    -threads {params.threads}
+    &> {log}
+    """
+
+
+
+# Create covariance matrix from .beagle files using PCAngsd
+rule pca_plot:
+  input:
+    pcangsd="pcangsd/pcangsd/pcangsd.py",
+    beagle="results/angsd/hap{hap}/angsd_hap{hap}.beagle.gz"
+  output:
+    prefix="results/pcangsd/pcangsd_hap{hap}",
+    plot="results/pca/hap{hap}_pca_plot.png",
+    output_dir="results/pca/"
+  params:
+    pca_script="data/Rscripts/hap{hap}_pca_plot.R"  # Path to your PCA plot generation script
+  log:
+    "results/logs/pcangsd/pca_hap{hap}.log"
+  envmodules:
+    "r/4.3.1",
+    "python/3.10"
+  threads: 16
+  shell:
+    """
+    python {input.pcangsd} -beagle {input.beagle} -o {output.prefix}
+    Rscript {params.pca_script} {output.plot} {output_dir}
+    """
+
+
+## UNUSED RULES ##
+# Old because we cannot use VCF files
 
 # Produce VCF containing variant calls
 rule vcf_from_gdb:
@@ -283,22 +401,37 @@ rule vcf_from_gdb:
     fai="data/reference/hap{hap}/lupinehap{hap}.fasta.fai",
     idx="data/reference/hap{hap}/lupinehap{hap}.dict",
   output:
-    vcf="results/vcf/hap{hap}_all.vcf"
+    vcf="results/vcf/hap{hap}_all.vcf.gz"
+  params:
+    java_opts="-Xmx4g"
   log:
-    "results/logs/vcf_from_gdb/hap{hap}.log."
+    "results/logs/vcf_from_gdb/vcf_hap{hap}.log."
   envmodules:
-    "gatk/4.2.5.0",
-    "StdEnv/2020"
+    "gatk/4.2.5.0"
+  threads: 4
   shell:
-    " gatk --java-options \"-Xmx4g\" GenotypeGVCFs "
+    " gatk --java-options \"{params.java_opts}\" GenotypeGVCFs "
     "  -R {input.ref}  "
     "  -V gendb://{input.gdb} "
-    "  -O {output.vcf} 2> {log} "
-
-
+    "  -O {output.vcf} "
+    "   2> {log} "
 
 
 # Rule to detect minor allele frequency and remove?
 
 
-# Rule to run PCAngsd for PCAs of genotype likelihoods?
+# Rule to index the joint-called VCF
+rule index_vcf:
+  input:
+    vcf="results/vcf/hap{hap}_all.vcf.gz"
+  output:
+    index="results/vcf/hap{hap}_all.vcf.gz.tbi"
+  log:
+    "results/logs/vcf_from_gdb/index_hap{hap}.log."
+  envmodules:
+    "gatk/4.2.5.0",
+  shell:
+    " gatk IndexFeatureFile "
+    " -F {input.vcf} "
+    " -O {output.index} "
+    " 2> {log} "
