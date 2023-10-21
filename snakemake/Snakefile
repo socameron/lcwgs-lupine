@@ -226,7 +226,7 @@ rule mark_duplicates:
 
 
 
-# Remove duplicates usin PICARD (in GATK)
+# Remove duplicates using PICARD (in GATK)
 # Separate rule because we want to keep original bam files
 rule remove_duplicates:
   input:
@@ -247,7 +247,6 @@ rule remove_duplicates:
     """
     gatk MarkDuplicates \
     --java-options "{params.java_opts}" \
-    -DGATK_STACKTRACE_ON_USER_EXCEPTION=true \
     --tmp-dir {params.tempdir} \
     --REMOVE_DUPLICATES \
     --INPUT {input.bam} \
