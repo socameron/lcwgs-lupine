@@ -58,6 +58,7 @@ rule all:
     expand("results/filtered_bam/hap{hap}/{sample}_hap{hap}_filtered.bam", hap=[1, 2], sample=SAMPLES)
 
 
+
 # Trim adapter ends off each sequence file using Trimmomatic 
 # When batch 2 is available, use wildcard {batch}
 rule trim_reads:
@@ -85,6 +86,7 @@ rule trim_reads:
     "MINLEN:36 2> {log}"
 
 
+
 # Unzip trimmed files as fastqc 0.12.0 cannot properly read compressed files
 rule unzip_files:
   input:
@@ -95,6 +97,7 @@ rule unzip_files:
     unzipped_r2="results/batch_{batch}/trimmed_unzip/{sample}_R2.fastq"
   shell:
     "gunzip -c {input.zipped_r1} > {output.unzipped_r1} && gunzip -c {input.zipped_r2} > {output.unzipped_r2}"
+
 
 
 # Run FastQC per each trimmed sequence file
@@ -113,6 +116,7 @@ rule fastqc:
     "fastqc {input.fastq_r1} {input.fastq_r2} --outdir results/fastqc"
 
 
+
 # Create an aggregated FastQC report using MultiQC.
 # Note that we create separate MultiQC reports for both batch 1 and 2
 rule multiqc_raw:
@@ -124,6 +128,7 @@ rule multiqc_raw:
     output_dir="results/multiqc/multiqc_raw_batch_{batch}"
   shell:
     "multiqc -o {params.output_dir} {input.fastqc_dir} "
+
 
 
 # Creating faidx index for reference genome
@@ -140,6 +145,7 @@ rule faidx_reference:
     "samtools faidx {input} 2> {log} "
 
 
+
 # Rules for indexing reference genomes (haplotypes 1 and 2)
 rule index_reference:
   input:
@@ -153,6 +159,9 @@ rule index_reference:
   shell:
     "bwa index {input} 2> {log}"
 
+
+
+
 # Rules for creating dictionary files
 rule create_dict:
   input:
@@ -165,6 +174,7 @@ rule create_dict:
     "samtools/1.17"
   shell:
     "samtools dict {input} > {output} 2> {log}"
+
 
 
 # Mapping reads to haplotypes
@@ -216,7 +226,6 @@ rule mark_duplicates:
 
 
 
-
 # Remove duplicates usin PICARD (in GATK)
 # Separate rule because we want to keep original bam files
 rule remove_duplicates:
@@ -236,14 +245,14 @@ rule remove_duplicates:
   threads: 4
   shell:
     """
-    gatk MarkDuplicates
-    --java-options "{params.java_opts}"
-    -DGATK_STACKTRACE_ON_USER_EXCEPTION=true
-    --tmp-dir {params.tempdir}
-    --REMOVE_DUPLICATES
-    I={input.bam}
-    O={output.filtered_bam}
-    M={output.metrics}
+    gatk MarkDuplicates \
+    --java-options "{params.java_opts}" \
+    -DGATK_STACKTRACE_ON_USER_EXCEPTION=true \
+    --tmp-dir {params.tempdir} \
+    --REMOVE_DUPLICATES \
+    --INPUT {input.bam} \
+    --OUTPUT {output.filtered_bam} \
+    --METRICS_FILE {output.metrics} \
     2> {log}
     """
 
@@ -278,12 +287,14 @@ rule multiqc_duplicates:
     "multiqc -f -o {params.output_dir} {input.alignment_metrics}"
 
 
+# If using filtered data, insert: results/filtered_bam/hap{hap}/{sample}_hap{hap}_filtered.bam
+# Otherwise, can remove marked duplicates using -remove_bads
 # Convert BAM files to .beagle file using angsd
 rule angsd_hap1:
   input:
-    bam=expand("results/mkdup/hap1/{sample}_hap1_filtered.bai", sample=SAMPLES)
+    bam=expand("results/mkdup/hap1/{sample}_hap1_mkdup.bam", sample=SAMPLES)
   output:
-    prefix="results/angsd/hap1/angsd_hap1"
+    angsd_output="results/angsd/hap1/angsd_hap1"
   params:
     ref="data/reference/hap1/lupinehap1.fasta",
     threads=10
@@ -294,29 +305,32 @@ rule angsd_hap1:
   threads: 10
   shell:
     """
-    angsd -b {input.bam}
-    -ref {params.ref}
-    -out {output.prefix}
-    -GL 2  # Genotype likelihoods based on Bayesian GATK models. Could swap for '1' for SAMtool models.
-    -doMajorMinor 1
-    -doMaf 2
-    -SNP_pval 1e-6
-    -minMapQ 30
-    -minQ 20
-    -minInd 1
-    -minMaf 0.05
-    -doGlf 2
-    -doPost 1
-    -doGeno 32  # Beagle output format
-    -threads {params.threads}
-    &> {log}
+    angsd -b {input.bam} \
+    -ref {params.ref} \
+    -out {output.angsd_output} \
+    -remove_bads 1 \
+    -GL 2 \ # Genotype likelihoods based on Bayesian GATK models. Could swap for '1' for SAMtool models.
+    -doMajorMinor 1 \
+    -doMaf 2 \
+    -SNP_pval 1e-6 \
+    -minMapQ 30 \
+    -minQ 20 \
+    -minInd 1 \
+    -minMaf 0.05 \
+    -doGlf 2 \
+    -doPost 1 \
+    -doGeno 32 \  # Beagle output format
+    -threads {params.threads} \
+    2> {log}
     """
+
+
 
 rule angsd_hap2:
   input:
-    bam=expand("results/mkdup/hap2/{sample}_hap2_filtered.bai.bam", sample=SAMPLES)
+    bam=expand("results/mkdup/hap2/{sample}_hap2_mkdup.bam", sample=SAMPLES)
   output:
-    prefix="results/angsd/hap2/angsd_hap2"
+    angsd_output="results/angsd/hap2/angsd_hap2"
   params:
     ref="data/reference/hap2/lupinehap2.fasta",
     threads=10
@@ -327,23 +341,27 @@ rule angsd_hap2:
   threads: 10
   shell:
     """
-    angsd -b {input.bam}
-    -ref {params.ref}
-    -out {output.prefix}
-    -GL 2  # Genotype likelihoods based on Bayesian GATK models. Could swap for '1' for SAMtool models.
-    -doMajorMinor 1
-    -doMaf 2
-    -SNP_pval 1e-6
-    -minMapQ 30
-    -minQ 20
-    -minInd 1
-    -minMaf 0.05
-    -doGlf 2
-    -doPost 1
-    -doGeno 32  # Beagle output format
-    -threads {params.threads}
-    &> {log}
+    angsd -b {input.bam} \
+    -ref {params.ref} \
+    -out {output.angsd_output} \
+    -remove_bads 1 \
+    -GL 2 \ # Genotype likelihoods based on Bayesian GATK models. Could swap for '1' for SAMtool models.
+    -doMajorMinor 1 \
+    -doMaf 2 \
+    -SNP_pval 1e-6 \
+    -minMapQ 30 \
+    -minQ 20 \
+    -minInd 1 \
+    -minMaf 0.05 \
+    -doGlf 2 \
+    -doPost 1 \
+    -doGeno 32 \ # Beagle output format
+    -threads {params.threads} \
+    2> {log}
     """
+
+
+
 
 
 
