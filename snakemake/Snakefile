@@ -36,8 +36,7 @@ for filename in fastq_files:
 
 # Convert the set to a sorted list for consistent order
 SAMPLES = sorted(list(SAMPLES))
-
-
+POPULATIONS = set(sample.split('-')[0] for sample in SAMPLES)
 
 
 
@@ -55,7 +54,7 @@ SAMPLES = sorted(list(SAMPLES))
 # final files desired (can change)
 rule all:
   input:
-    expand("results/filtered_bam/hap{hap}/{sample}_hap{hap}_filtered.bam", hap=[1, 2], sample=SAMPLES)
+    expand("results/angsd/hap1/ngs_prep_{population}", population=POPULATIONS)
 
 
 
@@ -177,7 +176,7 @@ rule create_dict:
 
 
 
-# Mapping reads to haplotypes
+# Mapping/Aligning reads to haplotypes
 rule map_reads:
   input:
     r1="results/trimmed/{sample}_R1.fastq.gz",
@@ -209,8 +208,8 @@ rule mark_duplicates:
   input:
     "results/bam/hap{hap}/{sample}_hap{hap}.bam"
   output:
-    bam="results/mkdup/hap{hap}/{sample}_hap{hap}_mkdup.bam",
-    bai="results/mkdup/hap{hap}/{sample}_hap{hap}_mkdup.bai",
+    bam="results/bam_mkdup/hap{hap}/{sample}_hap{hap}_mkdup.bam",
+    bai="results/bam_mkdup/hap{hap}/{sample}_hap{hap}_mkdup.bai",
     metrics="results/qc/mkdup_metrics/{sample}_hap{hap}.metrics"
   log:
     "results/logs/mark_duplicates/hap{hap}/{sample}_hap{hap}.log"
@@ -230,16 +229,14 @@ rule mark_duplicates:
 # Separate rule because we want to keep original bam files
 rule remove_duplicates:
   input:
-    bam="results/mkdup/hap{hap}/{sample}_hap{hap}_mkdup.bam"
+    bam="results/bam_mkdup/hap{hap}/{sample}_hap{hap}_mkdup.bam"
   output:
-    filtered_bam="results/filtered_bam/hap{hap}/{sample}_hap{hap}_filtered.bam",
-    filtered_bai="results/filtered_bam/hap{hap}/{sample}_hap{hap}_filtered.bai",
-    metrics="results/qc/mkdup_metrics/{sample}_hap{hap}.metrics"
+    filtered_bam="results/bam_filtered/hap{hap}/{sample}_hap{hap}_filtered.bam",
+    filtered_metrics="results/qc/filtered_metrics/{sample}_hap{hap}.metrics"
   log:
     "results/logs/remove_duplicates/hap{hap}/{sample}_hap{hap}_remove_duplicates.log"
   params:
-    java_opts="-Xmx4g",
-    tempdir="/tmp/dupl"
+    java_opts="-Xmx8g"
   envmodules:
     "gatk/4.2.5.0"
   threads: 4
@@ -247,43 +244,82 @@ rule remove_duplicates:
     """
     gatk MarkDuplicates \
     --java-options "{params.java_opts}" \
-    --tmp-dir {params.tempdir} \
     --REMOVE_DUPLICATES \
     --INPUT {input.bam} \
     --OUTPUT {output.filtered_bam} \
-    --METRICS_FILE {output.metrics} \
+    --METRICS_FILE {output.filtered_metrics} \
     2> {log}
     """
 
 
 
-# Collect alignment metrics
-rule collect_alignment_metrics:
+# Create MultiQC report on duplicate metrics
+rule multiqc_filtered:
   input:
-    bam="results/mkdup/hap{hap}/{sample}_hap{hap}_mkdup.bam"
+    filtered_metrics=expand("results/qc/filtered_metrics/{sample}_hap{hap}.metrics", sample=SAMPLES, hap=[1, 2])
   output:
-    alignment_metrics="results/qc/alignment_metrics/{sample}_hap{hap}_alignment_metrics.txt"
+    html_report="results/multiqc/multiqc_filtered_batch_1/multiqc_filtered.html",
+  params:
+    output_dir="results/multiqc/multiqc_filtered_batch_1"
+  shell:
+    "multiqc -f -o {params.output_dir} {input.filtered_metrics}"
+
+
+
+# Call SNPs using angsd
+# Necessary so only running ngsParalog on variant sites; reduces computational time\
+# Note: we do NOT filter marked duplicates (-remove_bads set to 0); set minimum base quality to 0, minMaf to 0, minMapQ to 0, and minimum individuals 1
+rule ngs_prep_hap1:
+  wildcard_constraints:
+    population="|".join(POPULATIONS)
+  input:
+    bam=lambda wildcards: expand("results/bam_mkdup/hap1/{sample}_hap1_mkdup.bam", sample=[s for s in SAMPLES if s.startswith(wildcards.population)])
+  output:
+    angsd_output="results/angsd/hap1/ngs_prep_{population}"
+  params:
+    ref="data/reference/hap1/lupinehap1.fasta",
+    threads=10
   log:
-    "results/logs/metrics/alignment/{sample}_hap{hap}_alignment_metrics.log"
+    "results/logs/angsd/angsd_ngs_prep_{population}.log"
+  envmodules:
+    "angsd/0.939"
+  threads: 10
+  shell:
+    """
+    angsd -b {input.bam} \
+    -ref {params.ref} \
+    -out {output.angsd_output} \
+    -remove_bads 0 \
+    -GL 2 \ # Genotype likelihoods based on Bayesian GATK models. Could swap for '1' for SAMtool models.
+    -doMajorMinor 1 \
+    -doMaf 2 \
+    -SNP_pval 1e-6 \
+    -minMapQ 0 \
+    -minQ 0 \
+    -minInd 1 \ 
+    -minMaf 0 \ 
+    -threads {params.threads} \
+    2> {log}
+    """
+
+# Create likelihood ratio of mismapping reads using ngsParalog
+# Requires mpileup files - so will need to convert using samtools
+rule ngs_paralog_hap1:
+  input: 
+    bam_mkdup=expand("results/bam_mkdup/hap1/{sample}_hap1_mkdup.bam", sample=[s for s in SAMPLES if s.startswith('HPW')])
+  output:
+    paralog_output="results/ngs_paralog/hap1_paralog_HPW.lr"
+  log:
+    "results/logs/ngs_paralog/hap1_paralog_HPW.log"
   envmodules:
     "samtools/1.17"
-  shell:
+  shell: #pipe ngsParalog into samtools
+    """ 
+    samtools mpileup {input.bam_mkdup} -q 0 -Q 0 --ff DUP 2>> {log} | \
+    /home/socamero/ngsParalog/ngsParalog calcLR -infile - -outfile {output.paralog_output} \
+    -minQ 20 -minind 27 -mincov 1 \
+    2>> {log}
     """
-    samtools flagstat {input.bam} > {output.alignment_metrics} 2> log
-    """
-
-
-
-# Create MultiQC report on duplicate metrics
-rule multiqc_duplicates:
-  input:
-    alignment_metrics=expand("results/qc/alignment_metrics/{sample}_hap{hap}_alignment_metrics.txt", sample=SAMPLES, hap=[1, 2])
-  output:
-    html_report="results/multiqc/multiqc_duplicates_batch_{batch}/multiqc_duplicates.html",
-  params:
-    output_dir="results/multiqc/multiqc_duplicates_batch_{batch}"
-  shell:
-    "multiqc -f -o {params.output_dir} {input.alignment_metrics}"
 
 
 # If using filtered data, insert: results/filtered_bam/hap{hap}/{sample}_hap{hap}_filtered.bam
@@ -291,7 +327,7 @@ rule multiqc_duplicates:
 # Convert BAM files to .beagle file using angsd
 rule angsd_hap1:
   input:
-    bam=expand("results/mkdup/hap1/{sample}_hap1_mkdup.bam", sample=SAMPLES)
+    bam=expand("results/bam_mkdup/hap1/{sample}_hap1_mkdup.bam", sample=SAMPLES)
   output:
     angsd_output="results/angsd/hap1/angsd_hap1"
   params:
@@ -327,7 +363,7 @@ rule angsd_hap1:
 
 rule angsd_hap2:
   input:
-    bam=expand("results/mkdup/hap2/{sample}_hap2_mkdup.bam", sample=SAMPLES)
+    bam=expand("results/bam_mkdup/hap2/{sample}_hap2_mkdup.bam", sample=SAMPLES)
   output:
     angsd_output="results/angsd/hap2/angsd_hap2"
   params:
