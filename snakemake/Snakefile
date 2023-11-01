@@ -53,7 +53,8 @@ POPULATIONS = ("HPW", "IDNP-MW", "LCTGP", "MFNP", "PPP", "RLPLV", "SWCP")
 # final files desired (can change)
 rule all:
   input:
-    expand("results/angsd/hap1/ngs_prep_{population}", population=POPULATIONS)
+    expand("results/angsd/hap1/ngs_prep_{population}.mafs.gz", population=POPULATIONS)
+
 
 
 
@@ -283,7 +284,30 @@ rule multiqc_filtered:
 
 
 # Identifying genome duplication areas + potential TEs
-# First convert list of BAM files in .txt format (created in Windows) to a UNIX-readable .txt file
+# Rule to create .txt file of BAM files per population
+rule generate_bam_list_per_population:
+  input:
+    expand("results/bam_mkdup/hap1/{sample}_hap1_mkdup.bam", sample=SAMPLES),
+  output:
+    "data/angsd/{population}_mkdup_hap1.txt"
+  wildcard_constraints:
+    population="|".join(POPULATIONS)
+  params:
+    output_dir="data/angsd/hap1"
+  run:
+    bam_files = input
+    output_file = output[0]
+    population = wildcards.population
+    with open(output_file, "w") as output:
+        for bam_file in bam_files:
+            if population in bam_file:
+                output.write(f"{bam_file}\n")
+
+
+
+
+# Covert list of BAM files in .txt format (created in Windows) to a UNIX-readable .txt file
+# This is just in case! As I created my .txt files on windows previously
 rule clean_text_file:
   input:
     input_file="data/angsd/{population}_mkdup_hap1.txt"
@@ -293,17 +317,18 @@ rule clean_text_file:
     "dos2unix {input.input_file} > {output.cleaned_file}"
 
 
-
-# Call SNPs using angsd
+# Call SNPs using ANGSD
 # Necessary so only running ngsParalog on variant sites; reduces computational time
 # Note: we do NOT filter marked duplicates (-remove_bads set to 0); set minimum base quality to 0, minMaf to 0, minMapQ to 0, and minimum individuals 1
 rule ngs_prep_hap1:
   input:
     bam_list="data/angsd/{population}_mkdup_hap1.txt"
   output:
-    angsd_output="results/angsd/hap1/ngs_prep_{population}"
+    arg_file="results/angsd/hap1/ngs_prep_{population}.arg",
+    mafs_file="results/angsd/hap1/ngs_prep_{population}.mafs.gz"
   params:
     ref="data/reference/hap1/lupinehap1.fasta",
+    file_name="results/angsd/hap1/ngs_prep_{population}",
     threads=10
   log:
     "results/logs/angsd/angsd_ngs_prep_{population}.log"
@@ -313,7 +338,7 @@ rule ngs_prep_hap1:
   shell:
     """
     angsd -bam {input.bam_list} -ref {params.ref}\
-    -out {output.angsd_output}\
+    -out {params.file_name}\
     -remove_bads 0\
     -GL 2\
     -doMajorMinor 1\
@@ -326,6 +351,29 @@ rule ngs_prep_hap1:
     -nThreads {params.threads}\
     &> {log}
     """
+
+
+
+# Filter BAM files for QC - keep reads only that include variable sites
+rule filter_bam_by_variable_sites:
+  input:
+    bam="results/bam_mkdup/hap1/{sample}_hap1_mkdup.bam",
+    mafs_gz=expand("results/angsd/hap1/ngs_prep_{population}.mafs.gz", population=POPULATIONS)
+  output:
+    filtered_bam="results/bam_ngs_prep/{sample}_ngs_prep.bam"
+  params:
+    threads=4
+  log:
+    "results/logs/bam_ngs_prep/{sample}.log"
+  envmodules:
+    "samtools/1.17"
+  threads: 4 
+  shell:
+    """
+    samtools view -b -L {input.mafs_gz} -@ {params.threads} -o {output.filtered_bam} {input.bam}
+    """
+
+
 
 # Create likelihood ratio of mismapping reads using ngsParalog
 # Requires mpileup files - so will need to convert using samtools
