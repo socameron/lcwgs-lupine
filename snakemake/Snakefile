@@ -36,7 +36,7 @@ for filename in fastq_files:
 
 # Convert the set to a sorted list for consistent order
 SAMPLES = sorted(list(SAMPLES))
-POPULATIONS = set(sample.split('-')[0] for sample in SAMPLES)
+POPULATIONS = ("HPW", "IDNP-MW", "LCTGP", "MFNP", "PPP", "RLPLV", "SWCP")
 
 
 
@@ -50,13 +50,17 @@ POPULATIONS = set(sample.split('-')[0] for sample in SAMPLES)
 ###########################
 
 
-
 # final files desired (can change)
 rule all:
   input:
     expand("results/angsd/hap1/ngs_prep_{population}", population=POPULATIONS)
 
 
+
+
+
+
+#### DATA PREPARATION ####
 
 # Trim adapter ends off each sequence file using Trimmomatic 
 # When batch 2 is available, use wildcard {batch}
@@ -160,7 +164,6 @@ rule index_reference:
 
 
 
-
 # Rules for creating dictionary files
 rule create_dict:
   input:
@@ -203,7 +206,21 @@ rule map_reads:
 
 
 
-# Mark duplicates 
+
+
+
+
+
+
+
+
+
+
+#### DATA QUALITY CONTROL ####
+# Need to remove PCR duplicates and duplicated regions due to TEs and genome duplication
+
+
+# Marking PCR duplicates 
 rule mark_duplicates:
   input:
     "results/bam/hap{hap}/{sample}_hap{hap}.bam"
@@ -224,8 +241,7 @@ rule mark_duplicates:
     "  2> {log} "
 
 
-
-# Remove duplicates using PICARD (in GATK)
+# Remove PCR duplicates using PICARD (in GATK)
 # Separate rule because we want to keep original bam files
 rule remove_duplicates:
   input:
@@ -266,14 +282,24 @@ rule multiqc_filtered:
 
 
 
+# Identifying genome duplication areas + potential TEs
+# First convert list of BAM files in .txt format (created in Windows) to a UNIX-readable .txt file
+rule clean_text_file:
+  input:
+    input_file="data/angsd/{population}_mkdup_hap1.txt"
+  output:
+    cleaned_file="data/angsd/{population}_mkdup_hap1.txt"
+  shell:
+    "dos2unix {input.input_file} > {output.cleaned_file}"
+
+
+
 # Call SNPs using angsd
-# Necessary so only running ngsParalog on variant sites; reduces computational time\
+# Necessary so only running ngsParalog on variant sites; reduces computational time
 # Note: we do NOT filter marked duplicates (-remove_bads set to 0); set minimum base quality to 0, minMaf to 0, minMapQ to 0, and minimum individuals 1
 rule ngs_prep_hap1:
-  wildcard_constraints:
-    population="|".join(POPULATIONS)
   input:
-    bam=lambda wildcards: expand("results/bam_mkdup/hap1/{sample}_hap1_mkdup.bam", sample=[s for s in SAMPLES if s.startswith(wildcards.population)])
+    bam_list="data/angsd/{population}_mkdup_hap1.txt"
   output:
     angsd_output="results/angsd/hap1/ngs_prep_{population}"
   params:
@@ -286,20 +312,19 @@ rule ngs_prep_hap1:
   threads: 10
   shell:
     """
-    angsd -b {input.bam} \
-    -ref {params.ref} \
-    -out {output.angsd_output} \
-    -remove_bads 0 \
-    -GL 2 \ # Genotype likelihoods based on Bayesian GATK models. Could swap for '1' for SAMtool models.
-    -doMajorMinor 1 \
-    -doMaf 2 \
-    -SNP_pval 1e-6 \
-    -minMapQ 0 \
+    angsd -bam {input.bam_list} -ref {params.ref}\
+    -out {output.angsd_output}\
+    -remove_bads 0\
+    -GL 2\
+    -doMajorMinor 1\
+    -doMaf 2\
+    -SNP_pval 1e-6\
+    -minMapQ 0\
     -minQ 0 \
-    -minInd 1 \ 
-    -minMaf 0 \ 
-    -threads {params.threads} \
-    2> {log}
+    -minInd 1\
+    -minMaf 0\
+    -nThreads {params.threads}\
+    &> {log}
     """
 
 # Create likelihood ratio of mismapping reads using ngsParalog
@@ -355,7 +380,7 @@ rule angsd_hap1:
     -doGlf 2 \
     -doPost 1 \
     -doGeno 32 \  # Beagle output format
-    -threads {params.threads} \
+    -nThreads {params.threads} \
     2> {log}
     """
 
@@ -391,7 +416,7 @@ rule angsd_hap2:
     -doGlf 2 \
     -doPost 1 \
     -doGeno 32 \ # Beagle output format
-    -threads {params.threads} \
+    -nThreads {params.threads} \
     2> {log}
     """
 
