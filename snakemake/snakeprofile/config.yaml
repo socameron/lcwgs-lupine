@@ -34,19 +34,16 @@ cluster-cancel-nargs: 4000
 
 set-threads:
   map_reads: 8
-  multiqc: 2
+  multiqc_raw: 2
   mark_duplicates: 2
-  make_gvcfs: 4
-  hap1_import_genomics_db: 4
-  hap2_import_genomics_db: 4
-  vcf_from_gdb: 2
-  angsd_hap1: 10
-  angsd_hap2: 10
-  remove_duplicates: 4
+  angsd_paralog_prep: 10
+  angsd_raw_SNP: 8
+  ngsParalog_manhattan: 2
+  angsd_canonical_SNP: 8
 set-resources:
   trim_reads:
     time: "03:00:00"
-  multiqc:
+  multiqc_raw:
     mem_mb: 6900
     time: "04:00:00"
   map_reads:
@@ -56,31 +53,38 @@ set-resources:
   mark_duplicates:
     mem_mb: 13800
     time: "47:59:00"
-  make_gvcfs:
+  angsd_paralog_prep:
     mem_mb: 13800
     time: "47:59:00"
-    threads: 4
-  vcf_from_gdb:
-    mem_mb: 13800
-    time: "47:59:00"
+    threads: 10
+  extract_read_counts:
+    mem_mb: 4600
+    time: "11:59:00"
     threads: 2
-  hap1_import_genomics_db:
-    mem_mb: 13800
-    time: "47:59:00"
-    threads: 4
-  hap2_import_genomics_db:
-    mem_mb: 13800
-    time: "47:59:00"
-    threads: 4
-  angsd_hap1:
-    mem_mb: 13800
-    time: "47:59:00"
-    threads: 10
-  angsd_hap2:
-    mem_mb: 13800
-    time: "47:59:00"
-    threads: 10
-  remove_duplicates:
+  ngsPara_hap1_scaffold_1:
     mem_mb: 6900
-    time: "23:59:00"
-    threads: 4
+    time: "47:59:00"
+  ngsPara_hap2_scaffold_1:
+    mem_mb: 6900
+    time: "47:59:00"
+  angsd_raw_SNP:
+    mem_mb: 13800
+    time: "47:59:00"
+    threads: 8
+  ngsParalog_hap1:
+    mem_mb: 6900
+    time: "47:59:00"
+  ngsParalog_hap2:
+    mem_mb: 6900
+    time: "47:59:00"
+  ngsParalog_false_pos:
+    mem_mb: 13800
+    time: "2:00:00"
+  ngsParalog_manhattan:
+    mem_mb: 13800
+    time: "2:00:00"
+    threads: 2
+  angsd_canonical_SNP:
+    mem_mb: 13800
+    time: "47:59:00"
+    threads: 8

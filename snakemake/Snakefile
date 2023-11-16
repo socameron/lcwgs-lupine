@@ -1,5 +1,7 @@
 import os
 import glob
+import subprocess
+import pandas as pd
 
 # Define a function to extract the sample name from a fastq.gz filename
 def extract_sample_name(filename):
@@ -39,7 +41,25 @@ SAMPLES = sorted(list(SAMPLES))
 POPULATIONS = ("HPW", "IDNP-MW", "LCTGP", "MFNP", "PPP", "RLPLV", "SWCP")
 
 
+with open("results/scaffolds/hap1_scaffolds.txt", "r") as file:
+    HAP1SCAFFOLDS = [line.strip() for line in file.readlines()]
 
+with open("results/scaffolds/hap2_scaffolds.txt", "r") as file:
+    HAP2SCAFFOLDS = [line.strip() for line in file.readlines()]
+
+# Split scaffold names by comma and create a list
+HAP1SCAFFOLDS = [name.strip() for name in HAP1SCAFFOLDS]
+HAP2SCAFFOLDS = [name.strip() for name in HAP2SCAFFOLDS]
+HAP1SCAFFOLD_PREFIXES = [s.split("__")[0] for s in HAP1SCAFFOLDS]
+HAP2SCAFFOLD_PREFIXES = [s.split("__")[0] for s in HAP2SCAFFOLDS]
+
+# Function give full scaffold name given prefix of scaffold
+def map_prefix_to_full_scaffold(prefix, hap_type):
+    scaffold_list = HAP1SCAFFOLDS if hap_type == 1 else HAP2SCAFFOLDS
+    for scaffold in scaffold_list:
+        if scaffold.startswith(prefix):
+            return scaffold
+    return None  # Return None or an appropriate default if not found
 
 
 
@@ -53,7 +73,11 @@ POPULATIONS = ("HPW", "IDNP-MW", "LCTGP", "MFNP", "PPP", "RLPLV", "SWCP")
 # final files desired (can change)
 rule all:
   input:
-    expand("results/angsd/hap1/ngs_prep_{population}.mafs.gz", population=POPULATIONS)
+    expand("results/angsd/hap1/canonical/SNP_canonical_{population}.arg", population=POPULATIONS),
+    expand("results/angsd/hap1/canonical/SNP_canonical_{population}.mafs.gz", population=POPULATIONS),
+    expand("results/angsd/hap1/canonical/SNP_canonical_{population}.hwe.gz", population=POPULATIONS),
+    expand("results/angsd/hap1/canonical/SNP_canonical_{population}.depthSample", population=POPULATIONS),
+    expand("results/angsd/hap1/canonical/SNP_canonical_{population}.depthGlobal", population=POPULATIONS)
 
 
 
@@ -90,7 +114,6 @@ rule trim_reads:
     "MINLEN:36 2> {log}"
 
 
-
 # Unzip trimmed files as fastqc 0.12.0 cannot properly read compressed files
 rule unzip_files:
   input:
@@ -101,7 +124,6 @@ rule unzip_files:
     unzipped_r2="results/batch_{batch}/trimmed_unzip/{sample}_R2.fastq"
   shell:
     "gunzip -c {input.zipped_r1} > {output.unzipped_r1} && gunzip -c {input.zipped_r2} > {output.unzipped_r2}"
-
 
 
 # Run FastQC per each trimmed sequence file
@@ -120,19 +142,17 @@ rule fastqc:
     "fastqc {input.fastq_r1} {input.fastq_r2} --outdir results/fastqc"
 
 
-
 # Create an aggregated FastQC report using MultiQC.
 # Note that we create separate MultiQC reports for both batch 1 and 2
 rule multiqc_raw:
   input:
-    fastqc_dir="results/batch_{batch}/fastqc"
+    fastqc_dir="results/fastqc/batch_1"
   output:
-    html_report="results/multiqc/multiqc_raw_batch_{batch}/multiqc_raw.html"
+    html_report="results/multiqc/multiqc_raw_batch_1/multiqc_report.html"
   params:
-    output_dir="results/multiqc/multiqc_raw_batch_{batch}"
+    output_dir="results/multiqc/multiqc_raw_batch_1"
   shell:
     "multiqc -o {params.output_dir} {input.fastqc_dir} "
-
 
 
 # Creating faidx index for reference genome
@@ -149,7 +169,6 @@ rule faidx_reference:
     "samtools faidx {input} 2> {log} "
 
 
-
 # Rules for indexing reference genomes (haplotypes 1 and 2)
 rule index_reference:
   input:
@@ -164,7 +183,6 @@ rule index_reference:
     "bwa index {input} 2> {log}"
 
 
-
 # Rules for creating dictionary files
 rule create_dict:
   input:
@@ -177,7 +195,6 @@ rule create_dict:
     "samtools/1.17"
   shell:
     "samtools dict {input} > {output} 2> {log}"
-
 
 
 # Mapping/Aligning reads to haplotypes
@@ -242,238 +259,336 @@ rule mark_duplicates:
     "  2> {log} "
 
 
-# Remove PCR duplicates using PICARD (in GATK)
-# Separate rule because we want to keep original bam files
-rule remove_duplicates:
-  input:
-    bam="results/bam_mkdup/hap{hap}/{sample}_hap{hap}_mkdup.bam"
-  output:
-    filtered_bam="results/bam_filtered/hap{hap}/{sample}_hap{hap}_filtered.bam",
-    filtered_metrics="results/qc/filtered_metrics/{sample}_hap{hap}.metrics"
-  log:
-    "results/logs/remove_duplicates/hap{hap}/{sample}_hap{hap}_remove_duplicates.log"
-  params:
-    java_opts="-Xmx8g"
-  envmodules:
-    "gatk/4.2.5.0"
-  threads: 4
-  shell:
-    """
-    gatk MarkDuplicates \
-    --java-options "{params.java_opts}" \
-    --REMOVE_DUPLICATES \
-    --INPUT {input.bam} \
-    --OUTPUT {output.filtered_bam} \
-    --METRICS_FILE {output.filtered_metrics} \
-    2> {log}
-    """
-
-
-
-# Create MultiQC report on duplicate metrics
-rule multiqc_filtered:
-  input:
-    filtered_metrics=expand("results/qc/filtered_metrics/{sample}_hap{hap}.metrics", sample=SAMPLES, hap=[1, 2])
-  output:
-    html_report="results/multiqc/multiqc_filtered_batch_1/multiqc_filtered.html",
-  params:
-    output_dir="results/multiqc/multiqc_filtered_batch_1"
-  shell:
-    "multiqc -f -o {params.output_dir} {input.filtered_metrics}"
-
-
-
-# Identifying genome duplication areas + potential TEs
 # Rule to create .txt file of BAM files per population
 rule generate_bam_list_per_population:
   input:
-    expand("results/bam_mkdup/hap1/{sample}_hap1_mkdup.bam", sample=SAMPLES),
+    expand("results/bam_mkdup/hap{hap}/{sample}_hap{hap}_mkdup.bam", sample=SAMPLES, hap=(1,2)),
   output:
-    "data/angsd/{population}_mkdup_hap1.txt"
+    "data/angsd/{population}_mkdup_hap{hap}.txt"
   wildcard_constraints:
     population="|".join(POPULATIONS)
   params:
-    output_dir="data/angsd/hap1"
+    output_dir="data/angsd/hap{hap}"
   run:
     bam_files = input
     output_file = output[0]
     population = wildcards.population
+    hap = wildcards.hap
+
     with open(output_file, "w") as output:
         for bam_file in bam_files:
-            if population in bam_file:
+            if population in bam_file and f"_hap{hap}_" in bam_file:
                 output.write(f"{bam_file}\n")
 
 
 
 
-# Covert list of BAM files in .txt format (created in Windows) to a UNIX-readable .txt file
-# This is just in case! As I created my .txt files on windows previously
-rule clean_text_file:
-  input:
-    input_file="data/angsd/{population}_mkdup_hap1.txt"
-  output:
-    cleaned_file="data/angsd/{population}_mkdup_hap1.txt"
-  shell:
-    "dos2unix {input.input_file} > {output.cleaned_file}"
 
 
-# Call SNPs using ANGSD
-# Necessary so only running ngsParalog on variant sites; reduces computational time
-# Note: we do NOT filter marked duplicates (-remove_bads set to 0); set minimum base quality to 0, minMaf to 0, minMapQ to 0, and minimum individuals 1
-rule ngs_prep_hap1:
+
+
+
+
+
+
+# Call SNPs with stringent rules
+rule angsd_raw_SNP:
   input:
-    bam_list="data/angsd/{population}_mkdup_hap1.txt"
+    bam_list="data/angsd/{population}_mkdup_hap{hap}.txt"
   output:
-    arg_file="results/angsd/hap1/ngs_prep_{population}.arg",
-    mafs_file="results/angsd/hap1/ngs_prep_{population}.mafs.gz"
+    arg_file="results/angsd/hap{hap}/raw/{population}_raw_SNPs.arg",
+    mafs_file="results/angsd/hap{hap}/raw/{population}_raw_SNPs.mafs.gz",
+    hwe_file="results/angsd/hap{hap}/raw/{population}_raw_SNPs.hwe.gz",
+    depth_sample="results/angsd/hap{hap}/raw/{population}_raw_SNPs.depthSample",
+    depth_global="results/angsd/hap{hap}/raw/{population}_raw_SNPs.depthGlobal"
   params:
-    ref="data/reference/hap1/lupinehap1.fasta",
-    file_name="results/angsd/hap1/ngs_prep_{population}",
-    threads=10
+    ref="data/reference/hap{hap}/lupinehap{hap}.fasta",
+    file_name="results/angsd/hap{hap}/raw/{population}_raw_SNPs",
+    threads=8,
+    hap="{hap}",
+    population="{population}"
   log:
-    "results/logs/angsd/angsd_ngs_prep_{population}.log"
+    "results/logs/angsd/hap{hap}/angsd_SNP_raw_hap{hap}_{population}.log"
   envmodules:
     "angsd/0.939"
-  threads: 10
+  threads: 8
   shell:
     """
     angsd -bam {input.bam_list} -ref {params.ref}\
     -out {params.file_name}\
-    -remove_bads 0\
+    -remove_bads 1\
     -GL 2\
     -doMajorMinor 1\
     -doMaf 2\
     -SNP_pval 1e-6\
-    -minMapQ 0\
-    -minQ 0 \
-    -minInd 1\
-    -minMaf 0\
+    -minMapQ 30\
+    -minQ 20 \
+    -minInd 25\
+    -minMaf .05\
+    -baq 2\
+    -only_proper_pairs 1\
     -nThreads {params.threads}\
+    -doHWE 1\
+    -doCounts 1\
+    -doDepth 1\
     &> {log}
     """
 
 
-
-# Filter BAM files for QC - keep reads only that include variable sites
-rule filter_bam_by_variable_sites:
+# Create BED files so including only SNPs into ngsParalog
+rule convert_mafs_to_bed_stringent:
   input:
-    bam="results/bam_mkdup/hap1/{sample}_hap1_mkdup.bam",
-    mafs_gz=expand("results/angsd/hap1/ngs_prep_{population}.mafs.gz", population=POPULATIONS)
+    mafs_gz="results/angsd/hap{hap}/raw/{population}_raw_SNPs.mafs.gz"
   output:
-    filtered_bam="results/bam_ngs_prep/{sample}_ngs_prep.bam"
-  params:
-    threads=4
-  log:
-    "results/logs/bam_ngs_prep/{sample}.log"
-  envmodules:
-    "samtools/1.17"
-  threads: 4 
+    bed_file="results/bed/hap{hap}/raw/{population}_raw_SNPs.BED"
   shell:
-    """
-    samtools view -b -L {input.mafs_gz} -@ {params.threads} -o {output.filtered_bam} {input.bam}
-    """
-
-
-
-# Create likelihood ratio of mismapping reads using ngsParalog
-# Requires mpileup files - so will need to convert using samtools
-rule ngs_paralog_hap1:
-  input: 
-    bam_mkdup=expand("results/bam_mkdup/hap1/{sample}_hap1_mkdup.bam", sample=[s for s in SAMPLES if s.startswith('HPW')])
-  output:
-    paralog_output="results/ngs_paralog/hap1_paralog_HPW.lr"
-  log:
-    "results/logs/ngs_paralog/hap1_paralog_HPW.log"
-  envmodules:
-    "samtools/1.17"
-  shell: #pipe ngsParalog into samtools
-    """ 
-    samtools mpileup {input.bam_mkdup} -q 0 -Q 0 --ff DUP 2>> {log} | \
-    /home/socamero/ngsParalog/ngsParalog calcLR -infile - -outfile {output.paralog_output} \
-    -minQ 20 -minind 27 -mincov 1 \
-    2>> {log}
-    """
-
-
-# If using filtered data, insert: results/filtered_bam/hap{hap}/{sample}_hap{hap}_filtered.bam
-# Otherwise, can remove marked duplicates using -remove_bads
-# Convert BAM files to .beagle file using angsd
-rule angsd_hap1:
-  input:
-    bam=expand("results/bam_mkdup/hap1/{sample}_hap1_mkdup.bam", sample=SAMPLES)
-  output:
-    angsd_output="results/angsd/hap1/angsd_hap1"
-  params:
-    ref="data/reference/hap1/lupinehap1.fasta",
-    threads=10
-  log:
-    "results/logs/angsd/angsd_hap1.log"
-  envmodules:
-    "angsd/0.939"
-  threads: 10
-  shell:
-    """
-    angsd -b {input.bam} \
-    -ref {params.ref} \
-    -out {output.angsd_output} \
-    -remove_bads 1 \
-    -GL 2 \ # Genotype likelihoods based on Bayesian GATK models. Could swap for '1' for SAMtool models.
-    -doMajorMinor 1 \
-    -doMaf 2 \
-    -SNP_pval 1e-6 \
-    -minMapQ 30 \
-    -minQ 20 \
-    -minInd 1 \
-    -minMaf 0.05 \
-    -doGlf 2 \
-    -doPost 1 \
-    -doGeno 32 \  # Beagle output format
-    -nThreads {params.threads} \
-    2> {log}
-    """
-
-
-
-rule angsd_hap2:
-  input:
-    bam=expand("results/bam_mkdup/hap2/{sample}_hap2_mkdup.bam", sample=SAMPLES)
-  output:
-    angsd_output="results/angsd/hap2/angsd_hap2"
-  params:
-    ref="data/reference/hap2/lupinehap2.fasta",
-    threads=10
-  log:
-    "results/logs/angsd/angsd_hap2.log"
-  envmodules:
-    "angsd/0.939"
-  threads: 10
-  shell:
-    """
-    angsd -b {input.bam} \
-    -ref {params.ref} \
-    -out {output.angsd_output} \
-    -remove_bads 1 \
-    -GL 2 \ # Genotype likelihoods based on Bayesian GATK models. Could swap for '1' for SAMtool models.
-    -doMajorMinor 1 \
-    -doMaf 2 \
-    -SNP_pval 1e-6 \
-    -minMapQ 30 \
-    -minQ 20 \
-    -minInd 1 \
-    -minMaf 0.05 \
-    -doGlf 2 \
-    -doPost 1 \
-    -doGeno 32 \ # Beagle output format
-    -nThreads {params.threads} \
-    2> {log}
-    """
-
-
-
-
-
+   """
+   gunzip -c {input.mafs_gz} | awk 'NR>1 {{print $1, $2 - 1, $2}}' > {output.bed_file}
+   dos2unix {output.bed_file}  # Add this line to convert line endings
+   """
 
   
+# Create wildcard for scaffold names
+rule extract_scaffolds:
+  input:
+    index="data/reference/hap{hap}/lupinehap{hap}.fasta.fai"
+  output:
+    scaffolds="results/scaffolds/hap{hap}_scaffolds.txt"
+  shell:
+    """
+    awk '{{print $1":1-"$2}}' {input.index} > {output.scaffolds}
+    """
+
+
+# Run ngsParalog on all SNPs across the genome
+rule ngsParalog_hap1:
+  input:
+    bam_ngsPara=lambda wildcards: expand("results/bam_mkdup/hap1/{sample}_hap1_mkdup.bam", sample=[s for s in SAMPLES if s.startswith(wildcards.population)]),
+    ref="data/reference/hap1/lupinehap1.fasta",
+    bed_file="results/bed/hap1/raw/{population}_raw_SNPs.BED"
+  output:
+    paralog_output="results/ngs_paralog/hap1/{population}_scaffolds/{population}-{hap1scaffold_prefix}.lr"
+  log:
+    "results/logs/ngs_paralog/hap1/{population}_scaffolds/{population}-{hap1scaffold_prefix}.log"
+  params:
+    hap1scaffold=lambda wildcards: map_prefix_to_full_scaffold(wildcards.hap1scaffold_prefix, 1)
+  envmodules:
+    "samtools/1.17"
+  shell:
+    """
+    touch {output.paralog_output}
+    samtools mpileup {input.bam_ngsPara} -d 1000 -q 0 -Q 0 --ff UNMAP,QCFAIL,DUP \
+    -l {input.bed_file} -r {params.hap1scaffold} -f {input.ref} 2>> {log} | \
+    /home/socamero/ngsParalog/ngsParalog calcLR -infile - -outfile {output.paralog_output} \
+    -minQ 20 -minind 10 -mincov 1 \
+    -runinfo 1 \
+    2>> {log} || true
+    """
+
+
+rule ngsParalog_hap2:
+  input:
+    bam_ngsPara=lambda wildcards: expand("results/bam_mkdup/hap2/{sample}_hap2_mkdup.bam", sample=[s for s in SAMPLES if s.startswith(wildcards.population)]),
+    ref="data/reference/hap2/lupinehap2.fasta",
+    bed_file="results/bed/hap2/raw/{population}_raw_SNPs.BED"
+  output:
+    paralog_output="results/ngs_paralog/hap2/{population}_scaffolds/{population}-{hap2scaffold_prefix}.lr"
+  log:
+    "results/logs/ngs_paralog/hap2/{population}_scaffolds/{population}-{hap2scaffold_prefix}.log"
+  params:
+    hap2scaffold=lambda wildcards: map_prefix_to_full_scaffold(wildcards.hap2scaffold_prefix, 2)
+  envmodules:
+    "samtools/1.17"
+  shell:
+    """
+    samtools mpileup {input.bam_ngsPara} -d 1000 -q 0 -Q 0 --ff UNMAP,QCFAIL,DUP \
+    -l {input.bed_file} -r {params.hap2scaffold} -f {input.ref} 2>> {log} | \
+    /home/socamero/ngsParalog/ngsParalog calcLR -infile - -outfile {output.paralog_output} \
+    -minQ 20 -minind 10 -mincov 1 \
+    -runinfo 1 \
+    2>> {log}
+    if [ ! -s {output.paralog_output} ]; then
+        touch {output.paralog_output}
+    fi
+    """
+
+
+# Combine all ngsParalog outputs together into one file per population
+rule concatenate_paralog_hap1:
+  input:
+    scaffold_files=lambda wildcards: expand("results/ngs_paralog/hap1/{population}_scaffolds/{{population}}-{hap1scaffold_prefix}.lr", population=wildcards.population, hap1scaffold_prefix=HAP1SCAFFOLD_PREFIXES)
+  output:
+    paralog_final="results/ngs_paralog/hap1/concat/{population}_paralog_WGS.lr"
+  log:
+    "results/logs/ngs_paralog/hap1/concat/{population}_paralog_WGS.log"
+  shell:
+    """
+    cat {input.scaffold_files} >> {output.paralog_final}
+    """
+
+
+rule concatenate_paralog_hap2:
+  input:
+    scaffold_files=lambda wildcards: expand("results/ngs_paralog/hap2/{population}_scaffolds/{{population}}_{hap2scaffold_prefix}.lr", population=wildcards.population, hap2scaffold_prefix=HAP2SCAFFOLD_PREFIXES)
+  output:
+    paralog_final="results/ngs_paralog/hap2/concat/{population}_paralog_WGS.lr"
+  log:
+    "results/logs/ngs_paralog/hap2/concat/{population}_paralog_WGS.log"
+  shell:
+    """
+    cat {input.scaffold_files} >> {output.paralog_final}
+    """
+
+
+# Identify false positives from ngsParalog (grab only true Paralogs)
+rule ngsParalog_false_pos:
+  input:
+    lr_file="results/ngs_paralog/hap{hap}/concat/{population}_paralog_WGS.lr"
+  output:
+    deviant_snps="results/bed/hap{hap}/deviant_SNPs/{population}_deviant_SNPs.BED"
+  envmodules:
+    "r/4.3.1"
+  shell:
+    "Rscript scripts/ngs_paralog_false_pos.R {input.lr_file} {output.deviant_snps}"
+
+
+# Create Manhattan Plots [NOTE: Specific Scaffold # otherwise it'll take forever for whole genome!] 
+rule ngsParalog_manhattan:
+  input:
+    lr_file="results/ngs_paralog/hap{hap}/{population}_scaffolds/{population}-Scaffold_1.lr"
+  output:
+    plot="results/ngs_paralog/plots/hap{hap}/{population}_manhattan_plot_scaffold_1.png"
+  envmodules:
+    "r/4.3.1"
+  threads: 2
+  shell:
+    "Rscript scripts/ngs_paralog_graphs.R {input.lr_file} {output.plot}"
+
+
+# Run dupHMM to infer transitions between dup maps and normal mapping regions
+rule dupHMM:
+  input:
+    lr_file = "results/ngs_paralog/{population}_scaffolds/{population}-{hap1scaffold_prefix}.lr",
+    cov_file = "[NEED COVERAGE FILE PER SCAFFOLD]"
+  output:
+    hmm_output = "results/ngs_paralog/dupHMM/{population}_dupHMM_{hap1scaffold_prefix}"
+  params:
+    r_script_path = "/home/socamero/ngsParalog/ngsParalog/dupHMM.R"
+  envmodules:
+    "r/4.3.1"
+  shell:
+    """
+    Rscript {params.r_script_path} --lrfile {input.lr_file} \
+    --outfile {output.hmm_output} \
+    --covfile {input.cov_file} \
+    --lrquantile 0.98
+    """
+
+
+# Filter out deviant SNPs from all SNPs discovered
+# Filter out deviant SNPs from all SNPs discovered
+rule filter_deviant_snps:
+  input:
+    all_snps = "results/bed/hap{hap}/raw/{population}_raw_SNPs.BED",
+    deviant_snps = "results/bed/hap{hap}/deviant_SNPs/{population}_deviant_SNPs.BED"
+  output:
+    canonical_snps = "results/bed/hap{hap}/canonical_SNPs/{population}_canonical_SNPs.BED"
+  envmodules:
+    "bedtools/2.30.0"
+  log:
+    "results/logs/qc/filter_deviants/{population}_hap{hap}_filter_deviants.log"
+  shell:
+    """
+    # Define temporary file names directly in the shell command
+    temp_all_snps_bed="temp_all_snps_{wildcards.population}_{wildcards.hap}.bed"
+    temp_deviant_snps_bed="temp_deviant_snps_{wildcards.population}_{wildcards.hap}.bed"
+
+    # Trim extra spaces or tabs in BED files and ensure numeric fields are not altered
+    awk -v OFS='\\t' '{{ gsub(/^[ \\t]+|[ \\t]+$/, ""); print $1, int($2), int($3) }}' {input.all_snps} > $temp_all_snps_bed
+    awk -v OFS='\\t' '{{ gsub(/^[ \\t]+|[ \\t]+$/, ""); print $1, int($2), int($3) }}' {input.deviant_snps} > $temp_deviant_snps_bed
+
+    # Perform the subtraction
+    bedtools subtract -a $temp_all_snps_bed -b $temp_deviant_snps_bed > {output.canonical_snps} 2> {log}
+
+    # Cleanup temporary files
+    rm $temp_all_snps_bed $temp_deviant_snps_bed
+    """
+
+
+
+
+
+# Calculate HWE to check of SNP filtering reduced heterozygote excess
+rule angsd_canonical_SNP:
+  input:
+    bam_list="data/angsd/{population}_mkdup_hap{hap}.txt"
+  output:
+    arg_file="results/angsd/hap{hap}/canonical/SNP_canonical_{population}.arg",
+    mafs_file="results/angsd/hap{hap}/canonical/SNP_canonical_{population}.mafs.gz",
+    hwe_file="results/angsd/hap{hap}/canonical/SNP_canonical_{population}.hwe.gz",
+    depth_sample="results/angsd/hap{hap}/canonical/SNP_canonical_{population}.depthSample",
+    depth_global="results/angsd/hap{hap}/canonical/SNP_canonical_{population}.depthGlobal"
+  params:
+    ref="data/reference/hap{hap}/lupinehap{hap}.fasta",
+    file_name="results/angsd/hap{hap}/canonical/SNP_canonical_{population}",
+    threads=8,
+    canonical_snps="results/bed/hap{hap}/canonical_SNPs/{population}_canonical_SNPs.BED"
+  log:
+    "results/logs/angsd/hap{hap}/angsd_SNP_canonical_hap{hap}_{population}.log"
+  envmodules:
+    "angsd/0.939"
+  threads: 8
+  shell:
+    """
+    angsd -bam {input.bam_list} -ref {params.ref}\
+    -out {params.file_name}\
+    -remove_bads 1\
+    -GL 2\
+    -sites {params.canonical_snps}\
+    -doMajorMinor 1\
+    -doMaf 2\
+    -SNP_pval 1e-6\
+    -minMapQ 30\
+    -minQ 20 \
+    -minInd 25\
+    -minMaf .05\
+    -baq 2\
+    -only_proper_pairs 1\
+    -nThreads {params.threads}\
+    -doHWE 1\
+    -doCounts 1\
+    -doDepth 1\
+    &> {log}
+    """
+
+
+# Create histogram of F values
+rule excess_heterozygotes_histogram:
+  input:
+    hwe_file = "results/angsd/hap{hap}/canonical/SNP_canonical_{population}.hwe.gz"
+  output:
+    plot = "results/angsd/hap{hap}/plots/hetero_excess_canonical_SNPs_hap{hap}.png"
+  envmodules:
+    "r/4.3.1"
+  shell:
+    "Rscript scripts/hetero_excess_canonical_SNPs.R {input.hwe_file} {output.plot}"
+
+
+
+
+
+
+
+
+
+
+#### POPULATION GENOMICS ####
+
+
+
+
+
+
 
 
 ## UNUSED RULES ##
@@ -507,62 +622,3 @@ rule make_gvcfs:
     " -O {output.gvcf} "
     " --tmp-dir {params.tempdir} "
     " -ERC GVCF > {log} 2> {log} "
-
-
-
-# create GenomicsDB workspace directory to store data for efficient joint genotyping
-# need separate rules for each haplotype
-rule hap1_import_genomics_db:
-  input:
-    ref="data/reference/hap1/lupinehap1.fasta"
-  output:
-    gdb="results/genomics_db/hap1"
-  params:
-    java_opts="-Xmx4g",
-    tempdir="/tmp/genomics_DB/hap1",
-    sample_map="data/genomicsDB/lupine_sample_map_hap1.txt"
-  log:
-    "results/logs/import_genomics_db/hap1.log"
-  envmodules:
-    "gatk/4.2.5.0",
-    "StdEnv/2020"
-  threads: 4
-  shell:
-    """
-    gatk --java-options "{params.java_opts}" GenomicsDBImport 
-    --genomicsdb-shared-posixfs-optimizations 
-    --genomicsdb-workspace-path {output.gdb} 
-    --sample-name-map {params.sample_map}
-    --L genome 
-    -R {input.ref} 
-    --tmp-dir {params.tempdir} 
-    &> {log}
-    """
-    
-
-rule hap2_import_genomics_db:
-  input:
-    ref="data/reference/hap2/lupinehap2.fasta"
-  output:
-    gdb="results/genomics_db/hap2"
-  params:
-    java_opts="-Xmx4g",
-    tempdir="/tmp/genomics_DB/hap2",
-    sample_map="data/genomicsDB/lupine_sample_map_hap2.txt"
-  log:
-    "results/logs/import_genomics_db/hap2.log"
-  envmodules:
-    "gatk/4.2.5.0",
-    "StdEnv/2020"
-  threads: 4
-  shell:
-    """
-    gatk --java-options "{params.java_opts}" GenomicsDBImport 
-    --genomicsdb-shared-posixfs-optimizations 
-    --genomicsdb-workspace-path {output.gdb} 
-    --sample-name-map {params.sample_map}
-    --L genome 
-    -R {input.ref} 
-    --tmp-dir {params.tempdir} 
-    &> {log}
-    """
