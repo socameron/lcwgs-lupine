@@ -73,12 +73,8 @@ def map_prefix_to_full_scaffold(prefix, hap_type):
 # final files desired (can change)
 rule all:
   input:
-    expand("results/angsd/hap1/canonical/SNP_canonical_{population}.arg", population=POPULATIONS),
-    expand("results/angsd/hap1/canonical/SNP_canonical_{population}.mafs.gz", population=POPULATIONS),
-    expand("results/angsd/hap1/canonical/SNP_canonical_{population}.hwe.gz", population=POPULATIONS),
-    expand("results/angsd/hap1/canonical/SNP_canonical_{population}.depthSample", population=POPULATIONS),
-    expand("results/angsd/hap1/canonical/SNP_canonical_{population}.depthGlobal", population=POPULATIONS)
-
+    expand("results/angsd/hap1/plots/HETERO_EXCESS_{population}_SNP_canonical_M2.png", population=POPULATIONS),
+    expand("results/angsd/hap1/plots/HETERO_EXCESS_{population}_SNP_canonical.png", population=POPULATIONS)
 
 
 
@@ -146,11 +142,11 @@ rule fastqc:
 # Note that we create separate MultiQC reports for both batch 1 and 2
 rule multiqc_raw:
   input:
-    fastqc_dir="results/fastqc/batch_1"
+    fastqc_dir="results/fastqc/batch_{batch}"
   output:
-    html_report="results/multiqc/multiqc_raw_batch_1/multiqc_report.html"
+    html_report="results/multiqc/multiqc_raw_batch_{batch}/multiqc_report.html"
   params:
-    output_dir="results/multiqc/multiqc_raw_batch_1"
+    output_dir="results/multiqc/multiqc_raw_batch_{batch}"
   shell:
     "multiqc -o {params.output_dir} {input.fastqc_dir} "
 
@@ -235,8 +231,20 @@ rule map_reads:
 
 
 #### DATA QUALITY CONTROL ####
-# Need to remove PCR duplicates and duplicated regions due to TEs and genome duplication
 
+# Steps in QC :
+  # 1. Mark PCR and optical duplicates
+  # 2. Identify paralogous regions due to duplication events
+      # - Requires ngsParalog and 1st run of ANGSD
+      # - ANGSD: SNP call and input SNPs (aka polymorphic sites) into ngsParalog
+      # - ngsParalog: probablistic call of paralogous regions
+      # - After ngsParalog, calculate p-values based on chi-sq df = 1 with Benjamini-Hochberg correction
+  # 3. Verify heterozygote excess is reduced
+      # - Method 1: Re-run ANGSD excluding paralogous regions and PCR duplicates
+      #   - Visualize histogram of F distribution 
+      # - Method 2: Filter ANGSD run 1 F distribution with known paralogous sites
+
+  ## STEP 1: MARK PCR & OPTICAL DUPLICATES
 
 # Marking PCR duplicates 
 rule mark_duplicates:
@@ -257,6 +265,12 @@ rule mark_duplicates:
     "  -O {output.bam} "  
     "  -M {output.metrics} "
     "  2> {log} "
+
+
+
+
+
+  ## STEP 2: IDENTIFY PARALOGOUS REGIONS 
 
 
 # Rule to create .txt file of BAM files per population
@@ -281,17 +295,7 @@ rule generate_bam_list_per_population:
                 output.write(f"{bam_file}\n")
 
 
-
-
-
-
-
-
-
-
-
-
-# Call SNPs with stringent rules
+# Call SNPs with stringent rules for input to ngsParalog
 rule angsd_raw_SNP:
   input:
     bam_list="data/angsd/{population}_mkdup_hap{hap}.txt"
@@ -348,7 +352,7 @@ rule convert_mafs_to_bed_stringent:
    """
 
   
-# Create wildcard for scaffold names
+# Create wildcard for scaffold names - needed to run ngsParalog per scaffold 
 rule extract_scaffolds:
   input:
     index="data/reference/hap{hap}/lupinehap{hap}.fasta.fai"
@@ -441,15 +445,17 @@ rule concatenate_paralog_hap2:
 
 
 # Identify false positives from ngsParalog (grab only true Paralogs)
+# Note: R script indexes positions back to 1bp start
 rule ngsParalog_false_pos:
   input:
     lr_file="results/ngs_paralog/hap{hap}/concat/{population}_paralog_WGS.lr"
   output:
-    deviant_snps="results/bed/hap{hap}/deviant_SNPs/{population}_deviant_SNPs.BED"
+    deviant_snps="results/bed/hap{hap}/deviant_SNPs/{population}_deviant_SNPs.BED",
+    deviant_snps_bp1="results/bed/hap{hap}/deviant_SNPs/{population}_deviant_SNPs_bp1.lr"
   envmodules:
     "r/4.3.1"
   shell:
-    "Rscript scripts/ngs_paralog_false_pos.R {input.lr_file} {output.deviant_snps}"
+    "Rscript scripts/ngs_paralog_false_pos.R {input.lr_file} {output.deviant_snps} {output.deviant_snps_bp1}"
 
 
 # Create Manhattan Plots [NOTE: Specific Scaffold # otherwise it'll take forever for whole genome!] 
@@ -485,7 +491,67 @@ rule dupHMM:
     """
 
 
-# Filter out deviant SNPs from all SNPs discovered
+
+
+
+  ## STEP 3a: VERIFY HETEROZYGOTE EXCESS REDUCED .. METHOD 1: FILTER HWE
+
+# Filter out deviant SNP positions from hwe to check for heterozygote excess
+rule filter_hwegz_from_deviant_SNPs:
+  input:
+    F_values = "results/angsd/hap{hap}/raw/{population}_raw_SNPs.hwe.gz",
+    deviant_snps = "results/bed/hap{hap}/deviant_SNPs/{population}_deviant_SNPs_bp1.lr"
+  output:
+    filtered_Fs = "results/angsd/hap{hap}/canonical/hwe_{population}_canonical_SNPs.lr"
+  shell:
+    """
+    zcat {input.F_values} | awk 'NR==FNR{{pos[$2]; next}} $2 in pos' {input.deviant_snps} - > {output.filtered_Fs}
+    """
+
+
+# Unzip hwe to extract desired variables (i.e F values)
+rule unzip_hwe:
+  input:
+    zipped_hwe = "results/angsd/hap{hap}/raw/{population}_raw_SNPs.hwe.gz"
+  output:
+    unzip_hwe = "results/angsd/hap{hap}/raw/hwe_{population}_raw_SNPs.lr"
+  shell:
+    """
+    zcat {input.zipped_hwe} > {output.unzip_hwe}
+    """
+
+
+# Create histogram of F values (includes header)
+rule excess_heterozygotes_histogram_raw:
+  input:
+    hwe_file = "results/angsd/hap{hap}/raw/hwe_{population}_raw_SNPs.lr"
+  output:
+    plot = "results/angsd/hap{hap}/plots/HETERO_EXCESS_{population}_SNP_raw.png"
+  envmodules:
+    "r/4.3.1"
+  shell:
+    "Rscript scripts/hetero_excess_header.R {input.hwe_file} {output.plot}"
+
+
+# Create historgram of F values for canonical SNPs (excludes header)
+rule excess_heterozygotes_histogram_canonical:
+  input:
+    hwe_file = "results/angsd/hap{hap}/canonical/hwe_{population}_canonical_SNPs.lr"
+  output:
+    plot = "results/angsd/hap{hap}/plots/HETERO_EXCESS_{population}_SNP_canonical.png"
+  envmodules:
+    "r/4.3.1"
+  shell:
+    "Rscript scripts/hetero_excess_noheader.R {input.hwe_file} {output.plot}"
+
+
+
+
+
+
+  ## STEP 3b: VERIFY HETEROZYGOTE EXCESS REDUCED .. METHOD 2: RE-RUN ANGSD
+
+
 # Filter out deviant SNPs from all SNPs discovered
 rule filter_deviant_snps:
   input:
@@ -515,26 +581,42 @@ rule filter_deviant_snps:
     """
 
 
+# Convert BED file to 1bp start and index BED files
+rule prepare_bed_for_angsd:
+  input:
+    bed_0_based="results/bed/hap{hap}/canonical_SNPs/{population}_canonical_SNPs.BED"
+  output:
+    bed_1_based="results/bed/hap{hap}/canonical_SNPs/{population}_canonical_SNPs_1_bp.BED",
+    bed_binary="results/bed/hap{hap}/canonical_SNPs/{population}_canonical_SNPs_1_bp.BED.bin",
+    bed_idx="results/bed/hap{hap}/canonical_SNPs/{population}_canonical_SNPs_1_bp.BED.idx"
+  envmodules:
+    "angsd/0.939"
+  shell:
+    """
+    # Convert BED file from 0-based to 1-based indexing
+    awk '{{ print $1, $2 + 1, $3 }}' OFS='\\t' {input.bed_0_based} > {output.bed_1_based}
+    
+    # Index the new 1-based BED file with ANGSD
+    angsd sites index {output.bed_1_based}
+    """
 
-
-
-# Calculate HWE to check of SNP filtering reduced heterozygote excess
+# Re-run ANGSD and calculate HWE to check of SNP filtering reduced heterozygote excess
 rule angsd_canonical_SNP:
   input:
-    bam_list="data/angsd/{population}_mkdup_hap{hap}.txt"
+    bam_list="data/angsd/{population}_mkdup_hap{hap}.txt",
+    canonical_snps="results/bed/hap1/canonical_SNPs/{population}_canonical_SNPs_1_bp.BED"
   output:
-    arg_file="results/angsd/hap{hap}/canonical/SNP_canonical_{population}.arg",
-    mafs_file="results/angsd/hap{hap}/canonical/SNP_canonical_{population}.mafs.gz",
-    hwe_file="results/angsd/hap{hap}/canonical/SNP_canonical_{population}.hwe.gz",
-    depth_sample="results/angsd/hap{hap}/canonical/SNP_canonical_{population}.depthSample",
-    depth_global="results/angsd/hap{hap}/canonical/SNP_canonical_{population}.depthGlobal"
+    arg_file="results/angsd/hap{hap}/canonical/{population}_canonical_SNPs_V2.arg",
+    mafs_file="results/angsd/hap{hap}/canonical/{population}_canonical_SNPs_V2.mafs.gz",
+    hwe_file="results/angsd/hap{hap}/canonical/{population}_canonical_SNPs_V2.hwe.gz",
+    depth_sample="results/angsd/hap{hap}/canonical/{population}_canonical_SNPs_V2.depthSample",
+    depth_global="results/angsd/hap{hap}/canonical/{population}_canonical_SNPs_V2.depthGlobal"
   params:
     ref="data/reference/hap{hap}/lupinehap{hap}.fasta",
-    file_name="results/angsd/hap{hap}/canonical/SNP_canonical_{population}",
-    threads=8,
-    canonical_snps="results/bed/hap{hap}/canonical_SNPs/{population}_canonical_SNPs.BED"
+    file_name="results/angsd/hap{hap}/canonical/{population}_canonical_SNPs_V2",
+    threads=8
   log:
-    "results/logs/angsd/hap{hap}/angsd_SNP_canonical_hap{hap}_{population}.log"
+    "results/logs/angsd/hap{hap}/angsd_canonical_SNPs_V2_hap{hap}_{population}.log"
   envmodules:
     "angsd/0.939"
   threads: 8
@@ -544,10 +626,10 @@ rule angsd_canonical_SNP:
     -out {params.file_name}\
     -remove_bads 1\
     -GL 2\
-    -sites {params.canonical_snps}\
+    -sites {input.canonical_snps}\
     -doMajorMinor 1\
     -doMaf 2\
-    -SNP_pval 1e-6\
+    -SNP_pval 1e-8\
     -minMapQ 30\
     -minQ 20 \
     -minInd 25\
@@ -562,24 +644,28 @@ rule angsd_canonical_SNP:
     """
 
 
-# Create histogram of F values
-rule excess_heterozygotes_histogram:
+# Unzip hwe to extract desired variables (i.e F values)
+rule unzip_hwe_filter:
   input:
-    hwe_file = "results/angsd/hap{hap}/canonical/SNP_canonical_{population}.hwe.gz"
+    zipped_hwe = "results/angsd/hap{hap}/canonical/{population}_canonical_SNPs.hwe.gz"
   output:
-    plot = "results/angsd/hap{hap}/plots/hetero_excess_canonical_SNPs_hap{hap}.png"
+    unzip_hwe = "results/angsd/hap{hap}/canonical/hwe_m2_{population}_canonical_SNPs.lr"
+  shell:
+    """
+    zcat {input.zipped_hwe} > {output.unzip_hwe}
+    """
+
+
+# Create historgram of F values for canonical SNPs (excludes header)
+rule excess_heterozygotes_histogram_canonical_M2:
+  input:
+    hwe_file = "results/angsd/hap{hap}/canonical/hwe_m2_{population}_canonical_SNPs.lr"
+  output:
+    plot = "results/angsd/hap{hap}/plots/HETERO_EXCESS_{population}_SNP_canonical_M2.png"
   envmodules:
     "r/4.3.1"
   shell:
-    "Rscript scripts/hetero_excess_canonical_SNPs.R {input.hwe_file} {output.plot}"
-
-
-
-
-
-
-
-
+    "Rscript scripts/hetero_excess_header.R {input.hwe_file} {output.plot}"
 
 
 #### POPULATION GENOMICS ####
