@@ -61,7 +61,7 @@ def map_prefix_to_full_scaffold(prefix, hap_type):
             return scaffold
     return None  # Return None or an appropriate default if not found
 
-
+BH_VARS=[50,40,30,20,10,5]
 
 
 
@@ -73,8 +73,8 @@ def map_prefix_to_full_scaffold(prefix, hap_type):
 # final files desired (can change)
 rule all:
   input:
-    expand("results/angsd/hap1/plots/HETERO_EXCESS_{population}_SNP_canonical_M2.png", population=POPULATIONS),
-    expand("results/angsd/hap1/plots/HETERO_EXCESS_{population}_SNP_canonical.png", population=POPULATIONS)
+    expand("results/angsd/hap1/plots/BH_correction/HETERO_EXCESS_{population}_SNP_canonical_BH_aggregate_BIG.png", population=POPULATIONS),
+    
 
 
 
@@ -340,6 +340,7 @@ rule angsd_raw_SNP:
 
 
 # Create BED files so including only SNPs into ngsParalog
+# NOTE: BED files indexed at 0bp because SAMtools to create pileup requires 0bp index
 rule convert_mafs_to_bed_stringent:
   input:
     mafs_gz="results/angsd/hap{hap}/raw/{population}_raw_SNPs.mafs.gz"
@@ -445,7 +446,7 @@ rule concatenate_paralog_hap2:
 
 
 # Identify false positives from ngsParalog (grab only true Paralogs)
-# Note: R script indexes positions back to 1bp start
+# NOTE: R script indexes positions back to 1bp start
 rule ngsParalog_false_pos:
   input:
     lr_file="results/ngs_paralog/hap{hap}/concat/{population}_paralog_WGS.lr"
@@ -455,7 +456,24 @@ rule ngsParalog_false_pos:
   envmodules:
     "r/4.3.1"
   shell:
-    "Rscript scripts/ngs_paralog_false_pos.R {input.lr_file} {output.deviant_snps} {output.deviant_snps_bp1}"
+    """
+    Rscript scripts/ngs_paralog_false_pos.R {input.lr_file} {output.deviant_snps} {output.deviant_snps_bp1}
+    """
+
+# For varying levels of Benjamini Hochberg critical values
+rule ngsParalog_false_pos_BH:
+  input:
+    lr_file="results/ngs_paralog/hap{hap}/concat/{population}_paralog_WGS.lr"
+  output:
+    deviant_snps_bp1_BH="results/bed/hap{hap}/deviant_SNPs/BH_correction/{population}_deviant_SNPs_bp1_BH{BH_VAR}.lr"
+  params:
+    BH_VAR="{BH_VAR}"
+  envmodules:
+    "r/4.3.1"
+  shell:
+    """
+    Rscript scripts/ngs_paralog_false_pos_BH.R {input.lr_file} {output.deviant_snps_bp1_BH} {params.BH_VAR}
+    """
 
 
 # Create Manhattan Plots [NOTE: Specific Scaffold # otherwise it'll take forever for whole genome!] 
@@ -496,6 +514,7 @@ rule dupHMM:
 
   ## STEP 3a: VERIFY HETEROZYGOTE EXCESS REDUCED .. METHOD 1: FILTER HWE
 
+
 # Filter out deviant SNP positions from hwe to check for heterozygote excess
 rule filter_hwegz_from_deviant_SNPs:
   input:
@@ -503,6 +522,18 @@ rule filter_hwegz_from_deviant_SNPs:
     deviant_snps = "results/bed/hap{hap}/deviant_SNPs/{population}_deviant_SNPs_bp1.lr"
   output:
     filtered_Fs = "results/angsd/hap{hap}/canonical/hwe_{population}_canonical_SNPs.lr"
+  shell:
+    """
+    zcat {input.F_values} | awk 'NR==FNR{{pos[$2]; next}} $2 in pos' {input.deviant_snps} - > {output.filtered_Fs}
+    """
+
+
+rule filter_hwegz_from_deviant_SNPs_BH:
+  input:
+    F_values = "results/angsd/hap{hap}/raw/{population}_raw_SNPs.hwe.gz",
+    deviant_snps = "results/bed/hap{hap}/deviant_SNPs/BH_correction/{population}_deviant_SNPs_bp1_BH{BH_VAR}.lr"
+  output:
+    filtered_Fs = "results/angsd/hap{hap}/canonical/BH_correction/hwe_{population}_canonical_SNPs_BH{BH_VAR}.lr"
   shell:
     """
     zcat {input.F_values} | awk 'NR==FNR{{pos[$2]; next}} $2 in pos' {input.deviant_snps} - > {output.filtered_Fs}
@@ -533,23 +564,48 @@ rule excess_heterozygotes_histogram_raw:
     "Rscript scripts/hetero_excess_header.R {input.hwe_file} {output.plot}"
 
 
-# Create historgram of F values for canonical SNPs (excludes header)
+# Create histogram of F values for canonical SNPs (excludes header)
 rule excess_heterozygotes_histogram_canonical:
   input:
     hwe_file = "results/angsd/hap{hap}/canonical/hwe_{population}_canonical_SNPs.lr"
   output:
-    plot = "results/angsd/hap{hap}/plots/HETERO_EXCESS_{population}_SNP_canonical.png"
+    plot = "results/angsd/hap{hap}/plots/BH_correction/HETERO_EXCESS_{population}_SNP_canonical.png"
   envmodules:
     "r/4.3.1"
   shell:
     "Rscript scripts/hetero_excess_noheader.R {input.hwe_file} {output.plot}"
 
 
+# Create and group multiple histograms into one file per population, for F values of canonical SNPs
+# Checkpoint to determine all BH_VAR files for a given population and hap
+checkpoint excess_heterozygotes_files:
+  input:
+    expand("results/angsd/hap{{hap}}/canonical/BH_correction/hwe_{{population}}_canonical_SNPs_BH{BH_VAR}.lr", BH_VAR=BH_VARS)
+  output:
+    touch("results/angsd/hap{{hap}}/canonical/BH_correction/{{population}}_files.done")
+
+
+# Aggregate rule for each population
+rule aggregate_excess_heterozygotes_histograms_canonical:
+  input:
+    hwe_files = lambda wildcards: expand("results/angsd/hap{hap}/canonical/BH_correction/hwe_{population}_canonical_SNPs_BH{BH_VAR}.lr", 
+                                         hap=wildcards.hap, population=wildcards.population, BH_VAR=BH_VARS)
+  output:
+    plot = "results/angsd/hap{hap}/plots/BH_correction/HETERO_EXCESS_{population}_SNP_canonical_BH_aggregate_BIG.png"
+  envmodules:
+    "r/4.3.1"
+  shell:
+    "Rscript scripts/hetero_excess_BH.R {input.hwe_files} {output.plot}"
 
 
 
 
-  ## STEP 3b: VERIFY HETEROZYGOTE EXCESS REDUCED .. METHOD 2: RE-RUN ANGSD
+
+
+
+
+
+## STEP 3b: VERIFY HETEROZYGOTE EXCESS REDUCED .. METHOD 2: RE-RUN ANGSD
 
 
 # Filter out deviant SNPs from all SNPs discovered
