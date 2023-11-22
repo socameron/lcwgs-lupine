@@ -4,10 +4,10 @@ This is a Snakemake workflow for creating PCA plots (so far) from raw fastq.gz f
 
 ## About the _Lupinus perennis_ dataset
 
-I collected dried leaf samples from 22 Wild lupine (_Lupinus perennis_) populations in 2022 and 2023. 16 populations, all of which are remnant, were selected for low coverage whole genome sequencing (lcWGS).
-Leaf samples were sent to [University of Wisconsin Biotechnology Center DNA Sequencing Facility](https://dnaseq.biotech.wisc.edu/) for DNA extractions. After which, sequencing was completed at the [McGill Genome Centre](https://www.mcgillgenomecentre.ca/). 
+The _Lupinus perennis_ genomic dataset represents 16 populations sampled across the southern Ontario and the US Midwest. I collected leaf samples from 22 Wild lupine (_Lupinus perennis_) populations in 2022 and 2023 and sequenced 16 populations using low coverage whole genome sequencing (lcWGS).
+The [University of Wisconsin Biotechnology Center DNA Sequencing Facility](https://dnaseq.biotech.wisc.edu/) completed our DNA extractions and the [McGill Genome Centre](https://www.mcgillgenomecentre.ca/) performed the sequencing. 
 
-The distinction between populations is their geographical position relative to the species' distribution. 8 populations are considered 'core' populations, and the other 8 are northern 'edge' populations. No populations in the southern range were sampled (i.e towards Florida). 
+Populations are distinguished based on their geographical position relative to the overall species' distribution. 8 populations are considered 'core' populations, and the other 8 are northern 'edge' populations. No populations in the southern range were sampled (i.e towards Florida). 
 
 ## Snakemake workflow
 
@@ -71,7 +71,7 @@ In case you're also new to the world of bioinformatics, I also use Cyberduck to 
 
 ## Installing PCAngsd
 
-To use PCAngsd, you'll need to install it from github and install it with a compiler. 
+To use PCAngsd, you'll need to download it from github and install it with a compiler. 
 
 ```
 module load gcc python/3.10 angsd
