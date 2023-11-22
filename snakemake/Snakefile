@@ -64,6 +64,13 @@ def map_prefix_to_full_scaffold(prefix, hap_type):
 BH_VARS=[50,40,30,20,10,5]
 
 
+# Update the SAMPLES list with merged sample names 
+# ONLY INCLUDE AFTER rule merge_replicates IS RUN. MUST RUN WORKFLOW AT 2 POINTS. !!!
+merged_samples = ["MFNP-48_2_269001_S193", "IDNP-MW-6_2_269002_S194", "RLPLV-13_2_269003_S195"]
+samples_to_remove = ["MFNP-48_2-2695929_S1", "MFNP-48_2-2697940_S99", "IDNP-MW-6_2-2698020_S129", "IDNP-MW-6_2-2698118_S177", "RLPLV-13_2-2696026_S48", "RLPLV-13_2-2696110_S82"]
+SAMPLES = set([sample for sample in SAMPLES if sample not in samples_to_remove])
+SAMPLES.update(merged_samples)
+SAMPLES = sorted(list(SAMPLES))
 
 ###########################
 ## BEGINNING OF WORKFLOW ##
@@ -73,8 +80,7 @@ BH_VARS=[50,40,30,20,10,5]
 # final files desired (can change)
 rule all:
   input:
-    expand("results/angsd/hap1/plots/BH_correction/HETERO_EXCESS_{population}_SNP_canonical_BH_aggregate_BIG.png", population=POPULATIONS),
-    
+    expand("results/ngs_paralog/hap1/concat_realign/{population}_paralog_realign_WGS.lr", population=POPULATIONS)
 
 
 
@@ -244,10 +250,39 @@ rule map_reads:
       #   - Visualize histogram of F distribution 
       # - Method 2: Filter ANGSD run 1 F distribution with known paralogous sites
 
-  ## STEP 1: MARK PCR & OPTICAL DUPLICATES
+## STEP 1: MERGE REPLICATES & MARK PCR & OPTICAL DUPLICATES 
 
-# Marking PCR duplicates 
-rule mark_duplicates:
+# Merge replicates
+rule merge_replicates:
+  input:
+    MFNP_48A="results/bam/hap{hap}/MFNP-48_2-2695929_S1_hap{hap}.bam",
+    MFNP_48B="results/bam/hap{hap}/MFNP-48_2-2697940_S99_hap{hap}.bam",
+    IDNP_6A="results/bam/hap{hap}/IDNP-MW-6_2-2698020_S129_hap{hap}.bam",
+    IDNP_6B="results/bam/hap{hap}/IDNP-MW-6_2-2698118_S177_hap{hap}.bam",
+    RLPLV_13A="results/bam/hap{hap}/RLPLV-13_2-2696026_S48_hap{hap}.bam",
+    RLPLV_13B="results/bam/hap{hap}/RLPLV-13_2-2696110_S82_hap{hap}.bam"
+  output:
+    MFNP_48="results/bam/hap{hap}/MFNP-48_2_269001_S193_hap{hap}.bam",
+    IDNP_6="results/bam/hap{hap}/IDNP-MW-6_2_269002_S194_hap{hap}.bam",
+    RLPLV_13="results/bam/hap{hap}/RLPLV-13_2_269003_S195_hap{hap}.bam"
+  params:
+    archive="results/bam/archive/hap{hap}"
+  envmodules:
+    "samtools/1.17"
+  shell:
+    """
+    samtools merge -o {output.MFNP_48} {input.MFNP_48A} {input.MFNP_48B}
+    samtools merge -o {output.IDNP_6} {input.IDNP_6A} {input.IDNP_6B}
+    samtools merge -o {output.RLPLV_13} {input.RLPLV_13A} {input.RLPLV_13B}
+    mkdir -p {params.archive}
+    mv {input.MFNP_48A} {input.MFNP_48B} {input.IDNP_6A} {input.IDNP_6B} {input.RLPLV_13A} {input.RLPLV_13B} {params.archive}
+    """
+
+
+
+# Marking and removing PCR duplicates + index
+# Note that: /bam_mkdup/ is where marked duplicates are marked but not removed. This is backed up in the projects folder.
+rule mark_remove_duplicates:
   input:
     "results/bam/hap{hap}/{sample}_hap{hap}.bam"
   output:
@@ -255,34 +290,129 @@ rule mark_duplicates:
     bai="results/bam_mkdup/hap{hap}/{sample}_hap{hap}_mkdup.bai",
     metrics="results/qc/mkdup_metrics/{sample}_hap{hap}.metrics"
   log:
-    "results/logs/mark_duplicates/hap{hap}/{sample}_hap{hap}.log"
+    "results/logs/mark_remove_duplicates/hap{hap}/{sample}_hap{hap}.log"
   envmodules:
     "gatk/4.2.5.0"
   shell:
-    " gatk MarkDuplicates  "
-    "  --CREATE_INDEX "
-    "  -I {input} "
-    "  -O {output.bam} "  
-    "  -M {output.metrics} "
-    "  2> {log} "
+    """
+    gatk MarkDuplicates \
+    --CREATE_INDEX \
+    -I {input} \
+    -O {output.bam} \
+    -M {output.metrics} \
+    --REMOVE_DUPLICATES true \
+    2> {log}
+    """
+
+
+# Clip overlapping reads
+rule clip_overlapping_reads:
+  input:
+    bam="results/bam_mkdup/hap{hap}/{sample}_hap{hap}_mkdup.bam"
+  output:
+    clipped_bam="results/bam_clipped/hap{hap}/{sample}_hap{hap}_clipped.bam",
+    clipped_index="results/bam_clipped/hap{hap}/{sample}_hap{hap}_clipped.bai"
+  log:
+    "results/logs/clip_overlap/hap{hap}/{sample}_clip_overlapping_reads.log"
+  shell:
+    """
+    module --force purge
+    module load nixpkgs/16.09 intel/2018.3
+    module load bamutil/1.0.14
+    bam clipOverlap --in {input.bam} --out {output.clipped_bam} 2> {log}
+    module --force purge
+    module load StdEnv/2023 samtools/1.18
+    samtools index -b {output.clipped_bam} -o {output.clipped_index} --threads 2
+    module --force purge
+    """
+
+
+# Create bam list per population for entry into realign indels
+rule generate_clipped_bam_list_per_population:
+  input:
+    expand("results/bam_clipped/hap{hap}/{sample}_hap{hap}_clipped.bam", sample=SAMPLES, hap=(1,2)),
+  output:
+    "data/lists/hap{hap}/{population}_clipped_hap{hap}.list"
+  wildcard_constraints:
+    population="|".join(POPULATIONS)
+  run:
+    bam_files = input
+    output_file = output[0]
+    population = wildcards.population
+    hap = wildcards.hap
+
+    with open(output_file, "w") as output:
+        for bam_file in bam_files:
+            if population in bam_file and f"_hap{hap}_" in bam_file:
+                output.write(f"{bam_file}\n")
+
+
+# Create interval list of indels
+rule indel_list:
+  input:
+    bam_list="data/lists/hap{hap}/{population}_clipped_hap{hap}.list",
+    reference="data/reference/hap{hap}/lupinehap{hap}.fasta"
+  output:
+    intervals="data/lists/hap{hap}/{population}_hap{hap}_indels.intervals"
+  log:    
+    "results/logs/indel_list/hap{hap}/{population}_hap{hap}_indel_list.log"
+  shell:
+    """
+    module --force purge
+    module load nixpkgs/16.09 gatk/3.8
+    java -Xmx16g \
+    -jar $EBROOTGATK/GenomeAnalysisTK.jar \
+    -T RealignerTargetCreator \
+    -R {input.reference} \
+    -I {input.bam_list} \
+    -o {output.intervals} \
+    -drf BadMate \
+    2> {log}
+    module --force purge
+    """
+
+
+# Realign reads around indels - necessary if using ANGSD
+rule realign_indels:
+  input:
+    bam="results/bam_clipped/hap{hap}/{sample}_hap{hap}_clipped.bam",
+    ref="data/reference/hap{hap}/lupinehap{hap}.fasta",
+    intervals=lambda wildcards: "data/lists/hap" + wildcards.hap + "/" + next(pop for pop in POPULATIONS if pop in wildcards.sample) + f"_hap{wildcards.hap}_indels.intervals"
+  output:
+    realigned_bam="results/bam_realign/hap{hap}/{sample}_hap{hap}_realign.bam"
+  log:
+    "results/logs/realign_indels/hap{hap}/{sample}_hap{hap}_realign_indels.log"
+  shell:
+    """
+    module --force purge
+    module load nixpkgs/16.09 gatk/3.8
+    java -Xmx16g \
+    -jar $EBROOTGATK/GenomeAnalysisTK.jar \
+    -T IndelRealigner \
+    -I {input.bam} \
+    -R {input.ref} \
+    -targetIntervals {input.intervals} \
+    -o {output.realigned_bam}\
+    &> {log}
+    module --force purge
+    """
 
 
 
 
 
-  ## STEP 2: IDENTIFY PARALOGOUS REGIONS 
 
+
+## STEP 2: IDENTIFY PARALOGOUS REGIONS 
 
 # Rule to create .txt file of BAM files per population
 rule generate_bam_list_per_population:
   input:
-    expand("results/bam_mkdup/hap{hap}/{sample}_hap{hap}_mkdup.bam", sample=SAMPLES, hap=(1,2)),
+    expand("results/bam_realign/hap{hap}/{sample}_hap{hap}_realign.bam", sample=SAMPLES, hap=(1,2)),
   output:
-    "data/angsd/{population}_mkdup_hap{hap}.txt"
+    "data/lists/hap{hap}/{population}_realign_hap{hap}.txt"
   wildcard_constraints:
     population="|".join(POPULATIONS)
-  params:
-    output_dir="data/angsd/hap{hap}"
   run:
     bam_files = input
     output_file = output[0]
@@ -298,21 +428,21 @@ rule generate_bam_list_per_population:
 # Call SNPs with stringent rules for input to ngsParalog
 rule angsd_raw_SNP:
   input:
-    bam_list="data/angsd/{population}_mkdup_hap{hap}.txt"
+    bam_list="data/lists/hap{hap}/{population}_realign_hap{hap}.txt"
   output:
-    arg_file="results/angsd/hap{hap}/raw/{population}_raw_SNPs.arg",
-    mafs_file="results/angsd/hap{hap}/raw/{population}_raw_SNPs.mafs.gz",
-    hwe_file="results/angsd/hap{hap}/raw/{population}_raw_SNPs.hwe.gz",
-    depth_sample="results/angsd/hap{hap}/raw/{population}_raw_SNPs.depthSample",
-    depth_global="results/angsd/hap{hap}/raw/{population}_raw_SNPs.depthGlobal"
+    arg_file="results/angsd/hap{hap}/raw_realign/{population}_raw_SNPs_realign.arg",
+    mafs_file="results/angsd/hap{hap}/raw_realign/{population}_raw_SNPs_realign.mafs.gz",
+    hwe_file="results/angsd/hap{hap}/raw_realign/{population}_raw_SNPs_realign.hwe.gz",
+    depth_sample="results/angsd/hap{hap}/raw_realign/{population}_raw_SNPs_realign.depthSample",
+    depth_global="results/angsd/hap{hap}/raw_realign/{population}_raw_SNPs_realign.depthGlobal"
   params:
     ref="data/reference/hap{hap}/lupinehap{hap}.fasta",
-    file_name="results/angsd/hap{hap}/raw/{population}_raw_SNPs",
+    file_name="results/angsd/hap{hap}/raw_realign/{population}_raw_SNPs_realign",
     threads=8,
     hap="{hap}",
     population="{population}"
   log:
-    "results/logs/angsd/hap{hap}/angsd_SNP_raw_hap{hap}_{population}.log"
+    "results/logs/angsd/hap{hap}/raw_realign/angsd_SNP_raw_hap{hap}_{population}.log"
   envmodules:
     "angsd/0.939"
   threads: 8
@@ -321,6 +451,7 @@ rule angsd_raw_SNP:
     angsd -bam {input.bam_list} -ref {params.ref}\
     -out {params.file_name}\
     -remove_bads 1\
+    -C 50\
     -GL 2\
     -doMajorMinor 1\
     -doMaf 2\
@@ -343,9 +474,9 @@ rule angsd_raw_SNP:
 # NOTE: BED files indexed at 0bp because SAMtools to create pileup requires 0bp index
 rule convert_mafs_to_bed_stringent:
   input:
-    mafs_gz="results/angsd/hap{hap}/raw/{population}_raw_SNPs.mafs.gz"
+    mafs_gz="results/angsd/hap{hap}/raw_realign/{population}_raw_SNPs_realign.mafs.gz"
   output:
-    bed_file="results/bed/hap{hap}/raw/{population}_raw_SNPs.BED"
+    bed_file="results/bed/hap{hap}/raw_realign/{population}_raw_SNPs_realign.BED"
   shell:
    """
    gunzip -c {input.mafs_gz} | awk 'NR>1 {{print $1, $2 - 1, $2}}' > {output.bed_file}
@@ -366,15 +497,15 @@ rule extract_scaffolds:
 
 
 # Run ngsParalog on all SNPs across the genome
-rule ngsParalog_hap1:
+rule ngsParalog_hap1: 
   input:
-    bam_ngsPara=lambda wildcards: expand("results/bam_mkdup/hap1/{sample}_hap1_mkdup.bam", sample=[s for s in SAMPLES if s.startswith(wildcards.population)]),
+    bam_ngsPara=lambda wildcards: expand("results/bam_realign/hap1/{sample}_hap1_realign.bam", sample=[s for s in SAMPLES if s.startswith(wildcards.population)]),
     ref="data/reference/hap1/lupinehap1.fasta",
-    bed_file="results/bed/hap1/raw/{population}_raw_SNPs.BED"
+    bed_file="results/bed/hap1/raw_realign/{population}_raw_SNPs_realign.BED"
   output:
-    paralog_output="results/ngs_paralog/hap1/{population}_scaffolds/{population}-{hap1scaffold_prefix}.lr"
+    paralog_output="results/ngs_paralog/hap1/realign/{population}_scaffolds/{population}-{hap1scaffold_prefix}.lr"
   log:
-    "results/logs/ngs_paralog/hap1/{population}_scaffolds/{population}-{hap1scaffold_prefix}.log"
+    "results/logs/ngs_paralog/hap1/realign/{population}_scaffolds/{population}-{hap1scaffold_prefix}.log"
   params:
     hap1scaffold=lambda wildcards: map_prefix_to_full_scaffold(wildcards.hap1scaffold_prefix, 1)
   envmodules:
@@ -393,13 +524,13 @@ rule ngsParalog_hap1:
 
 rule ngsParalog_hap2:
   input:
-    bam_ngsPara=lambda wildcards: expand("results/bam_mkdup/hap2/{sample}_hap2_mkdup.bam", sample=[s for s in SAMPLES if s.startswith(wildcards.population)]),
+    bam_ngsPara=lambda wildcards: expand("results/bam_realign/hap2/{sample}_hap2_realign.bam", sample=[s for s in SAMPLES if s.startswith(wildcards.population)]),
     ref="data/reference/hap2/lupinehap2.fasta",
-    bed_file="results/bed/hap2/raw/{population}_raw_SNPs.BED"
+    bed_file="results/bed/hap2/raw_realign/{population}_raw_SNPs_realign.BED"
   output:
-    paralog_output="results/ngs_paralog/hap2/{population}_scaffolds/{population}-{hap2scaffold_prefix}.lr"
+    paralog_output="results/ngs_paralog/hap2/realign/{population}_scaffolds/{population}-{hap2scaffold_prefix}.lr"
   log:
-    "results/logs/ngs_paralog/hap2/{population}_scaffolds/{population}-{hap2scaffold_prefix}.log"
+    "results/logs/ngs_paralog/hap2/realign/{population}_scaffolds/{population}-{hap2scaffold_prefix}.log"
   params:
     hap2scaffold=lambda wildcards: map_prefix_to_full_scaffold(wildcards.hap2scaffold_prefix, 2)
   envmodules:
@@ -421,11 +552,11 @@ rule ngsParalog_hap2:
 # Combine all ngsParalog outputs together into one file per population
 rule concatenate_paralog_hap1:
   input:
-    scaffold_files=lambda wildcards: expand("results/ngs_paralog/hap1/{population}_scaffolds/{{population}}-{hap1scaffold_prefix}.lr", population=wildcards.population, hap1scaffold_prefix=HAP1SCAFFOLD_PREFIXES)
+    scaffold_files=lambda wildcards: expand("results/ngs_paralog/hap1/realign/{population}_scaffolds/{{population}}-{hap1scaffold_prefix}.lr", population=wildcards.population, hap1scaffold_prefix=HAP1SCAFFOLD_PREFIXES)
   output:
-    paralog_final="results/ngs_paralog/hap1/concat/{population}_paralog_WGS.lr"
+    paralog_final="results/ngs_paralog/hap1/concat_realign/{population}_paralog_realign_WGS.lr"
   log:
-    "results/logs/ngs_paralog/hap1/concat/{population}_paralog_WGS.log"
+    "results/logs/ngs_paralog/hap1/concat_realign/{population}_paralog_realign_WGS.log"
   shell:
     """
     cat {input.scaffold_files} >> {output.paralog_final}
@@ -434,11 +565,11 @@ rule concatenate_paralog_hap1:
 
 rule concatenate_paralog_hap2:
   input:
-    scaffold_files=lambda wildcards: expand("results/ngs_paralog/hap2/{population}_scaffolds/{{population}}_{hap2scaffold_prefix}.lr", population=wildcards.population, hap2scaffold_prefix=HAP2SCAFFOLD_PREFIXES)
+    scaffold_files=lambda wildcards: expand("results/ngs_paralog/hap2/realign/{population}_scaffolds/{{population}}_{hap2scaffold_prefix}.lr", population=wildcards.population, hap2scaffold_prefix=HAP2SCAFFOLD_PREFIXES)
   output:
-    paralog_final="results/ngs_paralog/hap2/concat/{population}_paralog_WGS.lr"
+    paralog_final="results/ngs_paralog/hap2/concat_realign/{population}_paralog_realign_WGS.lr"
   log:
-    "results/logs/ngs_paralog/hap2/concat/{population}_paralog_WGS.log"
+    "results/logs/ngs_paralog/hap2/concat_realign/{population}_paralog_realign_WGS.log"
   shell:
     """
     cat {input.scaffold_files} >> {output.paralog_final}
@@ -449,10 +580,10 @@ rule concatenate_paralog_hap2:
 # NOTE: R script indexes positions back to 1bp start
 rule ngsParalog_false_pos:
   input:
-    lr_file="results/ngs_paralog/hap{hap}/concat/{population}_paralog_WGS.lr"
+    lr_file="results/ngs_paralog/hap{hap}/concat_realign/{population}_paralog_realign_WGS.lr"
   output:
-    deviant_snps="results/bed/hap{hap}/deviant_SNPs/{population}_deviant_SNPs.BED",
-    deviant_snps_bp1="results/bed/hap{hap}/deviant_SNPs/{population}_deviant_SNPs_bp1.lr"
+    deviant_snps="results/bed/hap{hap}/deviant_SNPs_realign/{population}_deviant_SNPs_realign.BED",
+    deviant_snps_bp1="results/bed/hap{hap}/deviant_SNPs_realign/{population}_deviant_SNPs_realign_bp1.lr"
   envmodules:
     "r/4.3.1"
   shell:
@@ -463,9 +594,9 @@ rule ngsParalog_false_pos:
 # For varying levels of Benjamini Hochberg critical values
 rule ngsParalog_false_pos_BH:
   input:
-    lr_file="results/ngs_paralog/hap{hap}/concat/{population}_paralog_WGS.lr"
+    lr_file="results/ngs_paralog/hap{hap}/concat_realign/{population}_paralog_realign_WGS.lr"
   output:
-    deviant_snps_bp1_BH="results/bed/hap{hap}/deviant_SNPs/BH_correction/{population}_deviant_SNPs_bp1_BH{BH_VAR}.lr"
+    deviant_snps_bp1_BH="results/bed/hap{hap}/deviant_SNPs_realign/BH_correction/{population}_deviant_SNPs_bp1_realign_BH{BH_VAR}.lr"
   params:
     BH_VAR="{BH_VAR}"
   envmodules:
@@ -479,9 +610,9 @@ rule ngsParalog_false_pos_BH:
 # Create Manhattan Plots [NOTE: Specific Scaffold # otherwise it'll take forever for whole genome!] 
 rule ngsParalog_manhattan:
   input:
-    lr_file="results/ngs_paralog/hap{hap}/{population}_scaffolds/{population}-Scaffold_1.lr"
+    lr_file="results/ngs_paralog/hap{hap}/realign/{population}_scaffolds/{population}-Scaffold_1.lr"
   output:
-    plot="results/ngs_paralog/plots/hap{hap}/{population}_manhattan_plot_scaffold_1.png"
+    plot="results/ngs_paralog/plots_realign/hap{hap}/{population}_manhattan_plot_realign_scaffold_1.png"
   envmodules:
     "r/4.3.1"
   threads: 2
@@ -518,10 +649,10 @@ rule dupHMM:
 # Filter out deviant SNP positions from hwe to check for heterozygote excess
 rule filter_hwegz_from_deviant_SNPs:
   input:
-    F_values = "results/angsd/hap{hap}/raw/{population}_raw_SNPs.hwe.gz",
-    deviant_snps = "results/bed/hap{hap}/deviant_SNPs/{population}_deviant_SNPs_bp1.lr"
+    F_values = "results/angsd/hap{hap}/raw_realign/{population}_raw_SNPs_realign.hwe.gz",
+    deviant_snps = "results/bed/hap{hap}/deviant_SNPs_realign/{population}_deviant_SNPs_bp1_realign.lr"
   output:
-    filtered_Fs = "results/angsd/hap{hap}/canonical/hwe_{population}_canonical_SNPs.lr"
+    filtered_Fs = "results/angsd/hap{hap}/canonical_realign/hwe_{population}_canonical_SNPs_realign.lr"
   shell:
     """
     zcat {input.F_values} | awk 'NR==FNR{{pos[$2]; next}} $2 in pos' {input.deviant_snps} - > {output.filtered_Fs}
@@ -530,10 +661,10 @@ rule filter_hwegz_from_deviant_SNPs:
 
 rule filter_hwegz_from_deviant_SNPs_BH:
   input:
-    F_values = "results/angsd/hap{hap}/raw/{population}_raw_SNPs.hwe.gz",
-    deviant_snps = "results/bed/hap{hap}/deviant_SNPs/BH_correction/{population}_deviant_SNPs_bp1_BH{BH_VAR}.lr"
+    F_values = "results/angsd/hap{hap}/raw_realign/{population}_raw_SNPs_realign.hwe.gz",
+    deviant_snps = "results/bed/hap{hap}/deviant_SNPs_realign/BH_correction/{population}_deviant_SNPs_bp1_realign_BH{BH_VAR}.lr"
   output:
-    filtered_Fs = "results/angsd/hap{hap}/canonical/BH_correction/hwe_{population}_canonical_SNPs_BH{BH_VAR}.lr"
+    filtered_Fs = "results/angsd/hap{hap}/canonical_realign/BH_correction/hwe_{population}_canonical_SNPs_realign_BH{BH_VAR}.lr"
   shell:
     """
     zcat {input.F_values} | awk 'NR==FNR{{pos[$2]; next}} $2 in pos' {input.deviant_snps} - > {output.filtered_Fs}
@@ -543,9 +674,9 @@ rule filter_hwegz_from_deviant_SNPs_BH:
 # Unzip hwe to extract desired variables (i.e F values)
 rule unzip_hwe:
   input:
-    zipped_hwe = "results/angsd/hap{hap}/raw/{population}_raw_SNPs.hwe.gz"
+    zipped_hwe = "results/angsd/hap{hap}/raw_realign/{population}_raw_SNPs_realign.hwe.gz"
   output:
-    unzip_hwe = "results/angsd/hap{hap}/raw/hwe_{population}_raw_SNPs.lr"
+    unzip_hwe = "results/angsd/hap{hap}/raw_realign/hwe_{population}_raw_SNPs_realign.lr"
   shell:
     """
     zcat {input.zipped_hwe} > {output.unzip_hwe}
@@ -555,9 +686,9 @@ rule unzip_hwe:
 # Create histogram of F values (includes header)
 rule excess_heterozygotes_histogram_raw:
   input:
-    hwe_file = "results/angsd/hap{hap}/raw/hwe_{population}_raw_SNPs.lr"
+    hwe_file = "results/angsd/hap{hap}/raw_realign/hwe_{population}_raw_SNPs_realign.lr"
   output:
-    plot = "results/angsd/hap{hap}/plots/HETERO_EXCESS_{population}_SNP_raw.png"
+    plot = "results/angsd/hap{hap}/plots_realign/HETERO_EXCESS_{population}_SNP_raw_realign.png"
   envmodules:
     "r/4.3.1"
   shell:
@@ -567,9 +698,9 @@ rule excess_heterozygotes_histogram_raw:
 # Create histogram of F values for canonical SNPs (excludes header)
 rule excess_heterozygotes_histogram_canonical:
   input:
-    hwe_file = "results/angsd/hap{hap}/canonical/hwe_{population}_canonical_SNPs.lr"
+    hwe_file = "results/angsd/hap{hap}/canonical_realign/hwe_{population}_canonical_SNPs_realign.lr"
   output:
-    plot = "results/angsd/hap{hap}/plots/BH_correction/HETERO_EXCESS_{population}_SNP_canonical.png"
+    plot = "results/angsd/hap{hap}/plots_realign/BH_correction/HETERO_EXCESS_{population}_SNP_canonical_realign.png"
   envmodules:
     "r/4.3.1"
   shell:
@@ -580,18 +711,18 @@ rule excess_heterozygotes_histogram_canonical:
 # Checkpoint to determine all BH_VAR files for a given population and hap
 checkpoint excess_heterozygotes_files:
   input:
-    expand("results/angsd/hap{{hap}}/canonical/BH_correction/hwe_{{population}}_canonical_SNPs_BH{BH_VAR}.lr", BH_VAR=BH_VARS)
+    expand("results/angsd/hap{{hap}}/canonical_realign/BH_correction/hwe_{{population}}_canonical_SNPs_realign_BH{BH_VAR}.lr", BH_VAR=BH_VARS)
   output:
-    touch("results/angsd/hap{{hap}}/canonical/BH_correction/{{population}}_files.done")
+    touch("results/angsd/hap{{hap}}/canonical_realign/BH_correction/{{population}}_files.done")
 
 
 # Aggregate rule for each population
 rule aggregate_excess_heterozygotes_histograms_canonical:
   input:
-    hwe_files = lambda wildcards: expand("results/angsd/hap{hap}/canonical/BH_correction/hwe_{population}_canonical_SNPs_BH{BH_VAR}.lr", 
+    hwe_files = lambda wildcards: expand("results/angsd/hap{hap}/canonical_realign/BH_correction/hwe_{population}_canonical_SNPs_realign_BH{BH_VAR}.lr", 
                                          hap=wildcards.hap, population=wildcards.population, BH_VAR=BH_VARS)
   output:
-    plot = "results/angsd/hap{hap}/plots/BH_correction/HETERO_EXCESS_{population}_SNP_canonical_BH_aggregate_BIG.png"
+    plot = "results/angsd/hap{hap}/plots_realign/BH_correction/HETERO_EXCESS_{population}_SNP_canonical_BH_aggregate_realign_BIG.png"
   envmodules:
     "r/4.3.1"
   shell:
@@ -659,7 +790,7 @@ rule prepare_bed_for_angsd:
 # Re-run ANGSD and calculate HWE to check of SNP filtering reduced heterozygote excess
 rule angsd_canonical_SNP:
   input:
-    bam_list="data/angsd/{population}_mkdup_hap{hap}.txt",
+    bam_list="data/lists/{population}_mkdup_hap{hap}.txt",
     canonical_snps="results/bed/hap1/canonical_SNPs/{population}_canonical_SNPs_1_bp.BED"
   output:
     arg_file="results/angsd/hap{hap}/canonical/{population}_canonical_SNPs_V2.arg",
