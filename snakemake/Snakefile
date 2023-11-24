@@ -438,21 +438,21 @@ rule angsd_raw_SNP:
   params:
     ref="data/reference/hap{hap}/lupinehap{hap}.fasta",
     file_name="results/angsd/hap{hap}/raw_realign/{population}_raw_SNPs_realign",
-    threads=8,
+    threads=12,
     hap="{hap}",
     population="{population}"
   log:
     "results/logs/angsd/hap{hap}/raw_realign/angsd_SNP_raw_hap{hap}_{population}.log"
   envmodules:
     "angsd/0.939"
-  threads: 8
+  threads: 12
   shell:
     """
     angsd -bam {input.bam_list} -ref {params.ref}\
     -out {params.file_name}\
     -remove_bads 1\
     -C 50\
-    -GL 2\
+    -GL 1\
     -doMajorMinor 1\
     -doMaf 2\
     -SNP_pval 1e-6\
@@ -496,7 +496,7 @@ rule extract_scaffolds:
     """
 
 
-# Run ngsParalog on all SNPs across the genome
+# Run ngsParalog on all SNPs across the genome (parallelized by running 1 job per scaffold)
 rule ngsParalog_hap1: 
   input:
     bam_ngsPara=lambda wildcards: expand("results/bam_realign/hap1/{sample}_hap1_realign.bam", sample=[s for s in SAMPLES if s.startswith(wildcards.population)]),
@@ -512,10 +512,11 @@ rule ngsParalog_hap1:
     "samtools/1.17"
   shell:
     """
+    rm -f {output.paralog_output} #remove existing output file if it exists
     touch {output.paralog_output}
     samtools mpileup {input.bam_ngsPara} -d 1000 -q 0 -Q 0 --ff UNMAP,QCFAIL,DUP \
     -l {input.bed_file} -r {params.hap1scaffold} -f {input.ref} 2>> {log} | \
-    /home/socamero/ngsParalog/ngsParalog calcLR -infile - -outfile {output.paralog_output} \
+    /home/socamero/ngsParalog/ngsParalog calcLR -infile - -outfile {output.paralog_output} -allow_overwrite 1 \
     -minQ 20 -minind 10 -mincov 1 \
     -runinfo 1 \
     2>> {log} || true
@@ -537,9 +538,10 @@ rule ngsParalog_hap2:
     "samtools/1.17"
   shell:
     """
+    rm -f {output.paralog_output} #remove existing output file if it exists
     samtools mpileup {input.bam_ngsPara} -d 1000 -q 0 -Q 0 --ff UNMAP,QCFAIL,DUP \
     -l {input.bed_file} -r {params.hap2scaffold} -f {input.ref} 2>> {log} | \
-    /home/socamero/ngsParalog/ngsParalog calcLR -infile - -outfile {output.paralog_output} \
+    /home/socamero/ngsParalog/ngsParalog calcLR -infile - -outfile {output.paralog_output} -allow_overwrite 1 \
     -minQ 20 -minind 10 -mincov 1 \
     -runinfo 1 \
     2>> {log}
@@ -591,6 +593,7 @@ rule ngsParalog_false_pos:
     Rscript scripts/ngs_paralog_false_pos.R {input.lr_file} {output.deviant_snps} {output.deviant_snps_bp1}
     """
 
+
 # For varying levels of Benjamini Hochberg critical values
 rule ngsParalog_false_pos_BH:
   input:
@@ -620,13 +623,43 @@ rule ngsParalog_manhattan:
     "Rscript scripts/ngs_paralog_graphs.R {input.lr_file} {output.plot}"
 
 
+# Generate average depth of coverage per site for dupHMM
+rule calculate_average_coverage_per_population:
+  input:
+    bam_files=lambda wildcards: expand("results/bam_realign/hap{hap}/{sample}_hap{hap}_realign.bam", sample=[s for s in SAMPLES if s.startswith(wildcards.population)]),
+    bed="results/bed/hap{hap}/deviant_SNPs_realign/{population}_deviant_SNPs_realign.BED"
+  output:
+    avg_cov_file="results/coverage/hap{hap}/{population}_average_coverage.tsv"
+  log:
+    "results/logs/coverage/hap{hap}/{population}_average_coverage.log"
+  envmodules:
+    "samtools/1.17"
+  shell:
+    """
+    # Create a temporary file to store individual coverages
+    > temp_coverage.txt
+
+    # Compute coverage for each BAM file and append to the temporary file
+    for bam in {input.bam_files}; do
+        samtools depth -a -b {input.bed} ${{bam}} | awk '{{print $1, $2, $3}}' >> temp_coverage.txt
+    done
+
+    # Calculate the average coverage per position
+    awk '{{cov[$1" "$2]+=$3; count[$1" "$2]++}} END {{for (pos in cov) print pos, cov[pos] / count[pos]}}' temp_coverage.txt > {output.avg_cov_file}
+
+    # Remove the temporary file
+    rm temp_coverage.txt
+    """
+
+
+
 # Run dupHMM to infer transitions between dup maps and normal mapping regions
 rule dupHMM:
   input:
-    lr_file = "results/ngs_paralog/{population}_scaffolds/{population}-{hap1scaffold_prefix}.lr",
-    cov_file = "[NEED COVERAGE FILE PER SCAFFOLD]"
+    lr_file = "results/ngs_paralog/hap{hap}/concat_realign/{population}_paralog_realign_WGS.lr",
+    cov_file = "results/coverage_realign/hap{hap}/{population}_average_coverage.tsv"
   output:
-    hmm_output = "results/ngs_paralog/dupHMM/{population}_dupHMM_{hap1scaffold_prefix}"
+    hmm_output = "results/ngs_paralog/hap{hap}/dupHMM_realign/{population}_dupHMM_realign_WGS.rf"
   params:
     r_script_path = "/home/socamero/ngsParalog/ngsParalog/dupHMM.R"
   envmodules:
@@ -636,14 +669,20 @@ rule dupHMM:
     Rscript {params.r_script_path} --lrfile {input.lr_file} \
     --outfile {output.hmm_output} \
     --covfile {input.cov_file} \
-    --lrquantile 0.98
+    --lrquantile 0.98 \
+    --paramOnly 1
     """
 
 
 
 
 
-  ## STEP 3a: VERIFY HETEROZYGOTE EXCESS REDUCED .. METHOD 1: FILTER HWE
+
+
+
+
+
+## STEP 3a: VERIFY HETEROZYGOTE EXCESS REDUCED .. METHOD 1: FILTER HWE
 
 
 # Filter out deviant SNP positions from hwe to check for heterozygote excess
