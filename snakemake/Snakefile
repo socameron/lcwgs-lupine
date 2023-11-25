@@ -80,7 +80,7 @@ SAMPLES = sorted(list(SAMPLES))
 # final files desired (can change)
 rule all:
   input:
-    expand("results/ngs_paralog/hap1/concat_realign/{population}_paralog_realign_WGS.lr", population=POPULATIONS)
+    expand("results/ngs_paralog/hap1/dupHMM_realign/{population}_dupHMM_realign.rf", population=POPULATIONS)
 
 
 
@@ -626,10 +626,11 @@ rule ngsParalog_manhattan:
 # Generate average depth of coverage per site for dupHMM
 rule calculate_average_coverage_per_population:
   input:
-    bam_files=lambda wildcards: expand("results/bam_realign/hap{hap}/{sample}_hap{hap}_realign.bam", sample=[s for s in SAMPLES if s.startswith(wildcards.population)]),
+    bam_files=lambda wildcards: expand("results/bam_realign/hap{hap}/{sample}_hap{hap}_realign.bam", sample=[s for s in SAMPLES if s.startswith(wildcards.population)], hap=(1,2)),
     bed="results/bed/hap{hap}/deviant_SNPs_realign/{population}_deviant_SNPs_realign.BED"
   output:
-    avg_cov_file="results/coverage/hap{hap}/{population}_average_coverage.tsv"
+    avg_cov_file="results/coverage_realign/hap{hap}/{population}_average_coverage.tsv"
+  threads: 2
   log:
     "results/logs/coverage/hap{hap}/{population}_average_coverage.log"
   envmodules:
@@ -641,7 +642,7 @@ rule calculate_average_coverage_per_population:
 
     # Compute coverage for each BAM file and append to the temporary file
     for bam in {input.bam_files}; do
-        samtools depth -a -b {input.bed} ${{bam}} | awk '{{print $1, $2, $3}}' >> temp_coverage.txt
+        samtools depth -@ 2 -a -b {input.bed} ${{bam}} | awk '{{print $1, $2, $3}}' >> temp_coverage.txt
     done
 
     # Calculate the average coverage per position
@@ -652,25 +653,29 @@ rule calculate_average_coverage_per_population:
     """
 
 
-
 # Run dupHMM to infer transitions between dup maps and normal mapping regions
 rule dupHMM:
   input:
     lr_file = "results/ngs_paralog/hap{hap}/concat_realign/{population}_paralog_realign_WGS.lr",
     cov_file = "results/coverage_realign/hap{hap}/{population}_average_coverage.tsv"
   output:
-    hmm_output = "results/ngs_paralog/hap{hap}/dupHMM_realign/{population}_dupHMM_realign_WGS.rf"
+    paralog_output = "results/ngs_paralog/hap{hap}/dupHMM_realign/{population}_dupHMM_realign.rf",
+    param_output = "results/ngs_paralog/hap{hap}/dupHMM_realign/{population}_dupHMM_realign.par"
   params:
-    r_script_path = "/home/socamero/ngsParalog/ngsParalog/dupHMM.R"
+    r_script_path = "/home/socamero/ngsParalog/ngsParalog/dupHMM.R",
+    name_output = "results/ngs_paralog/hap{hap}/dupHMM_realign/{population}_dupHMM_realign"
+  log:
+    "results/logs/ngs_paralog/hap{hap}/dupHMM_realign/{population}_dupHMM_realign.log"
   envmodules:
     "r/4.3.1"
   shell:
     """
     Rscript {params.r_script_path} --lrfile {input.lr_file} \
-    --outfile {output.hmm_output} \
+    --outfile {params.name_output} \
     --covfile {input.cov_file} \
     --lrquantile 0.98 \
-    --paramOnly 1
+    --paramOnly 1 \
+    2> {log}
     """
 
 
