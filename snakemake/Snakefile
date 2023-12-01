@@ -80,7 +80,8 @@ SAMPLES = sorted(list(SAMPLES))
 # final files desired (can change)
 rule all:
   input:
-    expand("results/ngs_paralog/hap1/dupHMM_realign/{population}_dupHMM_realign.rf", population=POPULATIONS)
+    expand("results/bed/hap1/deviant_SNPs_realign/{population}_deviant_SNPs_realign_bp1_BH_correction.lr", population=POPULATIONS),
+    expand("results/ngs_paralog/hap1/dupHMM_realign/{population}_{hap1scaffold_prefix}_dupHMM_realign_run.rf", population=POPULATIONS, hap1scaffold_prefix=HAP1SCAFFOLD_PREFIXES)
 
 
 
@@ -578,14 +579,14 @@ rule concatenate_paralog_hap2:
     """
 
 
-# Identify false positives from ngsParalog (grab only true Paralogs)
+# Identify false positives from ngsParalog (grab only true Paralogs) and filter out
 # NOTE: R script indexes positions back to 1bp start
 rule ngsParalog_false_pos:
   input:
     lr_file="results/ngs_paralog/hap{hap}/concat_realign/{population}_paralog_realign_WGS.lr"
   output:
-    deviant_snps="results/bed/hap{hap}/deviant_SNPs_realign/{population}_deviant_SNPs_realign.BED",
-    deviant_snps_bp1="results/bed/hap{hap}/deviant_SNPs_realign/{population}_deviant_SNPs_realign_bp1.lr"
+    deviant_snps="results/bed/hap{hap}/deviant_SNPs_realign/{population}_deviant_SNPs_realign_BH_correction.BED",
+    deviant_snps_bp1="results/bed/hap{hap}/deviant_SNPs_realign/{population}_deviant_SNPs_realign_bp1_BH_correction.lr"
   envmodules:
     "r/4.3.1"
   shell:
@@ -624,11 +625,13 @@ rule ngsParalog_manhattan:
 
 
 # Generate average depth of coverage per site for dupHMM
+# Only estimate at sites deemed 'paralogous' from raw ngsParalog (pre BH filter)
 rule calculate_average_coverage_per_population:
   input:
     bam_files=lambda wildcards: expand("results/bam_realign/hap{hap}/{sample}_hap{hap}_realign.bam", sample=[s for s in SAMPLES if s.startswith(wildcards.population)], hap=(1,2)),
-    bed="results/bed/hap{hap}/deviant_SNPs_realign/{population}_deviant_SNPs_realign.BED"
+    raw_lr="results/ngs_paralog/hap{hap}/concat_realign/{population}_paralog_realign_WGS.lr"
   output:
+    bed="results/bed/hap{hap}/deviant_SNPs_realign/{population}_deviant_SNPs_realign.BED",
     avg_cov_file="results/coverage_realign/hap{hap}/{population}_average_coverage.tsv"
   threads: 2
   log:
@@ -637,35 +640,47 @@ rule calculate_average_coverage_per_population:
     "samtools/1.17"
   shell:
     """
-    # Create a temporary file to store individual coverages
-    > temp_coverage.txt
+    # Convert .lr file to BED format (0-based start)
+    awk '{{print $1 "\\t" ($2-1) "\\t" $2}}' {input.raw_lr} > {output.bed}
 
-    # Compute coverage for each BAM file and append to the temporary file
-    for bam in {input.bam_files}; do
-        samtools depth -@ 2 -a -b {input.bed} ${{bam}} | awk '{{print $1, $2, $3}}' >> temp_coverage.txt
-    done
-
-    # Calculate the average coverage per position
-    awk '{{cov[$1" "$2]+=$3; count[$1" "$2]++}} END {{for (pos in cov) print pos, cov[pos] / count[pos]}}' temp_coverage.txt > {output.avg_cov_file}
-
-    # Remove the temporary file
-    rm temp_coverage.txt
+    # Calculate the average coverage per position for all BAM files together using the BED file
+    samtools depth -q 0 -Q 0 -J -a -b {output.bed} {input.bam_files} | \
+    awk '{{cov[$1"\\t"$2]+=$3; count[$1"\\t"$2]++}} END {{for (pos in cov) print pos, cov[pos] / count[pos]}}' | \
+    sort -k1,1V -k2,2n > {output.avg_cov_file}
     """
 
 
-# Run dupHMM to infer transitions between dup maps and normal mapping regions
-rule dupHMM:
+
+# Reduce deviant SNP calls to the number of known sites with depth data.
+# In other words, ANGSD used imputation and was able to call more SNPs than the raw data in BAM files
+# ANGSD does estimate depth globally and per individual, but NOT per site (see -doDepth 1)
+rule filter_lr_by_coverage:
   input:
-    lr_file = "results/ngs_paralog/hap{hap}/concat_realign/{population}_paralog_realign_WGS.lr",
+    lr_file="results/ngs_paralog/hap{hap}/concat_realign/{population}_paralog_realign_WGS.lr",
+    cov_file="results/coverage_realign/hap{hap}/{population}_average_coverage.tsv"
+  output:
+    filtered_lr="results/bed/hap{hap}/deviant_SNPs_realign/{population}_coverage_only_paralog_realign_WGS.lr"
+  log:
+    "results/logs/filter_lr/hap{hap}/{population}_filtered_deviant_SNPs_realign.log"
+  shell:
+    """
+    # Filter the .lr file based on the coverage file, ensuring no empty lines
+    awk 'NR==FNR && $0!="" {{cov[$1" "$2]=1; next}} $0!="" && cov[$1" "$2] {{print}}' {input.cov_file} {input.lr_file} > {output.filtered_lr}
+    """
+
+
+# Set parameters for dupHMM to infer transitions between dup maps and normal mapping regions
+rule dupHMM_setup:
+  input:
+    lr_file = "results/bed/hap{hap}/deviant_SNPs_realign/{population}_coverage_only_paralog_realign_WGS.lr",
     cov_file = "results/coverage_realign/hap{hap}/{population}_average_coverage.tsv"
   output:
-    paralog_output = "results/ngs_paralog/hap{hap}/dupHMM_realign/{population}_dupHMM_realign.rf",
     param_output = "results/ngs_paralog/hap{hap}/dupHMM_realign/{population}_dupHMM_realign.par"
   params:
-    r_script_path = "/home/socamero/ngsParalog/ngsParalog/dupHMM.R",
+    r_script_path = "/home/socamero/ngsParalog/dupHMM.R",
     name_output = "results/ngs_paralog/hap{hap}/dupHMM_realign/{population}_dupHMM_realign"
   log:
-    "results/logs/ngs_paralog/hap{hap}/dupHMM_realign/{population}_dupHMM_realign.log"
+    "results/logs/ngs_paralog/hap{hap}/dupHMM_realign/{population}_dupHMM_realign_setup.log"
   envmodules:
     "r/4.3.1"
   shell:
@@ -677,6 +692,95 @@ rule dupHMM:
     --paramOnly 1 \
     2> {log}
     """
+
+
+# Now generate coverage per scaffold and per population
+rule calculate_coverage_per_population_and_scaffold_hap1:
+  input:
+    bam_files=lambda wildcards: expand("results/bam_realign/hap1/{sample}_hap1_realign.bam", sample=[s for s in SAMPLES if s.startswith(wildcards.population)]),
+    raw_lr="results/ngs_paralog/hap1/realign/{population}_scaffolds/{population}-{hap1scaffold_prefix}.lr"
+  output:
+    bed="results/bed/hap1/deviant_SNPs_realign/{population}_{hap1scaffold_prefix}.BED",
+    avg_cov_file="results/coverage_realign/hap1/{population}_{hap1scaffold_prefix}_average_coverage.tsv"
+  log:
+    "results/logs/coverage/hap1/{population}_{hap1scaffold_prefix}_average_coverage.log"
+  threads: 2
+  envmodules:
+    "samtools/1.17"
+  shell:
+    """
+    # Check if the .lr file is empty and create a BED file accordingly
+    if [ -s {input.raw_lr} ]; then
+      # Convert non-empty .lr file to BED format (0-based start)
+      awk '{{print $1 "\\t" ($2-1) "\\t" $2}}' {input.raw_lr} > {output.bed}
+    else
+      # Create an empty BED file if .lr file is empty
+      touch {output.bed}
+    fi
+
+    # If the BED file is not empty, calculate the average coverage
+    if [ -s {output.bed} ]; then
+      samtools depth -@ 2 -q 0 -Q 0 -J -a -b {output.bed} {input.bam_files} | \
+      awk '{{cov[$1"\\t"$2]+=$3; count[$1"\\t"$2]++}} END {{for (pos in cov) print pos, cov[pos] / count[pos]}}' | \
+      sort -k1,1V -k2,2n > {output.avg_cov_file}
+    else
+      # Create an empty average coverage file if BED file is empty
+      touch {output.avg_cov_file}
+    fi
+    """
+
+
+rule filter_scaffold_lr_by_coverage_hap1:
+  input:
+    lr_file="results/ngs_paralog/hap1/realign/{population}_scaffolds/{population}-{hap1scaffold_prefix}.lr",
+    cov_file="results/coverage_realign/hap1/{population}_{hap1scaffold_prefix}_average_coverage.tsv"
+  output:
+    filtered_lr="results/bed/hap1/deviant_SNPs_realign/{population}_{hap1scaffold_prefix}_coverage_only_paralog_realign.lr"
+  log:
+    "results/logs/filter_lr/hap1/{population}_{hap1scaffold_prefix}_filtered_deviant_SNPs_realign.log"
+  shell:
+    """
+    # Filter the .lr file based on the coverage file, ensuring no empty lines
+    awk 'NR==FNR && $0!="" {{cov[$1" "$2]=1; next}} $0!="" && cov[$1" "$2] {{print}}' {input.cov_file} {input.lr_file} > {output.filtered_lr}
+
+    # If the filtered file is empty, create an empty file
+    if [ ! -s {output.filtered_lr} ]; then
+      touch {output.filtered_lr}
+    fi
+    """
+
+
+
+
+# Run dupHMM with beginning estimated parameters
+rule dupHMM_run_hap1:
+  input:
+    lr_file = "results/ngs_paralog/hap{hap}/realign/{population}_scaffolds/{population}-{hap1scaffold_prefix}.lr",
+    cov_file = "results/coverage_realign/hap{hap}/{population}_{hap1scaffold_prefix}_average_coverage.tsv",
+    parameters = "results/ngs_paralog/hap{hap}/dupHMM_realign/{population}_dupHMM_realign.par"
+  output:
+    paralog_region = "results/ngs_paralog/hap{hap}/dupHMM_realign/{population}_{hap1scaffold_prefix}_dupHMM_realign_run.rf"
+  params:
+    r_script_path = "/home/socamero/ngsParalog/dupHMM.R",
+    name_output = "results/ngs_paralog/hap{hap}/dupHMM_realign/{population}_{hap1scaffold_prefix}_dupHMM_realign_run"
+  log:
+    "results/logs/ngs_paralog/hap{hap}/dupHMM_realign/{population}_{hap1scaffold_prefix}_dupHMM_realign_run.log"
+  envmodules:
+    "r/4.3.1"
+  shell:
+    """
+    Rscript {params.r_script_path} --lrfile {input.lr_file} \
+    --outfile {params.name_output} \
+    --covfile {input.cov_file} \
+    --lrquantile 0.97 \
+    --maxcoverage 50 \
+    --paramfile {input.parameters} \
+    2> {log}
+    """
+
+
+
+
 
 
 
@@ -770,7 +874,9 @@ rule aggregate_excess_heterozygotes_histograms_canonical:
   envmodules:
     "r/4.3.1"
   shell:
-    "Rscript scripts/hetero_excess_BH.R {input.hwe_files} {output.plot}"
+    """
+    Rscript scripts/hetero_excess_BH.R {input.hwe_files} {output.plot}
+    """
 
 
 
@@ -782,18 +888,17 @@ rule aggregate_excess_heterozygotes_histograms_canonical:
 
 ## STEP 3b: VERIFY HETEROZYGOTE EXCESS REDUCED .. METHOD 2: RE-RUN ANGSD
 
-
 # Filter out deviant SNPs from all SNPs discovered
 rule filter_deviant_snps:
   input:
-    all_snps = "results/bed/hap{hap}/raw/{population}_raw_SNPs.BED",
-    deviant_snps = "results/bed/hap{hap}/deviant_SNPs/{population}_deviant_SNPs.BED"
+    all_snps = "results/bed/hap{hap}/raw_realign/{population}_raw_SNPs_realign.BED",
+    deviant_snps = "results/bed/hap{hap}/deviant_SNPs_realign/{population}_deviant_SNPs_realign_BH_correction.BED"
   output:
-    canonical_snps = "results/bed/hap{hap}/canonical_SNPs/{population}_canonical_SNPs.BED"
+    canonical_snps = "results/bed/hap{hap}/canonical_SNPs_realign/{population}_canonical_SNPs.BED"
   envmodules:
     "bedtools/2.30.0"
   log:
-    "results/logs/qc/filter_deviants/{population}_hap{hap}_filter_deviants.log"
+    "results/logs/qc/filter_deviants_realign/{population}_hap{hap}_filter_deviants.log"
   shell:
     """
     # Define temporary file names directly in the shell command
