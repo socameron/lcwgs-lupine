@@ -39,7 +39,7 @@ for filename in fastq_files:
 # Convert the set to a sorted list for consistent order
 SAMPLES = sorted(list(SAMPLES))
 POPULATIONS = ("HPW", "IDNP-MW", "LCTGP", "MFNP", "PPP", "RLPLV", "SWCP")
-
+POPULATIONS2 = ("CSS", "FMB", "")
 
 with open("results/scaffolds/hap1_scaffolds.txt", "r") as file:
     HAP1SCAFFOLDS = [line.strip() for line in file.readlines()]
@@ -80,8 +80,10 @@ SAMPLES = sorted(list(SAMPLES))
 # final files desired (can change)
 rule all:
   input:
-    expand("results/bed/hap1/deviant_SNPs_realign/{population}_deviant_SNPs_realign_bp1_BH_correction.lr", population=POPULATIONS),
-    expand("results/ngs_paralog/hap1/dupHMM_realign/{population}_{hap1scaffold_prefix}_dupHMM_realign_run.rf", population=POPULATIONS, hap1scaffold_prefix=HAP1SCAFFOLD_PREFIXES)
+    expand("results/bed/hap2/filtered_sites/{population}_filtered_sites.BED", population=POPULATIONS),
+    expand("results/bed/hap2/filtered_sites/{population}_filtered_sites.txt", population=POPULATIONS)
+
+
 
 
 
@@ -247,9 +249,8 @@ rule map_reads:
       # - ngsParalog: probablistic call of paralogous regions
       # - After ngsParalog, calculate p-values based on chi-sq df = 1 with Benjamini-Hochberg correction
   # 3. Verify heterozygote excess is reduced
-      # - Method 1: Re-run ANGSD excluding paralogous regions and PCR duplicates
-      #   - Visualize histogram of F distribution 
-      # - Method 2: Filter ANGSD run 1 F distribution with known paralogous sites
+      # - Re-run ANGSD excluding paralogous regions and PCR duplicates
+      #   - Visualize SFS
 
 ## STEP 1: MERGE REPLICATES & MARK PCR & OPTICAL DUPLICATES 
 
@@ -427,6 +428,7 @@ rule generate_bam_list_per_population:
 
 
 # Call SNPs with stringent rules for input to ngsParalog
+# Question:  is -minInd 3 and -SNP_pvalue 0.05 so very liberal SNP calls
 rule angsd_raw_SNP:
   input:
     bam_list="data/lists/hap{hap}/{population}_realign_hap{hap}.txt"
@@ -446,7 +448,7 @@ rule angsd_raw_SNP:
     "results/logs/angsd/hap{hap}/raw_realign/angsd_SNP_raw_hap{hap}_{population}.log"
   envmodules:
     "angsd/0.939"
-  threads: 12
+  threads: 8
   shell:
     """
     angsd -bam {input.bam_list} -ref {params.ref}\
@@ -454,12 +456,10 @@ rule angsd_raw_SNP:
     -remove_bads 1\
     -C 50\
     -GL 1\
-    -doMajorMinor 1\
-    -doMaf 2\
-    -SNP_pval 1e-6\
+    -SNP_pval 0.05\
     -minMapQ 30\
     -minQ 20 \
-    -minInd 25\
+    -minInd 5\
     -minMaf .05\
     -baq 2\
     -only_proper_pairs 1\
@@ -467,6 +467,8 @@ rule angsd_raw_SNP:
     -doHWE 1\
     -doCounts 1\
     -doDepth 1\
+    -doMajorMinor 1\
+    -doMaf 2\
     &> {log}
     """
 
@@ -540,15 +542,13 @@ rule ngsParalog_hap2:
   shell:
     """
     rm -f {output.paralog_output} #remove existing output file if it exists
+    touch {output.paralog_output}
     samtools mpileup {input.bam_ngsPara} -d 1000 -q 0 -Q 0 --ff UNMAP,QCFAIL,DUP \
     -l {input.bed_file} -r {params.hap2scaffold} -f {input.ref} 2>> {log} | \
     /home/socamero/ngsParalog/ngsParalog calcLR -infile - -outfile {output.paralog_output} -allow_overwrite 1 \
     -minQ 20 -minind 10 -mincov 1 \
     -runinfo 1 \
-    2>> {log}
-    if [ ! -s {output.paralog_output} ]; then
-        touch {output.paralog_output}
-    fi
+    2>> {log} || true
     """
 
 
@@ -568,7 +568,7 @@ rule concatenate_paralog_hap1:
 
 rule concatenate_paralog_hap2:
   input:
-    scaffold_files=lambda wildcards: expand("results/ngs_paralog/hap2/realign/{population}_scaffolds/{{population}}_{hap2scaffold_prefix}.lr", population=wildcards.population, hap2scaffold_prefix=HAP2SCAFFOLD_PREFIXES)
+    scaffold_files=lambda wildcards: expand("results/ngs_paralog/hap2/realign/{population}_scaffolds/{{population}}-{hap2scaffold_prefix}.lr", population=wildcards.population, hap2scaffold_prefix=HAP2SCAFFOLD_PREFIXES)
   output:
     paralog_final="results/ngs_paralog/hap2/concat_realign/{population}_paralog_realign_WGS.lr"
   log:
@@ -700,10 +700,10 @@ rule calculate_coverage_per_population_and_scaffold_hap1:
     bam_files=lambda wildcards: expand("results/bam_realign/hap1/{sample}_hap1_realign.bam", sample=[s for s in SAMPLES if s.startswith(wildcards.population)]),
     raw_lr="results/ngs_paralog/hap1/realign/{population}_scaffolds/{population}-{hap1scaffold_prefix}.lr"
   output:
-    bed="results/bed/hap1/deviant_SNPs_realign/{population}_{hap1scaffold_prefix}.BED",
-    avg_cov_file="results/coverage_realign/hap1/{population}_{hap1scaffold_prefix}_average_coverage.tsv"
+    bed="results/bed/hap1/deviant_SNPs_realign/{population}_scaffolds/{population}_{hap1scaffold_prefix}.BED",
+    avg_cov_file="results/coverage_realign/hap1/{population}_scaffolds/{population}_{hap1scaffold_prefix}_average_coverage.tsv"
   log:
-    "results/logs/coverage/hap1/{population}_{hap1scaffold_prefix}_average_coverage.log"
+    "results/logs/coverage_realign/hap1/{population}_scaffolds/{population}_{hap1scaffold_prefix}_average_coverage.log"
   threads: 2
   envmodules:
     "samtools/1.17"
@@ -730,14 +730,48 @@ rule calculate_coverage_per_population_and_scaffold_hap1:
     """
 
 
+rule calculate_coverage_per_population_and_scaffold_hap2:
+  input:
+    bam_files=lambda wildcards: expand("results/bam_realign/hap2/{sample}_hap2_realign.bam", sample=[s for s in SAMPLES if s.startswith(wildcards.population)]),
+    raw_lr="results/ngs_paralog/hap2/realign/{population}_scaffolds/{population}-{hap2scaffold_prefix}.lr"
+  output:
+    bed="results/bed/hap2/deviant_SNPs_realign/{population}_scaffolds/{population}_{hap2scaffold_prefix}.BED",
+    avg_cov_file="results/coverage_realign/hap2/{population}_scaffolds/{population}_{hap2scaffold_prefix}_average_coverage.tsv"
+  log:
+    "results/logs/coverage_realign/hap2/{population}_scaffolds/{population}_{hap2scaffold_prefix}_average_coverage.log"
+  threads: 2
+  envmodules:
+    "samtools/1.17"
+  shell:
+    """
+    # Check if the .lr file is empty and create a BED file accordingly
+    if [ -s {input.raw_lr} ]; then
+      # Convert non-empty .lr file to BED format (0-based start)
+      awk '{{print $1 "\\t" ($2-1) "\\t" $2}}' {input.raw_lr} > {output.bed}
+    else
+      # Create an empty BED file if .lr file is empty
+      touch {output.bed}
+    fi
+
+    # If the BED file is not empty, calculate the average coverage
+    if [ -s {output.bed} ]; then
+      samtools depth -@ 2 -q 0 -Q 0 -J -a -b {output.bed} {input.bam_files} | \
+      awk '{{cov[$1"\\t"$2]+=$3; count[$1"\\t"$2]++}} END {{for (pos in cov) print pos, cov[pos] / count[pos]}}' | \
+      sort -k1,1V -k2,2n > {output.avg_cov_file}
+    else
+      # Create an empty average coverage file if BED file is empty
+      touch {output.avg_cov_file}
+    fi
+    """
+
 rule filter_scaffold_lr_by_coverage_hap1:
   input:
     lr_file="results/ngs_paralog/hap1/realign/{population}_scaffolds/{population}-{hap1scaffold_prefix}.lr",
-    cov_file="results/coverage_realign/hap1/{population}_{hap1scaffold_prefix}_average_coverage.tsv"
+    cov_file="results/coverage_realign/hap1/{population}_scaffolds/{population}_{hap1scaffold_prefix}_average_coverage.tsv"
   output:
-    filtered_lr="results/bed/hap1/deviant_SNPs_realign/{population}_{hap1scaffold_prefix}_coverage_only_paralog_realign.lr"
+    filtered_lr="results/bed/hap1/deviant_SNPs_realign/{population}_scaffolds/{population}_{hap1scaffold_prefix}_coverage_only_paralog_realign.lr"
   log:
-    "results/logs/filter_lr/hap1/{population}_{hap1scaffold_prefix}_filtered_deviant_SNPs_realign.log"
+    "results/logs/filter_lr/hap1/{population}_scaffolds/{population}_{hap1scaffold_prefix}_filtered_deviant_SNPs_realign.log"
   shell:
     """
     # Filter the .lr file based on the coverage file, ensuring no empty lines
@@ -750,32 +784,194 @@ rule filter_scaffold_lr_by_coverage_hap1:
     """
 
 
+rule filter_scaffold_lr_by_coverage_hap2:
+  input:
+    lr_file="results/ngs_paralog/hap2/realign/{population}_scaffolds/{population}-{hap2scaffold_prefix}.lr",
+    cov_file="results/coverage_realign/hap2/{population}_scaffolds/{population}_{hap2scaffold_prefix}_average_coverage.tsv"
+  output:
+    filtered_lr="results/bed/hap2/deviant_SNPs_realign/{population}_scaffolds/{population}_{hap2scaffold_prefix}_coverage_only_paralog_realign.lr"
+  log:
+    "results/logs/filter_lr/hap2/{population}_scaffolds/{population}_{hap2scaffold_prefix}_filtered_deviant_SNPs_realign.log"
+  shell:
+    """
+    # Filter the .lr file based on the coverage file, ensuring no empty lines
+    awk 'NR==FNR && $0!="" {{cov[$1" "$2]=1; next}} $0!="" && cov[$1" "$2] {{print}}' {input.cov_file} {input.lr_file} > {output.filtered_lr}
 
+    # If the filtered file is empty, create an empty file
+    if [ ! -s {output.filtered_lr} ]; then
+      touch {output.filtered_lr}
+    fi
+    """
 
 # Run dupHMM with beginning estimated parameters
+# adjust --lrquantile based on manhattan plot! 
+# adjust --maxcoverage based on .tsv files! Seems like some coverages are HIGH! ~50.. To be slightly conservative, choosing 20
 rule dupHMM_run_hap1:
   input:
-    lr_file = "results/ngs_paralog/hap{hap}/realign/{population}_scaffolds/{population}-{hap1scaffold_prefix}.lr",
-    cov_file = "results/coverage_realign/hap{hap}/{population}_{hap1scaffold_prefix}_average_coverage.tsv",
-    parameters = "results/ngs_paralog/hap{hap}/dupHMM_realign/{population}_dupHMM_realign.par"
+    lr_file = "results/ngs_paralog/hap1/realign/{population}_scaffolds/{population}-{hap1scaffold_prefix}.lr",
+    cov_file = "results/coverage_realign/hap1/{population}_scaffolds/{population}_{hap1scaffold_prefix}_average_coverage.tsv",
+    parameters = "results/ngs_paralog/hap1/dupHMM_realign/{population}_dupHMM_realign.par"
   output:
-    paralog_region = "results/ngs_paralog/hap{hap}/dupHMM_realign/{population}_{hap1scaffold_prefix}_dupHMM_realign_run.rf"
+    paralog_region = "results/ngs_paralog/hap1/dupHMM_realign/{population}_scaffolds/{population}-{hap1scaffold_prefix}_dupHMM_realign_run.rf"
   params:
     r_script_path = "/home/socamero/ngsParalog/dupHMM.R",
-    name_output = "results/ngs_paralog/hap{hap}/dupHMM_realign/{population}_{hap1scaffold_prefix}_dupHMM_realign_run"
+    name_output = "results/ngs_paralog/hap1/dupHMM_realign/{population}_scaffolds/{population}-{hap1scaffold_prefix}_dupHMM_realign_run"
   log:
-    "results/logs/ngs_paralog/hap{hap}/dupHMM_realign/{population}_{hap1scaffold_prefix}_dupHMM_realign_run.log"
+    "results/logs/ngs_paralog/hap1/dupHMM_realign/{population}_scaffolds/{population}-{hap1scaffold_prefix}_dupHMM_realign_run.log"
   envmodules:
     "r/4.3.1"
   shell:
     """
-    Rscript {params.r_script_path} --lrfile {input.lr_file} \
-    --outfile {params.name_output} \
-    --covfile {input.cov_file} \
-    --lrquantile 0.97 \
-    --maxcoverage 50 \
-    --paramfile {input.parameters} \
-    2> {log}
+    if [ -s {input.lr_file} ]; then
+        Rscript {params.r_script_path} --lrfile {input.lr_file} \
+        --outfile {params.name_output} \
+        --covfile {input.cov_file} \
+        --lrquantile 0.98 \
+        --maxcoverage 12 \
+        --paramfile {input.parameters} \
+        2> {log}
+    else
+        echo "Skipping empty .lr file: {input.lr_file}" >> {log}
+        touch {output.paralog_region}
+    fi
+    """
+
+
+rule dupHMM_run_hap2:
+  input:
+    lr_file = "results/ngs_paralog/hap2/realign/{population}_scaffolds/{population}-{hap2scaffold_prefix}.lr",
+    cov_file = "results/coverage_realign/hap2/{population}_scaffolds/{population}_{hap2scaffold_prefix}_average_coverage.tsv",
+    parameters = "results/ngs_paralog/hap2/dupHMM_realign/{population}_dupHMM_realign.par"
+  output:
+    paralog_region = "results/ngs_paralog/hap2/dupHMM_realign/{population}_scaffolds/{population}-{hap2scaffold_prefix}_dupHMM_realign_run.rf"
+  params:
+    r_script_path = "/home/socamero/ngsParalog/dupHMM.R",
+    name_output = "results/ngs_paralog/hap2/dupHMM_realign/{population}_scaffolds/{population}-{hap2scaffold_prefix}_dupHMM_realign_run"
+  log:
+    "results/logs/ngs_paralog/hap2/dupHMM_realign/{population}_scaffolds/{population}-{hap2scaffold_prefix}_dupHMM_realign_run.log"
+  envmodules:
+    "r/4.3.1"
+  shell:
+    """
+    if [ -s {input.lr_file} ]; then
+        Rscript {params.r_script_path} --lrfile {input.lr_file} \
+        --outfile {params.name_output} \
+        --covfile {input.cov_file} \
+        --lrquantile 0.98 \
+        --maxcoverage 12 \
+        --paramfile {input.parameters} \
+        2> {log}
+    else
+        echo "Skipping empty .lr file: {input.lr_file}" >> {log}
+        touch {output.paralog_region}
+    fi
+    """
+
+
+# Some scaffolds only have 1 SNP with coverage and/or paralog data
+# Some scaffolds don't meet the conditions for dupHMM (e.g outside of LR quantile range and too high coverage)
+
+
+
+
+## STEP 3: VERIFY HETEROZYGOTE EXCESS REDUCED .. METHOD 1: RE-RUN ANGSD
+
+# Print out all sites (monomorphic or not)
+rule extract_all_sites_by_popln:
+  input:
+    bam_list="data/lists/hap{hap}/{population}_realign_hap{hap}.txt"
+  output:
+    all_sites_gz="results/angsd/hap{hap}/all_sites/{population}_all_sites.pos.gz",
+    all_sites_arg="results/angsd/hap{hap}/all_sites/{population}_all_sites.arg",
+    all_sites_bed="results/angsd/hap{hap}/all_sites/{population}_all_sites.BED"
+  params:
+    ref="data/reference/hap{hap}/lupinehap{hap}.fasta",
+    angsd_out="results/angsd/hap{hap}/all_sites/{population}_all_sites"
+  log:
+    angsd_log="results/logs/angsd/hap{hap}/all_sites/{population}_all_sites.log"
+  threads: 8
+  envmodules:
+    "angsd/0.939"
+  shell:
+    """
+    # Extract all sites across the genome
+    angsd -bam {input.bam_list} -ref {params.ref} -out {params.angsd_out} \
+    -doCounts 1 -dumpCounts 1 -P 8 &> {log.angsd_log}
+
+    # Convert the ANGSD output to a BED format file
+    gzip -cd {params.angsd_out}.pos.gz | awk 'NR > 1 {{print $1, $2-1, $2}}' > {output.all_sites_bed}
+    """
+
+ 
+# Filter out deviant SNPs from all known sites
+rule filter_all_sites_by_popln:
+  input:
+    all_sites_bed="results/angsd/hap{hap}/all_sites/{population}_all_sites.BED",
+    deviant_snps="results/bed/hap{hap}/deviant_SNPs_realign/{population}_deviant_SNPs_realign_BH_correction.BED"
+  output:
+    filtered_sites_bed="results/bed/hap{hap}/filtered_sites/{population}_filtered_sites.BED",
+    filtered_sites_txt="results/bed/hap{hap}/filtered_sites/{population}_filtered_sites.txt"
+  log:
+    bedtools_log="results/logs/bedtools/hap{hap}/filtered_sites/{population}_filtered_sites.log"
+  envmodules:
+    "bedtools/2.30.0"
+  shell:
+    """
+    # Filter out deviant sites using bedtools
+    bedtools subtract -a {input.all_sites_bed} -b {input.deviant_snps} > {output.filtered_sites_bed} \
+    2> {log.bedtools_log}
+
+    # Convert the filtered BED file to a .txt file formatted for -sites in ANGSD
+    awk '{{print $1, $3}}' {output.filtered_sites_bed} > {output.filtered_sites_txt}
+    """
+
+# Re-run ANGSD and calculate SFS to check of SNP filtering reduced heterozygote excess
+# Run by population!
+rule angsd_SFS_by_population_on_all_sites:
+  input:
+    bam_list="data/lists/hap{hap}/{population}_realign_hap{hap}.txt",
+    canonical_sites="results/bed/hap{hap}/filtered_sites/{population}_filtered_sites.txt"
+  output:
+    arg_file="results/angsd/hap{hap}/canonical_realign/by_popln/{population}_canonical_sites.arg",
+    mafs_file="results/angsd/hap{hap}/canonical_realign/by_popln/{population}_canonical_sites.mafs.gz",
+    hwe_file="results/angsd/hap{hap}/canonical_realign/by_popln/{population}_canonical_sites.hwe.gz",
+    depth_sample="results/angsd/hap{hap}/canonical_realign/by_popln/{population}_canonical_sites.depthSample",
+    depth_global="results/angsd/hap{hap}/canonical_realign/by_popln/{population}_canonical_sites.depthGlobal",
+    saf_1="results/angsd/hap{hap}/canonical_realign/by_popln/{population}_canonical_sites.saf.idx",
+    saf_2="results/angsd/hap{hap}/canonical_realign/by_popln/{population}_canonical_sites.saf.pos.gz",
+    saf_3="results/angsd/hap{hap}/canonical_realign/by_popln/{population}_canonical_sites.saf.gz"
+  params:
+    ref="data/reference/hap{hap}/lupinehap{hap}.fasta",
+    file_name="results/angsd/hap{hap}/canonical_realign/by_popln/{population}_canonical_sites",
+    threads=12
+  log:
+    "results/logs/angsd/hap{hap}/canonical_realign/by_popln/angsd_canonical_sites_hap{hap}_{population}.log"
+  envmodules:
+    "angsd/0.939"
+  threads: 8
+  shell:
+    """
+    angsd -bam {input.bam_list} -ref {params.ref}\
+    -out {params.file_name}\
+    -remove_bads 1\
+    -GL 1\
+    -C 50\
+    -sites {input.canonical_sites}\
+    -minMapQ 30\
+    -minQ 20 \
+    -baq 2\
+    -only_proper_pairs 1\
+    -nThreads {params.threads}\
+    -doHWE 1\
+    -doCounts 1\
+    -doDepth 1\
+    -doMajorMinor 1\
+    -doMaf 2\
+    -dosaf 1
+    -fold 1\
+    -anc {params.ref}\
+    -doGlf 2\
+    &> {log}
     """
 
 
@@ -785,14 +981,148 @@ rule dupHMM_run_hap1:
 
 
 
+# NEW RULE TO CALCULATE SFS
+#rule calculate_SFS_step1:
+  #input:
+  #output:
+  #shell:
+
+#### POPULATION GENOMICS ####
+
+# Run ANGSD on entire dataset, filtering paralogs from each population, and estimate SNPs + save GLs
+# Rule to create .txt file of BAM files per population
+rule generate_bam_list_all_populations:
+  input:
+    expand("results/bam_realign/hap{hap}/{sample}_hap{hap}_realign.bam", sample=SAMPLES, hap=(1,2)),
+  output:
+    "data/lists/hap{hap}/all_populations_realign_hap{hap}.txt"
+  run:
+    bam_files = input
+    output_file = output[0]
+    hap = wildcards.hap
+
+    with open(output_file, "w") as output:
+        for bam_file in bam_files:
+            if f"_hap{hap}_" in bam_file:
+                output.write(f"{bam_file}\n")
+
+
+# Join together paralogs into one .BED file
+rule combine_population_paralog_bed_files:
+  input:
+    expand("results/bed/hap{hap}/deviant_SNPs_realign/{population}_deviant_SNPs_realign_BH_correction.BED", hap=(1,2), population=POPULATIONS),
+  output:
+    "results/bed/hap{hap}/combined/hap{hap}_combined_deviant_SNPs_realign_BH_correction.BED"
+  shell:
+    """
+    # Combine all BED files into one and remove duplicates
+    cat {input} | sort -k1,1 -k2,2n | uniq > {output}
+    """
+
+
+# Extract all known sites from ALL populations. This is to create list sites and later filter from paralogs
+rule extract_all_sites_all_populations:
+  input:
+    bam_list="data/lists/hap{hap}/all_populations_realign_hap{hap}.txt"
+  output:
+    all_sites_gz="results/angsd/hap{hap}/all_poplns/all_sites.pos.gz",
+    all_sites_arg="results/angsd/hap{hap}/all_poplns/all_sites.arg",
+    all_sites_bed="results/angsd/hap{hap}/all_poplns/all_sites.BED"
+  params:
+    ref="data/reference/hap{hap}/lupinehap{hap}.fasta",
+    angsd_out="results/angsd/hap{hap}/all_poplns/all_sites"
+  log:
+    angsd_log="results/logs/angsd/hap{hap}/all_poplns/all_sites.log"
+  threads: 16
+  envmodules:
+    "angsd/0.939"
+  shell:
+    """
+    # Extract all sites across the genome for all populations
+    angsd -bam {input.bam_list} -ref {params.ref} -out {params.angsd_out} \
+    -doCounts 1 -dumpCounts 1 -P {threads} &> {log.angsd_log}
+
+    # Convert the ANGSD output to a BED format file
+    gzip -cd {params.angsd_out}.pos.gz | awk 'NR > 1 {{print $1, $2-1, $2}}' > {output.all_sites_bed}
+    """
+
+
+rule filter_all_sites_all_populations:
+  input:
+    all_sites_bed="results/angsd/hap{hap}/all_poplns/all_sites.BED",
+    deviant_snps="results/bed/combined/hap{hap}_combined_deviant_SNPs_realign_BH_correction.BED"
+  output:
+    filtered_sites_bed="results/bed/hap{hap}/all_poplns/filtered_sites.BED",
+    filtered_sites_txt="results/bed/hap{hap}/all_poplns/filtered_sites.txt"
+  log:
+    bedtools_log="results/logs/bedtools/hap{hap}/all_poplns/filtered_sites.log"
+  envmodules:
+    "bedtools/2.30.0"
+  shell:
+    """
+    # Filter out deviant sites for all populations using bedtools
+    bedtools subtract -a {input.all_sites_bed} -b {input.deviant_snps} > {output.filtered_sites_bed} \
+    2> {log.bedtools_log}
+
+    # Convert the filtered BED file to a .txt file formatted for -sites in ANGSD
+    awk '{{print $1, $3}}' {output.filtered_sites_bed} > {output.filtered_sites_txt}
+    """
+
+
+# Estimate SAF, HWE, GL with SNPs on entire population
+rule angsd_SNP_on_entire_population:
+  input:
+    bam_list="data/lists/hap{hap}/all_populations_realign_hap{hap}.txt",
+    canonical_sites="results/bed/hap{hap}/all_poplns/filtered_sites.txt"
+  output:
+    arg_file="results/angsd/hap{hap}/canonical_realign/all_poplns/all_poplns_canonical_SNPs.arg",
+    mafs_file="results/angsd/hap{hap}/canonical_realign/all_poplns/all_poplns_canonical_SNPs.mafs.gz",
+    hwe_file="results/angsd/hap{hap}/canonical_realign/all_poplns/all_poplns_canonical_SNPs.hwe.gz",
+    depth_sample="results/angsd/hap{hap}/canonical_realign/all_poplns/all_poplns_canonical_SNPs.depthSample",
+    depth_global="results/angsd/hap{hap}/canonical_realign/all_poplns/all_poplns_canonical_SNPs.depthGlobal",
+    saf_1="results/angsd/hap{hap}/canonical_realign/all_poplns/all_poplns_canonical_SNPs.saf.idx",
+    saf_2="results/angsd/hap{hap}/canonical_realign/all_poplns/all_poplns_canonical_SNPs.saf.pos.gz",
+    saf_3="results/angsd/hap{hap}/canonical_realign/all_poplns/all_poplns_canonical_SNPs.saf.gz"
+  params:
+    ref="data/reference/hap{hap}/lupinehap{hap}.fasta",
+    file_name="results/angsd/hap{hap}/canonical_realign/all_poplns/all_poplns_canonical_SNPs",
+    threads=16
+  log:
+    "results/logs/angsd/hap{hap}/canonical_realign/all_poplns/angsd_canonical_SNPs_hap{hap}_all_poplns.log"
+  envmodules:
+    "angsd/0.939"
+  threads: 16
+  shell:
+    """
+    angsd -bam {input.bam_list} -ref {params.ref}\
+    -out {params.file_name}\
+    -remove_bads 1\
+    -GL 1\
+    -C 50\
+    -sites {input.canonical_sites}\
+    -minMapQ 30\
+    -minQ 20 \
+    -baq 2\
+    -only_proper_pairs 1\
+    -nThreads {params.threads}\
+    -SNP_pval 1e-6\
+    -doHWE 1\
+    -doCounts 1\
+    -doDepth 1\
+    -doMajorMinor 1\
+    -doMaf 2\
+    -dosaf 1
+    -fold 1\
+    -anc {params.ref}\
+    -doGlf 2\
+    &> {log}
+    """
 
 
 
+## ARCHIVED RULES ##
 
-
-
-## STEP 3a: VERIFY HETEROZYGOTE EXCESS REDUCED .. METHOD 1: FILTER HWE
-
+# Previously filtered deviant SNPs from hwe calculations to check F distribution... but this is a bad way because we did a very liberal SNP call.
 
 # Filter out deviant SNP positions from hwe to check for heterozygote excess
 rule filter_hwegz_from_deviant_SNPs:
@@ -800,7 +1130,7 @@ rule filter_hwegz_from_deviant_SNPs:
     F_values = "results/angsd/hap{hap}/raw_realign/{population}_raw_SNPs_realign.hwe.gz",
     deviant_snps = "results/bed/hap{hap}/deviant_SNPs_realign/{population}_deviant_SNPs_bp1_realign.lr"
   output:
-    filtered_Fs = "results/angsd/hap{hap}/canonical_realign/hwe_{population}_canonical_SNPs_realign.lr"
+    filtered_Fs = "results/bed/hap{hap}/canonical_SNPs_realign/Method_A/hwe_{population}_canonical_SNPs_realign.lr"
   shell:
     """
     zcat {input.F_values} | awk 'NR==FNR{{pos[$2]; next}} $2 in pos' {input.deviant_snps} - > {output.filtered_Fs}
@@ -812,7 +1142,7 @@ rule filter_hwegz_from_deviant_SNPs_BH:
     F_values = "results/angsd/hap{hap}/raw_realign/{population}_raw_SNPs_realign.hwe.gz",
     deviant_snps = "results/bed/hap{hap}/deviant_SNPs_realign/BH_correction/{population}_deviant_SNPs_bp1_realign_BH{BH_VAR}.lr"
   output:
-    filtered_Fs = "results/angsd/hap{hap}/canonical_realign/BH_correction/hwe_{population}_canonical_SNPs_realign_BH{BH_VAR}.lr"
+    filtered_Fs = "results/bed/hap{hap}/canonical_SNPs_realign/Method_A/BH_correction/hwe_{population}_canonical_SNPs_realign_BH{BH_VAR}.lr"
   shell:
     """
     zcat {input.F_values} | awk 'NR==FNR{{pos[$2]; next}} $2 in pos' {input.deviant_snps} - > {output.filtered_Fs}
@@ -824,7 +1154,7 @@ rule unzip_hwe:
   input:
     zipped_hwe = "results/angsd/hap{hap}/raw_realign/{population}_raw_SNPs_realign.hwe.gz"
   output:
-    unzip_hwe = "results/angsd/hap{hap}/raw_realign/hwe_{population}_raw_SNPs_realign.lr"
+    unzip_hwe = "results/bed/hap{hap}/raw_SNPs_realign/hwe_{population}_raw_SNPs_realign.lr"
   shell:
     """
     zcat {input.zipped_hwe} > {output.unzip_hwe}
@@ -846,28 +1176,28 @@ rule excess_heterozygotes_histogram_raw:
 # Create histogram of F values for canonical SNPs (excludes header)
 rule excess_heterozygotes_histogram_canonical:
   input:
-    hwe_file = "results/angsd/hap{hap}/canonical_realign/hwe_{population}_canonical_SNPs_realign.lr"
+    lr_file = "results/bed/hap{hap}/canonical_SNPs_realign/Method_A/hwe_{population}_canonical_SNPs_realign.lr"
   output:
     plot = "results/angsd/hap{hap}/plots_realign/BH_correction/HETERO_EXCESS_{population}_SNP_canonical_realign.png"
   envmodules:
     "r/4.3.1"
   shell:
-    "Rscript scripts/hetero_excess_noheader.R {input.hwe_file} {output.plot}"
+    "Rscript scripts/hetero_excess_noheader.R {input.lr_file} {output.plot}"
 
 
 # Create and group multiple histograms into one file per population, for F values of canonical SNPs
 # Checkpoint to determine all BH_VAR files for a given population and hap
 checkpoint excess_heterozygotes_files:
   input:
-    expand("results/angsd/hap{{hap}}/canonical_realign/BH_correction/hwe_{{population}}_canonical_SNPs_realign_BH{BH_VAR}.lr", BH_VAR=BH_VARS)
+    expand("results/angsd/hap{{hap}}/canonical_realign/Method_A/BH_correction/hwe_{{population}}_canonical_SNPs_realign_BH{BH_VAR}.lr", BH_VAR=BH_VARS)
   output:
-    touch("results/angsd/hap{{hap}}/canonical_realign/BH_correction/{{population}}_files.done")
+    touch("results/angsd/hap{{hap}}/canonical_realign/Method_A/BH_correction/{{population}}_files.done")
 
 
 # Aggregate rule for each population
 rule aggregate_excess_heterozygotes_histograms_canonical:
   input:
-    hwe_files = lambda wildcards: expand("results/angsd/hap{hap}/canonical_realign/BH_correction/hwe_{population}_canonical_SNPs_realign_BH{BH_VAR}.lr", 
+    hwe_files = lambda wildcards: expand("results/bed/hap{hap}/canonical_SNPs_realign/Method_A/BH_correction/hwe_{population}_canonical_SNPs_realign_BH{BH_VAR}.lr", 
                                          hap=wildcards.hap, population=wildcards.population, BH_VAR=BH_VARS)
   output:
     plot = "results/angsd/hap{hap}/plots_realign/BH_correction/HETERO_EXCESS_{population}_SNP_canonical_BH_aggregate_realign_BIG.png"
@@ -877,170 +1207,3 @@ rule aggregate_excess_heterozygotes_histograms_canonical:
     """
     Rscript scripts/hetero_excess_BH.R {input.hwe_files} {output.plot}
     """
-
-
-
-
-
-
-
-
-
-## STEP 3b: VERIFY HETEROZYGOTE EXCESS REDUCED .. METHOD 2: RE-RUN ANGSD
-
-# Filter out deviant SNPs from all SNPs discovered
-rule filter_deviant_snps:
-  input:
-    all_snps = "results/bed/hap{hap}/raw_realign/{population}_raw_SNPs_realign.BED",
-    deviant_snps = "results/bed/hap{hap}/deviant_SNPs_realign/{population}_deviant_SNPs_realign_BH_correction.BED"
-  output:
-    canonical_snps = "results/bed/hap{hap}/canonical_SNPs_realign/{population}_canonical_SNPs.BED"
-  envmodules:
-    "bedtools/2.30.0"
-  log:
-    "results/logs/qc/filter_deviants_realign/{population}_hap{hap}_filter_deviants.log"
-  shell:
-    """
-    # Define temporary file names directly in the shell command
-    temp_all_snps_bed="temp_all_snps_{wildcards.population}_{wildcards.hap}.bed"
-    temp_deviant_snps_bed="temp_deviant_snps_{wildcards.population}_{wildcards.hap}.bed"
-
-    # Trim extra spaces or tabs in BED files and ensure numeric fields are not altered
-    awk -v OFS='\\t' '{{ gsub(/^[ \\t]+|[ \\t]+$/, ""); print $1, int($2), int($3) }}' {input.all_snps} > $temp_all_snps_bed
-    awk -v OFS='\\t' '{{ gsub(/^[ \\t]+|[ \\t]+$/, ""); print $1, int($2), int($3) }}' {input.deviant_snps} > $temp_deviant_snps_bed
-
-    # Perform the subtraction
-    bedtools subtract -a $temp_all_snps_bed -b $temp_deviant_snps_bed > {output.canonical_snps} 2> {log}
-
-    # Cleanup temporary files
-    rm $temp_all_snps_bed $temp_deviant_snps_bed
-    """
-
-
-# Convert BED file to 1bp start and index BED files
-rule prepare_bed_for_angsd:
-  input:
-    bed_0_based="results/bed/hap{hap}/canonical_SNPs/{population}_canonical_SNPs.BED"
-  output:
-    bed_1_based="results/bed/hap{hap}/canonical_SNPs/{population}_canonical_SNPs_1_bp.BED",
-    bed_binary="results/bed/hap{hap}/canonical_SNPs/{population}_canonical_SNPs_1_bp.BED.bin",
-    bed_idx="results/bed/hap{hap}/canonical_SNPs/{population}_canonical_SNPs_1_bp.BED.idx"
-  envmodules:
-    "angsd/0.939"
-  shell:
-    """
-    # Convert BED file from 0-based to 1-based indexing
-    awk '{{ print $1, $2 + 1, $3 }}' OFS='\\t' {input.bed_0_based} > {output.bed_1_based}
-    
-    # Index the new 1-based BED file with ANGSD
-    angsd sites index {output.bed_1_based}
-    """
-
-# Re-run ANGSD and calculate HWE to check of SNP filtering reduced heterozygote excess
-rule angsd_canonical_SNP:
-  input:
-    bam_list="data/lists/{population}_mkdup_hap{hap}.txt",
-    canonical_snps="results/bed/hap1/canonical_SNPs/{population}_canonical_SNPs_1_bp.BED"
-  output:
-    arg_file="results/angsd/hap{hap}/canonical/{population}_canonical_SNPs_V2.arg",
-    mafs_file="results/angsd/hap{hap}/canonical/{population}_canonical_SNPs_V2.mafs.gz",
-    hwe_file="results/angsd/hap{hap}/canonical/{population}_canonical_SNPs_V2.hwe.gz",
-    depth_sample="results/angsd/hap{hap}/canonical/{population}_canonical_SNPs_V2.depthSample",
-    depth_global="results/angsd/hap{hap}/canonical/{population}_canonical_SNPs_V2.depthGlobal"
-  params:
-    ref="data/reference/hap{hap}/lupinehap{hap}.fasta",
-    file_name="results/angsd/hap{hap}/canonical/{population}_canonical_SNPs_V2",
-    threads=8
-  log:
-    "results/logs/angsd/hap{hap}/angsd_canonical_SNPs_V2_hap{hap}_{population}.log"
-  envmodules:
-    "angsd/0.939"
-  threads: 8
-  shell:
-    """
-    angsd -bam {input.bam_list} -ref {params.ref}\
-    -out {params.file_name}\
-    -remove_bads 1\
-    -GL 2\
-    -sites {input.canonical_snps}\
-    -doMajorMinor 1\
-    -doMaf 2\
-    -SNP_pval 1e-8\
-    -minMapQ 30\
-    -minQ 20 \
-    -minInd 25\
-    -minMaf .05\
-    -baq 2\
-    -only_proper_pairs 1\
-    -nThreads {params.threads}\
-    -doHWE 1\
-    -doCounts 1\
-    -doDepth 1\
-    &> {log}
-    """
-
-
-# Unzip hwe to extract desired variables (i.e F values)
-rule unzip_hwe_filter:
-  input:
-    zipped_hwe = "results/angsd/hap{hap}/canonical/{population}_canonical_SNPs.hwe.gz"
-  output:
-    unzip_hwe = "results/angsd/hap{hap}/canonical/hwe_m2_{population}_canonical_SNPs.lr"
-  shell:
-    """
-    zcat {input.zipped_hwe} > {output.unzip_hwe}
-    """
-
-
-# Create historgram of F values for canonical SNPs (excludes header)
-rule excess_heterozygotes_histogram_canonical_M2:
-  input:
-    hwe_file = "results/angsd/hap{hap}/canonical/hwe_m2_{population}_canonical_SNPs.lr"
-  output:
-    plot = "results/angsd/hap{hap}/plots/HETERO_EXCESS_{population}_SNP_canonical_M2.png"
-  envmodules:
-    "r/4.3.1"
-  shell:
-    "Rscript scripts/hetero_excess_header.R {input.hwe_file} {output.plot}"
-
-
-#### POPULATION GENOMICS ####
-
-
-
-
-
-
-
-
-## UNUSED RULES ##
-
-
-# Calling genotype likelihoods (GLs) for variant calling using bam files w/ marked duplicates
-rule make_gvcfs:
-  input:
-    bam="results/mkdup/hap{hap}/{sample}_hap{hap}_filtered.bam",
-    bai="results/mkdup/hap{hap}/{sample}_hap{hap}_filtered.bai",
-    ref="data/reference/hap{hap}/lupinehap{hap}.fasta",
-    idx="data/reference/hap{hap}/lupinehap{hap}.dict",
-    fai="data/reference/hap{hap}/lupinehap{hap}.fasta.fai"
-  output:
-    gvcf="results/gvcf/hap{hap}/{sample}_hap{hap}.g.vcf.gz",
-    idx="results/gvcf/hap{hap}/{sample}_hap{hap}.g.vcf.gz.tbi",
-  params:
-    java_opts="-Xmx4g",
-    tempdir="/tmp/bam"
-  log:
-    "results/logs/make_gvcfs/{sample}_hap{hap}.log"
-  envmodules:
-    "gatk/4.2.5.0",
-    "StdEnv/2020"
-  threads: 4
-  shell:
-    " gatk --java-options \"{params.java_opts}\" HaplotypeCaller "
-    " --native-pair-hmm-threads {threads} "
-    " -R {input.ref} "
-    " -I {input.bam} "
-    " -O {output.gvcf} "
-    " --tmp-dir {params.tempdir} "
-    " -ERC GVCF > {log} 2> {log} "
