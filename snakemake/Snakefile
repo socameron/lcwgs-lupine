@@ -80,8 +80,15 @@ SAMPLES = sorted(list(SAMPLES))
 # final files desired (can change)
 rule all:
   input:
-    expand("results/bed/hap2/filtered_sites/{population}_filtered_sites.BED", population=POPULATIONS),
-    expand("results/bed/hap2/filtered_sites/{population}_filtered_sites.txt", population=POPULATIONS)
+    expand("results/angsd/hap2/canonical_realign/by_popln/{population}_canonical_sites.arg", population=POPULATIONS),
+    expand("results/angsd/hap2/canonical_realign/by_popln/{population}_canonical_sites.mafs.gz", population=POPULATIONS),
+    expand("results/angsd/hap2/canonical_realign/by_popln/{population}_canonical_sites.hwe.gz", population=POPULATIONS),
+    expand("results/angsd/hap2/canonical_realign/by_popln/{population}_canonical_sites.depthSample", population=POPULATIONS),
+    expand("results/angsd/hap2/canonical_realign/by_popln/{population}_canonical_sites.depthGlobal", population=POPULATIONS),
+    expand("results/angsd/hap2/canonical_realign/by_popln/{population}_canonical_sites.saf.idx", population=POPULATIONS),
+    expand("results/angsd/hap2/canonical_realign/by_popln/{population}_canonical_sites.saf.pos.gz", population=POPULATIONS),
+    expand("results/angsd/hap2/canonical_realign/by_popln/{population}_canonical_sites.saf.gz", population=POPULATIONS)
+
 
 
 
@@ -899,15 +906,74 @@ rule extract_all_sites_by_popln:
     -doCounts 1 -dumpCounts 1 -P 8 &> {log.angsd_log}
 
     # Convert the ANGSD output to a BED format file
-    gzip -cd {params.angsd_out}.pos.gz | awk 'NR > 1 {{print $1, $2-1, $2}}' > {output.all_sites_bed}
+    gunzip -c {params.angsd_out}.pos.gz | awk 'NR > 1 {{print $1, $2-1, $2}}' > {output.all_sites_bed}
     """
 
- 
+
+rule check_bed_files:
+  input:
+    all_sites_bed = "results/angsd/hap2/all_sites/{population}_all_sites.BED",
+    deviant_snps_bed = "results/bed/hap2/deviant_SNPs_realign/{population}_deviant_SNPs_realign_BH_correction.BED"
+  output:
+    touch("results/checks/hap2/{population}_bed_files_checked.txt")
+  log:
+    "results/logs/check_bed/check_bed_files_hap2_{population}.log"
+  shell:
+    """
+    echo "Checking files for population {wildcards.population}" >> {log}
+
+    for bed_file in {input.all_sites_bed} {input.deviant_snps_bed}; do
+        echo "Checking file: $bed_file" >> {log}
+
+        # Check if file is tab-delimited and columns 2 and 3 are integers
+        awk -F '\\t' 'BEGIN {{ OFS = FS; hasNonIntegers = 0; notTabDelimited = 0; }}
+        {{
+            if (NF < 3) {{ 
+                notTabDelimited = 1; 
+                exit; 
+            }}
+            if ($2 != int($2) || $3 != int($3)) {{ 
+                hasNonIntegers = 1; 
+                exit; 
+            }}
+        }}
+        END {{
+            if (notTabDelimited) {{ 
+                print "ERROR: File is not tab-delimited or does not have at least 3 columns: " bed_file; 
+            }} else if (hasNonIntegers) {{ 
+                print "ERROR: File contains non-integer values in columns 2 or 3: " bed_file; 
+            }} else {{ 
+                print "OK: File passed checks: " bed_file; 
+            }}
+        }}' bed_file="$bed_file" >> {log}
+    done
+    """
+
+
 # Filter out deviant SNPs from all known sites
-rule filter_all_sites_by_popln:
+rule preprocess_bed_files_all_populations:
   input:
     all_sites_bed="results/angsd/hap{hap}/all_sites/{population}_all_sites.BED",
     deviant_snps="results/bed/hap{hap}/deviant_SNPs_realign/{population}_deviant_SNPs_realign_BH_correction.BED"
+  output:
+    processed_all_sites_bed="results/angsd/hap{hap}/all_sites/{population}_all_sites_processed.BED",
+    processed_deviant_snps="results/bed/hap{hap}/deviant_SNPs_realign/{population}_deviant_SNPs_realign_BH_correction_processed.BED"
+  shell:
+    """
+    # Ensure all_sites_bed BED file is tab-delimited and has UNIX line endings
+    dos2unix {input.all_sites_bed}
+    awk '{{print $1"\t"$2"\t"$3}}' {input.all_sites_bed} > {output.processed_all_sites_bed}
+
+    # Ensure deviant_snps BED file is tab-delimited and has UNIX line endings
+    dos2unix {input.deviant_snps}
+    awk '{{print $1"\t"$2"\t"$3}}' {input.deviant_snps} > {output.processed_deviant_snps}
+    """
+
+
+rule filter_all_sites_by_popln:
+  input:
+    processed_all_sites_bed="results/angsd/hap{hap}/all_sites/{population}_all_sites_processed.BED",
+    processed_deviant_snps="results/bed/hap{hap}/deviant_SNPs_realign/{population}_deviant_SNPs_realign_BH_correction_processed.BED"
   output:
     filtered_sites_bed="results/bed/hap{hap}/filtered_sites/{population}_filtered_sites.BED",
     filtered_sites_txt="results/bed/hap{hap}/filtered_sites/{population}_filtered_sites.txt"
@@ -918,11 +984,25 @@ rule filter_all_sites_by_popln:
   shell:
     """
     # Filter out deviant sites using bedtools
-    bedtools subtract -a {input.all_sites_bed} -b {input.deviant_snps} > {output.filtered_sites_bed} \
+    bedtools subtract -a {input.processed_all_sites_bed} -b {input.processed_deviant_snps} > {output.filtered_sites_bed} \
     2> {log.bedtools_log}
 
     # Convert the filtered BED file to a .txt file formatted for -sites in ANGSD
     awk '{{print $1, $3}}' {output.filtered_sites_bed} > {output.filtered_sites_txt}
+    """
+
+
+# Index filtered all sites BED file
+rule index_sites_all_popln_list:
+  input: 
+    canonical_sites = "results/bed/hap{hap}/filtered_sites/{population}_filtered_sites.txt"
+  output: 
+    bin_index = "results/bed/hap{hap}/filtered_sites/{population}_filtered_sites.txt.bin"
+  envmodules:
+    "angsd/0.939"
+  shell: 
+    """
+    angsd sites index {input.canonical_sites}
     """
 
 # Re-run ANGSD and calculate SFS to check of SNP filtering reduced heterozygote excess
@@ -943,12 +1023,12 @@ rule angsd_SFS_by_population_on_all_sites:
   params:
     ref="data/reference/hap{hap}/lupinehap{hap}.fasta",
     file_name="results/angsd/hap{hap}/canonical_realign/by_popln/{population}_canonical_sites",
-    threads=12
+    threads=16
   log:
     "results/logs/angsd/hap{hap}/canonical_realign/by_popln/angsd_canonical_sites_hap{hap}_{population}.log"
   envmodules:
     "angsd/0.939"
-  threads: 8
+  threads: 16
   shell:
     """
     angsd -bam {input.bam_list} -ref {params.ref}\
@@ -967,8 +1047,7 @@ rule angsd_SFS_by_population_on_all_sites:
     -doDepth 1\
     -doMajorMinor 1\
     -doMaf 2\
-    -dosaf 1
-    -fold 1\
+    -doSaf 1\
     -anc {params.ref}\
     -doGlf 2\
     &> {log}
@@ -981,8 +1060,8 @@ rule angsd_SFS_by_population_on_all_sites:
 
 
 
-# NEW RULE TO CALCULATE SFS
-#rule calculate_SFS_step1:
+# Optimize and calculate SFS with folded spectra (-fold 1) since ancestral state unknown
+#rule calculate_realSFS:
   #input:
   #output:
   #shell:
@@ -1043,7 +1122,8 @@ rule extract_all_sites_all_populations:
     -doCounts 1 -dumpCounts 1 -P {threads} &> {log.angsd_log}
 
     # Convert the ANGSD output to a BED format file
-    gzip -cd {params.angsd_out}.pos.gz | awk 'NR > 1 {{print $1, $2-1, $2}}' > {output.all_sites_bed}
+    gzip -cd {params.angsd_out}.pos.gz | awk 'NR > 1 {{print $1"\t"$2-1"\t"$2}}' > {output.all_sites_bed}
+    dos2unix {output.all_sites_bed}
     """
 
 
