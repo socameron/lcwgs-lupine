@@ -87,7 +87,16 @@ rule all:
     expand("results/angsd/hap2/canonical_realign/by_popln/{population}_canonical_sites.depthGlobal", population=POPULATIONS),
     expand("results/angsd/hap2/canonical_realign/by_popln/{population}_canonical_sites.saf.idx", population=POPULATIONS),
     expand("results/angsd/hap2/canonical_realign/by_popln/{population}_canonical_sites.saf.pos.gz", population=POPULATIONS),
-    expand("results/angsd/hap2/canonical_realign/by_popln/{population}_canonical_sites.saf.gz", population=POPULATIONS)
+    expand("results/angsd/hap2/canonical_realign/by_popln/{population}_canonical_sites.saf.gz", population=POPULATIONS),
+    "results/angsd/hap2/canonical_realign/all_poplns/all_poplns_canonical_SNPs.arg",
+    "results/angsd/hap2/canonical_realign/all_poplns/all_poplns_canonical_SNPs.mafs.gz",
+    "results/angsd/hap2/canonical_realign/all_poplns/all_poplns_canonical_SNPs.hwe.gz",
+    "results/angsd/hap2/canonical_realign/all_poplns/all_poplns_canonical_SNPs.depthSample",
+    "results/angsd/hap2/canonical_realign/all_poplns/all_poplns_canonical_SNPs.depthGlobal",
+    "results/angsd/hap2/canonical_realign/all_poplns/all_poplns_canonical_SNPs.saf.idx",
+    "results/angsd/hap2/canonical_realign/all_poplns/all_poplns_canonical_SNPs.saf.pos.gz",
+    "results/angsd/hap2/canonical_realign/all_poplns/all_poplns_canonical_SNPs.saf.gz",
+    expand("results/ngs_paralog/hap2/dupHMM_realign/{population}_scaffolds/{population}-{hap2scaffold_prefix}_dupHMM_realign_run.rf", population=("MFNP", "LCTGP", "IDNP-MW"), hap2scaffold_prefix=HAP2SCAFFOLD_PREFIXES)
 
 
 
@@ -448,7 +457,6 @@ rule angsd_raw_SNP:
   params:
     ref="data/reference/hap{hap}/lupinehap{hap}.fasta",
     file_name="results/angsd/hap{hap}/raw_realign/{population}_raw_SNPs_realign",
-    threads=12,
     hap="{hap}",
     population="{population}"
   log:
@@ -470,7 +478,7 @@ rule angsd_raw_SNP:
     -minMaf .05\
     -baq 2\
     -only_proper_pairs 1\
-    -nThreads {params.threads}\
+    -nThreads {threads}\
     -doHWE 1\
     -doCounts 1\
     -doDepth 1\
@@ -950,7 +958,7 @@ rule check_bed_files:
     """
 
 
-# Filter out deviant SNPs from all known sites
+# Format all BED files accordingly and make sure they're in UNIX format + tab delimited
 rule preprocess_bed_files_all_populations:
   input:
     all_sites_bed="results/angsd/hap{hap}/all_sites/{population}_all_sites.BED",
@@ -960,16 +968,34 @@ rule preprocess_bed_files_all_populations:
     processed_deviant_snps="results/bed/hap{hap}/deviant_SNPs_realign/{population}_deviant_SNPs_realign_BH_correction_processed.BED"
   shell:
     """
-    # Ensure all_sites_bed BED file is tab-delimited and has UNIX line endings
+    # Convert all_sites_bed BED file from DOS to UNIX line endings and process
     dos2unix {input.all_sites_bed}
-    awk '{{print $1"\t"$2"\t"$3}}' {input.all_sites_bed} > {output.processed_all_sites_bed}
+    awk 'NF >= 3 {{print $1"\t"$2"\t"$3}}' {input.all_sites_bed} > {output.processed_all_sites_bed}
 
-    # Ensure deviant_snps BED file is tab-delimited and has UNIX line endings
+    # Convert deviant_snps BED file from DOS to UNIX line endings and process
     dos2unix {input.deviant_snps}
-    awk '{{print $1"\t"$2"\t"$3}}' {input.deviant_snps} > {output.processed_deviant_snps}
+    awk 'NF >= 3 {{print $1"\t"$2"\t"$3}}' {input.deviant_snps} > {output.processed_deviant_snps}
+    
+
+    # Optional: Print lines before and after removal for auditing
+    echo "Lines before processing in {input.all_sites_bed}:"
+    wc -l {input.all_sites_bed}
+    echo "Lines after processing in {output.processed_all_sites_bed}:"
+    wc -l {output.processed_all_sites_bed}
+
+    echo "Lines before processing in {input.deviant_snps}:"
+    wc -l {input.deviant_snps}
+    echo "Lines after processing in {output.processed_deviant_snps}:"
+    wc -l {output.processed_deviant_snps}
     """
 
 
+# Upon manual inspection, it seems that population PPP has a paralog data row that is malformed. We remove this manually
+# We also incorporate this new check into the preprocessing rule. --> If any row has missing data, we remove that row. 
+#sed -i '3272157d' results/bed/hap2/deviant_SNPs_realign/PPP_deviant_SNPs_realign_BH_correction_processed.BED
+
+
+# Filter out deviant SNPs from all known sites
 rule filter_all_sites_by_popln:
   input:
     processed_all_sites_bed="results/angsd/hap{hap}/all_sites/{population}_all_sites_processed.BED",
@@ -1010,7 +1036,8 @@ rule index_sites_all_popln_list:
 rule angsd_SFS_by_population_on_all_sites:
   input:
     bam_list="data/lists/hap{hap}/{population}_realign_hap{hap}.txt",
-    canonical_sites="results/bed/hap{hap}/filtered_sites/{population}_filtered_sites.txt"
+    canonical_sites="results/bed/hap{hap}/filtered_sites/{population}_filtered_sites.txt",
+    bin_index="results/bed/hap{hap}/filtered_sites/{population}_filtered_sites.txt.bin"
   output:
     arg_file="results/angsd/hap{hap}/canonical_realign/by_popln/{population}_canonical_sites.arg",
     mafs_file="results/angsd/hap{hap}/canonical_realign/by_popln/{population}_canonical_sites.mafs.gz",
@@ -1022,8 +1049,7 @@ rule angsd_SFS_by_population_on_all_sites:
     saf_3="results/angsd/hap{hap}/canonical_realign/by_popln/{population}_canonical_sites.saf.gz"
   params:
     ref="data/reference/hap{hap}/lupinehap{hap}.fasta",
-    file_name="results/angsd/hap{hap}/canonical_realign/by_popln/{population}_canonical_sites",
-    threads=16
+    file_name="results/angsd/hap{hap}/canonical_realign/by_popln/{population}_canonical_sites"
   log:
     "results/logs/angsd/hap{hap}/canonical_realign/by_popln/angsd_canonical_sites_hap{hap}_{population}.log"
   envmodules:
@@ -1041,7 +1067,7 @@ rule angsd_SFS_by_population_on_all_sites:
     -minQ 20 \
     -baq 2\
     -only_proper_pairs 1\
-    -nThreads {params.threads}\
+    -nThreads {threads}\
     -doHWE 1\
     -doCounts 1\
     -doDepth 1\
@@ -1121,8 +1147,8 @@ rule extract_all_sites_all_populations:
     angsd -bam {input.bam_list} -ref {params.ref} -out {params.angsd_out} \
     -doCounts 1 -dumpCounts 1 -P {threads} &> {log.angsd_log}
 
-    # Convert the ANGSD output to a BED format file
-    gzip -cd {params.angsd_out}.pos.gz | awk 'NR > 1 {{print $1"\t"$2-1"\t"$2}}' > {output.all_sites_bed}
+    # Convert the ANGSD output to a BED format file and check for completeness of data
+    gzip -cd {params.angsd_out}.pos.gz | awk 'NR > 1 && NF >= 3 {{print $1"\t"$2-1"\t"$2}}' > {output.all_sites_bed}
     dos2unix {output.all_sites_bed}
     """
 
@@ -1166,7 +1192,6 @@ rule angsd_SNP_on_entire_population:
   params:
     ref="data/reference/hap{hap}/lupinehap{hap}.fasta",
     file_name="results/angsd/hap{hap}/canonical_realign/all_poplns/all_poplns_canonical_SNPs",
-    threads=16
   log:
     "results/logs/angsd/hap{hap}/canonical_realign/all_poplns/angsd_canonical_SNPs_hap{hap}_all_poplns.log"
   envmodules:
@@ -1184,7 +1209,7 @@ rule angsd_SNP_on_entire_population:
     -minQ 20 \
     -baq 2\
     -only_proper_pairs 1\
-    -nThreads {params.threads}\
+    -nThreads {threads}\
     -SNP_pval 1e-6\
     -doHWE 1\
     -doCounts 1\
