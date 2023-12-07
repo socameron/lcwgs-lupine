@@ -96,7 +96,9 @@ rule all:
     "results/angsd/hap2/canonical_realign/all_poplns/all_poplns_canonical_SNPs.saf.idx",
     "results/angsd/hap2/canonical_realign/all_poplns/all_poplns_canonical_SNPs.saf.pos.gz",
     "results/angsd/hap2/canonical_realign/all_poplns/all_poplns_canonical_SNPs.saf.gz",
-    expand("results/ngs_paralog/hap2/dupHMM_realign/{population}_scaffolds/{population}-{hap2scaffold_prefix}_dupHMM_realign_run.rf", population=("MFNP", "LCTGP", "IDNP-MW"), hap2scaffold_prefix=HAP2SCAFFOLD_PREFIXES)
+    expand("results/ngs_paralog/hap2/concat_realign/{population}_dupHMM_realign_WGS.lr", population=POPULATIONS),
+    expand("results/angsd/hap2/globalSFS/{population}_hap2_globalSFS.sfs", population=POPULATIONS),
+    expand("results/plots/hap2/SFS/{population}_globalSFS.png", population=POPULATIONS)
 
 
 
@@ -444,7 +446,7 @@ rule generate_bam_list_per_population:
 
 
 # Call SNPs with stringent rules for input to ngsParalog
-# Question:  is -minInd 3 and -SNP_pvalue 0.05 so very liberal SNP calls
+# Question:  is -minInd 5 and -SNP_pvalue 0.05 so very liberal SNP calls
 rule angsd_raw_SNP:
   input:
     bam_list="data/lists/hap{hap}/{population}_realign_hap{hap}.txt"
@@ -490,7 +492,7 @@ rule angsd_raw_SNP:
 
 # Create BED files so including only SNPs into ngsParalog
 # NOTE: BED files indexed at 0bp because SAMtools to create pileup requires 0bp index
-rule convert_mafs_to_bed_stringent:
+rule convert_mafs_to_bed:
   input:
     mafs_gz="results/angsd/hap{hap}/raw_realign/{population}_raw_SNPs_realign.mafs.gz"
   output:
@@ -631,7 +633,7 @@ rule ngsParalog_manhattan:
   input:
     lr_file="results/ngs_paralog/hap{hap}/realign/{population}_scaffolds/{population}-Scaffold_1.lr"
   output:
-    plot="results/ngs_paralog/plots_realign/hap{hap}/{population}_manhattan_plot_realign_scaffold_1.png"
+    plot="results/plots/hap{hap}/ngsParalog/realign/{population}_manhattan_plot_realign_scaffold_1.png"
   envmodules:
     "r/4.3.1"
   threads: 2
@@ -639,8 +641,11 @@ rule ngsParalog_manhattan:
     "Rscript scripts/ngs_paralog_graphs.R {input.lr_file} {output.plot}"
 
 
+## dupHMM - Discover paralogous regions rather than individual sites ##
+# Requires calcLR .lr files and depth of coverage .tsv files 
+
 # Generate average depth of coverage per site for dupHMM
-# Only estimate at sites deemed 'paralogous' from raw ngsParalog (pre BH filter)
+# Only estimate depth at sites deemed 'paralogous' from raw ngsParalog (pre BH filter)
 rule calculate_average_coverage_per_population:
   input:
     bam_files=lambda wildcards: expand("results/bam_realign/hap{hap}/{sample}_hap{hap}_realign.bam", sample=[s for s in SAMPLES if s.startswith(wildcards.population)], hap=(1,2)),
@@ -666,10 +671,9 @@ rule calculate_average_coverage_per_population:
 
 
 
-# Reduce deviant SNP calls to the number of known sites with depth data.
-# In other words, ANGSD used imputation and was able to call more SNPs than the raw data in BAM files
+# Reduce deviant SNP calls (aka calcLR LRs) to the number of known sites with depth data.
 # ANGSD does estimate depth globally and per individual, but NOT per site (see -doDepth 1)
-rule filter_lr_by_coverage:
+rule filter_paralog_by_coverage:
   input:
     lr_file="results/ngs_paralog/hap{hap}/concat_realign/{population}_paralog_realign_WGS.lr",
     cov_file="results/coverage_realign/hap{hap}/{population}_average_coverage.tsv"
@@ -685,6 +689,7 @@ rule filter_lr_by_coverage:
 
 
 # Set parameters for dupHMM to infer transitions between dup maps and normal mapping regions
+# dupHMM setup is run across the entire genome ! Where as dupHMM run is run across each scaffold instead. 
 rule dupHMM_setup:
   input:
     lr_file = "results/bed/hap{hap}/deviant_SNPs_realign/{population}_coverage_only_paralog_realign_WGS.lr",
@@ -779,6 +784,9 @@ rule calculate_coverage_per_population_and_scaffold_hap2:
     fi
     """
 
+# Filter .lr files by which there is depth data
+# This is similar as before, but we need it by scaffold since...
+# dupHMM setup is run across the entire genome ! Where as dupHMM run is run across each scaffold instead. 
 rule filter_scaffold_lr_by_coverage_hap1:
   input:
     lr_file="results/ngs_paralog/hap1/realign/{population}_scaffolds/{population}-{hap1scaffold_prefix}.lr",
@@ -821,6 +829,7 @@ rule filter_scaffold_lr_by_coverage_hap2:
 # Run dupHMM with beginning estimated parameters
 # adjust --lrquantile based on manhattan plot! 
 # adjust --maxcoverage based on .tsv files! Seems like some coverages are HIGH! ~50.. To be slightly conservative, choosing 20
+# NOTE: Some scaffolds only have 1 SNP with coverage and/or paralog data and can't be used in dupHMM so we skip these. 
 rule dupHMM_run_hap1:
   input:
     lr_file = "results/ngs_paralog/hap1/realign/{population}_scaffolds/{population}-{hap1scaffold_prefix}.lr",
@@ -837,7 +846,7 @@ rule dupHMM_run_hap1:
     "r/4.3.1"
   shell:
     """
-    if [ -s {input.lr_file} ]; then
+    if [ -s {input.lr_file} ] && [ $(cat {input.lr_file} | wc -l) -gt 1 ]; then
         Rscript {params.r_script_path} --lrfile {input.lr_file} \
         --outfile {params.name_output} \
         --covfile {input.cov_file} \
@@ -846,7 +855,7 @@ rule dupHMM_run_hap1:
         --paramfile {input.parameters} \
         2> {log}
     else
-        echo "Skipping empty .lr file: {input.lr_file}" >> {log}
+        echo "Skipping .lr file due to insufficient data (empty or only one row): {input.lr_file}" >> {log}
         touch {output.paralog_region}
     fi
     """
@@ -868,7 +877,7 @@ rule dupHMM_run_hap2:
     "r/4.3.1"
   shell:
     """
-    if [ -s {input.lr_file} ]; then
+    if [ -s {input.lr_file} ] && [ $(cat {input.lr_file} | wc -l) -gt 1 ]; then
         Rscript {params.r_script_path} --lrfile {input.lr_file} \
         --outfile {params.name_output} \
         --covfile {input.cov_file} \
@@ -877,15 +886,37 @@ rule dupHMM_run_hap2:
         --paramfile {input.parameters} \
         2> {log}
     else
-        echo "Skipping empty .lr file: {input.lr_file}" >> {log}
+        echo "Skipping .lr file due to insufficient data (empty or only one row): {input.lr_file}" >> {log}
         touch {output.paralog_region}
     fi
     """
 
 
-# Some scaffolds only have 1 SNP with coverage and/or paralog data
-# Some scaffolds don't meet the conditions for dupHMM (e.g outside of LR quantile range and too high coverage)
+# Combine all dupHMM outputs together into one file per population
+rule concatenate_dupHMM_hap1:
+  input:
+    dupHMM_files=lambda wildcards: expand("results/ngs_paralog/hap1/dupHMM_realign/{population}_scaffolds/{{population}}-{hap1scaffold_prefix}_dupHMM_realign_run.rf", population=wildcards.population, hap1scaffold_prefix=HAP1SCAFFOLD_PREFIXES)
+  output:
+    dupHMM_final="results/ngs_paralog/hap1/concat_realign/{population}_dupHMM_realign_WGS.lr"
+  log:
+    "results/logs/ngs_paralog/hap1/concat_realign/{population}_dupHMM_realign_WGS.log"
+  shell:
+    """
+    cat {input.dupHMM_files} >> {output.paralog_final}
+    """
 
+
+rule concatenate_dupHMM_hap2:
+  input:
+    dupHMM_files=lambda wildcards: expand("results/ngs_paralog/hap2/dupHMM_realign/{population}_scaffolds/{{population}}-{hap2scaffold_prefix}_dupHMM_realign_run.rf", population=wildcards.population, hap2scaffold_prefix=HAP2SCAFFOLD_PREFIXES)
+  output:
+    dupHMM_final="results/ngs_paralog/hap2/concat_realign/{population}_dupHMM_realign_WGS.lr"
+  log:
+    "results/logs/ngs_paralog/hap2/concat_realign/{population}_dupHMM_realign_WGS.log"
+  shell:
+    """
+    cat {input.dupHMM_files} >> {output.paralog_final}
+    """
 
 
 
@@ -1031,8 +1062,8 @@ rule index_sites_all_popln_list:
     angsd sites index {input.canonical_sites}
     """
 
-# Re-run ANGSD and calculate SFS to check of SNP filtering reduced heterozygote excess
-# Run by population!
+
+# ANGSD by population: To calculate SFS (check if heterozygote excess reduced)
 rule angsd_SFS_by_population_on_all_sites:
   input:
     bam_list="data/lists/hap{hap}/{population}_realign_hap{hap}.txt",
@@ -1046,7 +1077,8 @@ rule angsd_SFS_by_population_on_all_sites:
     depth_global="results/angsd/hap{hap}/canonical_realign/by_popln/{population}_canonical_sites.depthGlobal",
     saf_1="results/angsd/hap{hap}/canonical_realign/by_popln/{population}_canonical_sites.saf.idx",
     saf_2="results/angsd/hap{hap}/canonical_realign/by_popln/{population}_canonical_sites.saf.pos.gz",
-    saf_3="results/angsd/hap{hap}/canonical_realign/by_popln/{population}_canonical_sites.saf.gz"
+    saf_3="results/angsd/hap{hap}/canonical_realign/by_popln/{population}_canonical_sites.saf.gz",
+    beagle="results/angsd/hap{hap}/canonical_realign/by_popln/{population}_canonical_sites.beagle.gz"
   params:
     ref="data/reference/hap{hap}/lupinehap{hap}.fasta",
     file_name="results/angsd/hap{hap}/canonical_realign/by_popln/{population}_canonical_sites"
@@ -1054,7 +1086,7 @@ rule angsd_SFS_by_population_on_all_sites:
     "results/logs/angsd/hap{hap}/canonical_realign/by_popln/angsd_canonical_sites_hap{hap}_{population}.log"
   envmodules:
     "angsd/0.939"
-  threads: 16
+  threads: 8
   shell:
     """
     angsd -bam {input.bam_list} -ref {params.ref}\
@@ -1080,19 +1112,231 @@ rule angsd_SFS_by_population_on_all_sites:
     """
 
 
+# Optimize and calculate SFS with folded spectra (-fold 1) since ancestral state unknown
+# Can bootstrap to get confidence intervals
+rule global_SFS_by_population:
+  input:
+    saf_idx = "results/angsd/hap{hap}/canonical_realign/by_popln/{population}_canonical_sites.saf.idx"
+  output:
+    sfs = "results/angsd/hap{hap}/globalSFS/{population}_hap{hap}_globalSFS.sfs"
+  log:
+    "results/logs/angsd/hap{hap}/globalSFS/{population}_hap{hap}_globalSFS.log"
+  threads: 8
+  envmodules:
+    "angsd/0.939"
+  shell:
+    """
+    realSFS {input.saf_idx} -P {threads} -fold 1 > {output.sfs} 2> {log}
+    """
+
+
+# Create SFS Plots 
+rule global_SFS_by_population_plots:
+  input:
+    sfs_file="results/angsd/hap{hap}/globalSFS/{population}_hap{hap}_globalSFS.sfs"
+  output:
+    plot="results/plots/hap{hap}/SFS/{population}_globalSFS.png"
+  envmodules:
+    "r/4.3.1"
+  threads: 2
+  shell:
+    "Rscript scripts/SFS_graphs.R {input.sfs_file} {output.plot}"
 
 
 
 
+
+
+
+
+
+
+
+#### POPULATION GENOMICS ####
+
+## BY POPULATION ##
+
+# ANGSD by population : To calculate inbreeding coefficients
+# NOTE: ngsF requires variable sites only, so call SNPs; GL must be in -doGlf 3 format
+rule angsd_ngsF_by_population_on_SNPs:
+  input:
+    bam_list="data/lists/hap{hap}/{population}_realign_hap{hap}.txt",
+    canonical_sites="results/bed/hap{hap}/filtered_sites/{population}_filtered_sites.txt",
+    bin_index="results/bed/hap{hap}/filtered_sites/{population}_filtered_sites.txt.bin"
+  output:
+    arg_file="results/angsd/hap{hap}/canonical_realign/by_popln_inbreeding/{population}_canonical_sites.arg",
+    mafs_file="results/angsd/hap{hap}/canonical_realign/by_popln_inbreeding/{population}_canonical_sites.mafs.gz",
+    hwe_file="results/angsd/hap{hap}/canonical_realign/by_popln_inbreeding/{population}_canonical_sites.hwe.gz",
+    depth_sample="results/angsd/hap{hap}/canonical_realign/by_popln_inbreeding/{population}_canonical_sites.depthSample",
+    depth_global="results/angsd/hap{hap}/canonical_realign/by_popln_inbreeding/{population}_canonical_sites.depthGlobal",
+    saf_1="results/angsd/hap{hap}/canonical_realign/by_popln_inbreeding/{population}_canonical_sites.saf.idx",
+    saf_2="results/angsd/hap{hap}/canonical_realign/by_popln_inbreeding/{population}_canonical_sites.saf.pos.gz",
+    saf_3="results/angsd/hap{hap}/canonical_realign/by_popln_inbreeding/{population}_canonical_sites.saf.gz",
+    glf_gz="results/angsd/hap{hap}/canonical_realign/by_popln_inbreeding/{population}_canonical_sites.glf.gz"
+  params:
+    ref="data/reference/hap{hap}/lupinehap{hap}.fasta",
+    file_name="results/angsd/hap{hap}/canonical_realign/by_popln_inbreeding/{population}_canonical_sites"
+  log:
+    "results/logs/angsd/hap{hap}/canonical_realign/by_popln_inbreeding/angsd_canonical_sites_hap{hap}_{population}.log"
+  envmodules:
+    "angsd/0.939"
+  threads: 8
+  shell:
+    """
+    angsd -bam {input.bam_list} -ref {params.ref}\
+    -out {params.file_name}\
+    -remove_bads 1\
+    -GL 1\
+    -C 50\
+    -sites {input.canonical_sites}\
+    -minMapQ 30\
+    -minQ 20 \
+    -baq 2\
+    -only_proper_pairs 1\
+    -nThreads {threads}\
+    -SNP_pval 1e-6\
+    -doHWE 1\
+    -doCounts 1\
+    -doDepth 1\
+    -doMajorMinor 1\
+    -doMaf 2\
+    -doSaf 1\
+    -anc {params.ref}\
+    -doGlf 3\
+    &> {log}
+    """
+
+
+# Grab number of variable sites (SNPs) per population
+rule count_variable_sites:
+  input:
+    mafs_file="results/angsd/hap{hap}/canonical_realign/by_popln_inbreeding/{population}_canonical_sites.mafs.gz"
+  output:
+    site_count="results/angsd/hap{hap}/canonical_realign/by_popln_inbreeding/{population}_variable_sites_count.txt"
+  shell:
+    """
+    zcat {input.mafs_file} | tail -n +2 | wc -l > {output.site_count}
+    """
+
+
+# Estimate inbreeding coefficients
+# For low-coverage data, set min_epsilon for lower threshold b/w 1e-5 and 1e-9 so algorithm keeps exploring before stopping
+rule ngsF_estimate_inbreeding:
+  input:
+    GL3="results/angsd/hap{hap}/canonical_realign/by_popln_inbreeding/{population}_canonical_sites.saf.idx",
+    site_count="results/angsd/hap{hap}/canonical_realign/by_popln_inbreeding/{population}_variable_sites_count.txt"
+  output:
+    inbreeding_param="results/ngsF/hap{hap}/by_popln_inbreeding/{population}_inbreeding.pars",
+    inbreeding_est="results/ngsF/hap{hap}/by_popln_inbreeding/{population}_inbreeding_estimate.ngsF"
+  params:
+    file_name="results/ngsF/hap{hap}/by_popln_inbreeding/{population}_inbreeding",
+    pop_size=27,
+    num_sites=""
+  log:
+    "results/logs/ngsF/hap{hap}/by_popln_inbreeding/{population}_inbreeding_estimate.log"
+  threads: 8
+  shell:
+    """
+    /home/socamero/ngsF -glf {input.GL3}\
+    -n_threads {threads}\
+    --calc_LRT 1\
+    --out {params.file_name}\
+    --n_ind {params.pop_size}\
+    --n_sites {params.num_sites}\
+    --init_values r\
+    --min_epsilon 1e-8\
+    &> {log}
+    """
+
+
+# Re-iterate ngsF for convergence to global maxima
+
+
+
+# ANGSD by population: To calculate SFS (check if heterozygote excess reduced)
+# NOTE: -doSaf 2 requires inbreeding coefficients, which is supplied by ngsF
+rule angsd_SFS_with_inbreeding_by_population_on_all_sites:
+  input:
+    bam_list="data/lists/hap{hap}/{population}_realign_hap{hap}.txt",
+    canonical_sites="results/bed/hap{hap}/filtered_sites/{population}_filtered_sites.txt",
+    bin_index="results/bed/hap{hap}/filtered_sites/{population}_filtered_sites.txt.bin",
+    inbreeding_coeff="results/ngsF/hap{hap}/bby_popln_inbreeding/{population}_inbreeding_estimate.ngsF"
+  output:
+    arg_file="results/angsd/hap{hap}/canonical_realign/by_popln_inbreeding/{population}_canonical_sites.arg",
+    mafs_file="results/angsd/hap{hap}/canonical_realign/by_popln_inbreeding/{population}_canonical_sites.mafs.gz",
+    hwe_file="results/angsd/hap{hap}/canonical_realign/by_popln_inbreeding/{population}_canonical_sites.hwe.gz",
+    depth_sample="results/angsd/hap{hap}/canonical_realign/by_popln_inbreeding/{population}_canonical_sites.depthSample",
+    depth_global="results/angsd/hap{hap}/canonical_realign/by_popln_inbreeding/{population}_canonical_sites.depthGlobal",
+    saf_1="results/angsd/hap{hap}/canonical_realign/by_popln_inbreeding/{population}_canonical_sites.saf.idx",
+    saf_2="results/angsd/hap{hap}/canonical_realign/by_popln_inbreeding/{population}_canonical_sites.saf.pos.gz",
+    saf_3="results/angsd/hap{hap}/canonical_realign/by_popln_inbreeding/{population}_canonical_sites.saf.gz",
+    beagle="results/angsd/hap{hap}/canonical_realign/by_popln_inbreeding/{population}_canonical_sites.beagle.gz"
+  params:
+    ref="data/reference/hap{hap}/lupinehap{hap}.fasta",
+    file_name="results/angsd/hap{hap}/canonical_realign/by_popln_inbreeding/{population}_canonical_sites"
+  log:
+    "results/logs/angsd/hap{hap}/canonical_realign/by_popln_inbreeding/angsd_canonical_sites_hap{hap}_{population}.log"
+  envmodules:
+    "angsd/0.939"
+  threads: 8
+  shell:
+    """
+    angsd -bam {input.bam_list} -ref {params.ref}\
+    -out {params.file_name}\
+    -remove_bads 1\
+    -GL 1\
+    -C 50\
+    -sites {input.canonical_sites}\
+    -minMapQ 30\
+    -minQ 20 \
+    -baq 2\
+    -only_proper_pairs 1\
+    -nThreads {threads}\
+    -doHWE 1\
+    -doCounts 1\
+    -doDepth 1\
+    -doMajorMinor 1\
+    -doMaf 2\
+    -doSaf 1\
+    -indF {inbreeding_coeff}\
+    -anc {params.ref}\
+    -doGlf 2\
+    &> {log}
+    """
 
 
 # Optimize and calculate SFS with folded spectra (-fold 1) since ancestral state unknown
-#rule calculate_realSFS:
-  #input:
-  #output:
-  #shell:
+# Can bootstrap to get confidence intervals
+rule global_SFS_with_inbreeding_by_population:
+  input:
+    saf_idx="results/angsd/hap{hap}/canonical_realign/by_popln_inbreeding/{population}_canonical_sites.saf.idx"
+  output:
+    sfs="results/angsd/hap{hap}/globalSFS/{population}_hap{hap}_globalSFS_inbreeding.sfs"
+  log:
+    "results/logs/angsd/hap{hap}/globalSFS/{population}_hap{hap}_globalSFS_inbreeding.log"
+  threads: 8
+  envmodules:
+    "angsd/0.939"
+  shell:
+    """
+    realSFS {input.saf_idx} -P {threads} -fold 1 > {output.sfs} 2> {log}
+    """
 
-#### POPULATION GENOMICS ####
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+## ALL POPULATIONS ##
 
 # Run ANGSD on entire dataset, filtering paralogs from each population, and estimate SNPs + save GLs
 # Rule to create .txt file of BAM files per population
@@ -1115,12 +1359,14 @@ rule generate_bam_list_all_populations:
 # Join together paralogs into one .BED file
 rule combine_population_paralog_bed_files:
   input:
-    expand("results/bed/hap{hap}/deviant_SNPs_realign/{population}_deviant_SNPs_realign_BH_correction.BED", hap=(1,2), population=POPULATIONS),
+    lambda wildcards: expand("results/bed/hap{hap}/deviant_SNPs_realign/{population}_deviant_SNPs_realign_BH_correction.BED", 
+                             hap=wildcards.hap, 
+                             population=POPULATIONS),
   output:
     "results/bed/hap{hap}/combined/hap{hap}_combined_deviant_SNPs_realign_BH_correction.BED"
   shell:
     """
-    # Combine all BED files into one and remove duplicates
+    # Combine all BED files for a specific haplotype and remove duplicates
     cat {input} | sort -k1,1 -k2,2n | uniq > {output}
     """
 
@@ -1138,7 +1384,7 @@ rule extract_all_sites_all_populations:
     angsd_out="results/angsd/hap{hap}/all_poplns/all_sites"
   log:
     angsd_log="results/logs/angsd/hap{hap}/all_poplns/all_sites.log"
-  threads: 16
+  threads: 8
   envmodules:
     "angsd/0.939"
   shell:
@@ -1156,7 +1402,7 @@ rule extract_all_sites_all_populations:
 rule filter_all_sites_all_populations:
   input:
     all_sites_bed="results/angsd/hap{hap}/all_poplns/all_sites.BED",
-    deviant_snps="results/bed/combined/hap{hap}_combined_deviant_SNPs_realign_BH_correction.BED"
+    deviant_snps="results/bed/hap{hap}/combined/hap{hap}_combined_deviant_SNPs_realign_BH_correction.BED"
   output:
     filtered_sites_bed="results/bed/hap{hap}/all_poplns/filtered_sites.BED",
     filtered_sites_txt="results/bed/hap{hap}/all_poplns/filtered_sites.txt"
@@ -1176,7 +1422,7 @@ rule filter_all_sites_all_populations:
 
 
 # Estimate SAF, HWE, GL with SNPs on entire population
-rule angsd_SNP_on_entire_population:
+rule angsd_SNP_on_all_populations:
   input:
     bam_list="data/lists/hap{hap}/all_populations_realign_hap{hap}.txt",
     canonical_sites="results/bed/hap{hap}/all_poplns/filtered_sites.txt"
@@ -1188,7 +1434,8 @@ rule angsd_SNP_on_entire_population:
     depth_global="results/angsd/hap{hap}/canonical_realign/all_poplns/all_poplns_canonical_SNPs.depthGlobal",
     saf_1="results/angsd/hap{hap}/canonical_realign/all_poplns/all_poplns_canonical_SNPs.saf.idx",
     saf_2="results/angsd/hap{hap}/canonical_realign/all_poplns/all_poplns_canonical_SNPs.saf.pos.gz",
-    saf_3="results/angsd/hap{hap}/canonical_realign/all_poplns/all_poplns_canonical_SNPs.saf.gz"
+    saf_3="results/angsd/hap{hap}/canonical_realign/all_poplns/all_poplns_canonical_SNPs.saf.gz",
+    beagle="results/angsd/hap{hap}/canonical_realign/all_poplns/all_poplns_canonical_SNPs.beagle.gz"
   params:
     ref="data/reference/hap{hap}/lupinehap{hap}.fasta",
     file_name="results/angsd/hap{hap}/canonical_realign/all_poplns/all_poplns_canonical_SNPs",
@@ -1216,12 +1463,76 @@ rule angsd_SNP_on_entire_population:
     -doDepth 1\
     -doMajorMinor 1\
     -doMaf 2\
-    -dosaf 1
-    -fold 1\
+    -doSaf 1\
     -anc {params.ref}\
     -doGlf 2\
     &> {log}
     """
+
+
+# Calculate PCA on genotype likelihoods using PCAngsd
+rule PCAngsd_all_populations:
+  input:
+    beagle="results/angsd/hap{hap}/canonical_realign/all_poplns/all_poplns_canonical_SNPs.beagle.gz"
+  output:
+    numpy="results/logs/pcangsd/hap{hap}/canonical_realign/all_poplns/all_popln_canonical_SNP_PCAngsd.npy",
+    cov_matrix="results/logs/pcangsd/hap{hap}/canonical_realign/all_poplns/all_popln_canonical_SNP_PCAngsd.cov"
+  params:
+    file_name="results/logs/pcangsd/hap{hap}/canonical_realign/all_poplns/all_popln_canonical_SNP_PCAngsd"
+  log:
+    "results/logs/pcangsd/hap{hap}/canonical_realign/all_poplns/all_popln_canonical_SNP_PCAngsd.log"
+  threads: 8
+  envmodules:
+    "python/3.10.2"
+  shell:
+    """
+    python pcangsd.py -beagle {input.beagle}\
+    -out {params.file_name}\
+    -threads {threads}\
+    2> {log}
+    """
+
+
+# Plot PCAs
+rule PCAngsd_all_populations_plots:
+  input:
+    cov_matrix="results/logs/pcangsd/hap{hap}/canonical_realign/all_poplns/all_popln_canonical_SNP_PCAngsd.cov",
+    pop_info="data/lists/Batch1_pop_names.info"
+  output:
+    plot="results/plots/hap{hap}/PCAngsd/all_popln_canonical_SNP_PCAngsd.png"
+  threads: 2
+  envmodules:
+    "r/4.3.1"
+  shell:
+    "Rscript scripts/PCA_graph.R {input.cov_matrix} {input.pop_info} {output.plot}"
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -1271,7 +1582,7 @@ rule excess_heterozygotes_histogram_raw:
   input:
     hwe_file = "results/angsd/hap{hap}/raw_realign/hwe_{population}_raw_SNPs_realign.lr"
   output:
-    plot = "results/angsd/hap{hap}/plots_realign/HETERO_EXCESS_{population}_SNP_raw_realign.png"
+    plot = "results/plots/hap{hap}/angsd/HETERO_EXCESS_{population}_SNP_raw_realign.png"
   envmodules:
     "r/4.3.1"
   shell:
@@ -1283,7 +1594,7 @@ rule excess_heterozygotes_histogram_canonical:
   input:
     lr_file = "results/bed/hap{hap}/canonical_SNPs_realign/Method_A/hwe_{population}_canonical_SNPs_realign.lr"
   output:
-    plot = "results/angsd/hap{hap}/plots_realign/BH_correction/HETERO_EXCESS_{population}_SNP_canonical_realign.png"
+    plot = "results/plots/hap{hap}/angsd/BH_correction/HETERO_EXCESS_{population}_SNP_canonical_realign.png"
   envmodules:
     "r/4.3.1"
   shell:
@@ -1305,7 +1616,7 @@ rule aggregate_excess_heterozygotes_histograms_canonical:
     hwe_files = lambda wildcards: expand("results/bed/hap{hap}/canonical_SNPs_realign/Method_A/BH_correction/hwe_{population}_canonical_SNPs_realign_BH{BH_VAR}.lr", 
                                          hap=wildcards.hap, population=wildcards.population, BH_VAR=BH_VARS)
   output:
-    plot = "results/angsd/hap{hap}/plots_realign/BH_correction/HETERO_EXCESS_{population}_SNP_canonical_BH_aggregate_realign_BIG.png"
+    plot = "results/plots/hap{hap}/angsd/BH_correction/HETERO_EXCESS_{population}_SNP_canonical_BH_aggregate_realign_BIG.png"
   envmodules:
     "r/4.3.1"
   shell:
