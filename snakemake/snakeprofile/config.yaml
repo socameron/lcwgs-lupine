@@ -10,14 +10,14 @@ cluster:
     --parsable
 default-resources:
   - time="02:00:00"
-  - mem_mb=2300
+  - mem_mb=4600
 restart-times: 0
 max-jobs-per-second: 10
 max-status-checks-per-second: 50
 local-cores: 1
 latency-wait: 120
 cores: 960
-jobs: 500
+jobs: 750
 keep-going: True
 rerun-incomplete: True
 printshellcmds: True
@@ -35,11 +35,30 @@ cluster-cancel-nargs: 4000
 set-threads:
   map_reads: 8
   multiqc_raw: 2
-  mark_duplicates: 2
-  angsd_paralog_prep: 10
+  mark_remove_duplicates: 2
+  clip_overlapping_reads: 2
+  indel_list: 4
+  realign_indels: 8
   angsd_raw_SNP: 8
   ngsParalog_manhattan: 2
-  angsd_canonical_SNP: 8
+  angsd_SFS_canonical_sites: 12
+  calculate_coverage_per_population_and_scaffold_hap1: 2
+  calculate_coverage_per_population_and_scaffold_hap2: 2
+  dupHMM_run_hap1: 2
+  dupHMM_run_hap2: 2
+  angsd_SFS_by_population_on_all_sites: 8
+  angsd_SFS_control_by_population_on_all_sites: 8
+  global_SFS_by_population: 40
+  global_SFS_control_by_population: 40
+  global_SFS_with_inbreeding_by_population: 40
+  extract_all_sites: 8
+  extract_all_sites_all_populations: 8
+  filter_all_sites_by_popln: 2
+  filter_all_sites_all_populations: 2
+  angsd_SNP_on_entire_population: 8
+  angsd_ngsF_by_population_on_SNPs: 8
+  PCAngsd_all_populations: 8
+
 set-resources:
   trim_reads:
     time: "03:00:00"
@@ -50,17 +69,18 @@ set-resources:
     mem_mb: 23000
     time: "143:59:00"
     threads: 8
-  mark_duplicates:
+  mark_remove_duplicates:
     mem_mb: 13800
     time: "47:59:00"
-  angsd_paralog_prep:
+  clip_overlapping_reads: 
+    mem_mb: 13800
+    time: "2:00:00"
+  indel_list:
+    mem_mb: 13800
+    time: "23:59:00"
+  realign_indels:
     mem_mb: 13800
     time: "47:59:00"
-    threads: 10
-  extract_read_counts:
-    mem_mb: 4600
-    time: "11:59:00"
-    threads: 2
   ngsPara_hap1_scaffold_1:
     mem_mb: 6900
     time: "47:59:00"
@@ -68,23 +88,92 @@ set-resources:
     mem_mb: 6900
     time: "47:59:00"
   angsd_raw_SNP:
-    mem_mb: 13800
+    mem_mb: 34400
     time: "47:59:00"
     threads: 8
   ngsParalog_hap1:
     mem_mb: 6900
-    time: "47:59:00"
+    time: "6:00:00"
   ngsParalog_hap2:
     mem_mb: 6900
-    time: "47:59:00"
-  ngsParalog_false_pos:
-    mem_mb: 13800
-    time: "2:00:00"
+    time: "6:00:00"
   ngsParalog_manhattan:
     mem_mb: 13800
     time: "2:00:00"
     threads: 2
-  angsd_canonical_SNP:
+  calculate_average_coverage_per_population:
+    mem_mb: 6900
+    time: "3:00:00"
+    threads: 2
+  calculate_coverage_per_population_and_scaffold_hap1:
+    mem_mb: 6900
+    time: "3:00:00"
+    threads: 2
+  calculate_coverage_per_population_and_scaffold_hap2:
+    mem_mb: 6900
+    time: "3:00:00"
+    threads: 2
+  filter_scaffold_lr_by_coverage_hap1:
+    time: "3:00:00"
+  filter_scaffold_lr_by_coverage_hap2:
+    time: "3:00:00"
+  dupHMM_run_hap1:
     mem_mb: 13800
+    time: "23:59:00"
+    threads: 2
+  dupHMM_run_hap2:
+    mem_mb: 13800
+    time: "23:59:00"
+    threads: 2
+  aggregate_excess_heterozygotes_histograms_canonical:
+    mem_mb: 6900
+  angsd_SFS_by_population_on_all_sites:
+    mem_mb: 34400
     time: "47:59:00"
+    threads: 8
+  angsd_SFS_control_by_population_on_all_sites:
+    mem_mb: 34400
+    time: "47:59:00"
+    threads: 8
+  global_SFS_by_population:
+    mem_mb: 149500
+    time: "47:59:00"
+    threads: 40
+  global_SFS_control_by_population:
+    mem_mb: 149500
+    time: "47:59:00"
+    threads: 40
+  global_SFS_with_inbreeding_by_population:
+    mem_mb: 149500
+    time: "47:59:00"
+    threads: 40
+  extract_all_sites_by_popln:
+    mem_mb: 13800
+    time: "4:00:00"
+    threads: 8
+  filter_all_sites_by_popln:
+    mem_mb: 13800
+    time: "4:00:00"
+    threads: 2
+  extract_all_sites_all_populations:
+    mem_mb: 34400
+    time: "71:59:00"
+    threads: 8
+  preprocess_bed_files_all_populations:
+    mem_mb: 6900
+    time: "2:00:00"
+  filter_all_sites_all_populations:
+    mem_mb: 13800
+    time: "12:00:00"
+  angsd_SNP_on_all_populations:
+    mem_mb: 34400
+    time: "12:00:00"
+    threads: 8
+  angsd_ngsF_by_population_on_SNPs:
+    mem_mb: 34400
+    time: "23:59:00"
+    threads: 8
+  PCAngsd_all_populations:
+    mem_mb: 13800
+    time: "23:59:00"
     threads: 8

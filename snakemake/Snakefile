@@ -80,25 +80,9 @@ SAMPLES = sorted(list(SAMPLES))
 # final files desired (can change)
 rule all:
   input:
-    expand("results/angsd/hap2/canonical_realign/by_popln/{population}_canonical_sites.arg", population=POPULATIONS),
-    expand("results/angsd/hap2/canonical_realign/by_popln/{population}_canonical_sites.mafs.gz", population=POPULATIONS),
-    expand("results/angsd/hap2/canonical_realign/by_popln/{population}_canonical_sites.hwe.gz", population=POPULATIONS),
-    expand("results/angsd/hap2/canonical_realign/by_popln/{population}_canonical_sites.depthSample", population=POPULATIONS),
-    expand("results/angsd/hap2/canonical_realign/by_popln/{population}_canonical_sites.depthGlobal", population=POPULATIONS),
-    expand("results/angsd/hap2/canonical_realign/by_popln/{population}_canonical_sites.saf.idx", population=POPULATIONS),
-    expand("results/angsd/hap2/canonical_realign/by_popln/{population}_canonical_sites.saf.pos.gz", population=POPULATIONS),
-    expand("results/angsd/hap2/canonical_realign/by_popln/{population}_canonical_sites.saf.gz", population=POPULATIONS),
-    "results/angsd/hap2/canonical_realign/all_poplns/all_poplns_canonical_SNPs.arg",
-    "results/angsd/hap2/canonical_realign/all_poplns/all_poplns_canonical_SNPs.mafs.gz",
-    "results/angsd/hap2/canonical_realign/all_poplns/all_poplns_canonical_SNPs.hwe.gz",
-    "results/angsd/hap2/canonical_realign/all_poplns/all_poplns_canonical_SNPs.depthSample",
-    "results/angsd/hap2/canonical_realign/all_poplns/all_poplns_canonical_SNPs.depthGlobal",
-    "results/angsd/hap2/canonical_realign/all_poplns/all_poplns_canonical_SNPs.saf.idx",
-    "results/angsd/hap2/canonical_realign/all_poplns/all_poplns_canonical_SNPs.saf.pos.gz",
-    "results/angsd/hap2/canonical_realign/all_poplns/all_poplns_canonical_SNPs.saf.gz",
-    expand("results/ngs_paralog/hap2/concat_realign/{population}_dupHMM_realign_WGS.lr", population=POPULATIONS),
-    expand("results/angsd/hap2/globalSFS/{population}_hap2_globalSFS.sfs", population=POPULATIONS),
-    expand("results/plots/hap2/SFS/{population}_globalSFS.png", population=POPULATIONS)
+    "results/bed/hap2/combined/hap2_combined_deviant_SNPs_realign_BH_correction.BED",
+    "results/angsd/hap2/canonical_realign/all_poplns/all_poplns_canonical_SNPs.beagle.gz"
+    
 
 
 
@@ -1050,7 +1034,7 @@ rule filter_all_sites_by_popln:
 
 
 # Index filtered all sites BED file
-rule index_sites_all_popln_list:
+rule index_all_sites_by_popln:
   input: 
     canonical_sites = "results/bed/hap{hap}/filtered_sites/{population}_filtered_sites.txt"
   output: 
@@ -1063,7 +1047,7 @@ rule index_sites_all_popln_list:
     """
 
 
-# ANGSD by population: To calculate SFS (check if heterozygote excess reduced)
+# ANGSD by population: To calculate SFS (check if heterozygote excess reduced) with filtered sites by ngsParalog
 rule angsd_SFS_by_population_on_all_sites:
   input:
     bam_list="data/lists/hap{hap}/{population}_realign_hap{hap}.txt",
@@ -1112,38 +1096,115 @@ rule angsd_SFS_by_population_on_all_sites:
     """
 
 
-# Optimize and calculate SFS with folded spectra (-fold 1) since ancestral state unknown
-# Can bootstrap to get confidence intervals
-rule global_SFS_by_population:
+# ANGSD by population:  To calculate SFS and compare to filtered data. this is the CONTROL
+rule angsd_SFS_control_by_population_on_all_sites:
   input:
-    saf_idx = "results/angsd/hap{hap}/canonical_realign/by_popln/{population}_canonical_sites.saf.idx"
+    bam_list="data/lists/hap{hap}/{population}_realign_hap{hap}.txt",
+    bin_index="results/bed/hap{hap}/filtered_sites/{population}_filtered_sites.txt.bin"
   output:
-    sfs = "results/angsd/hap{hap}/globalSFS/{population}_hap{hap}_globalSFS.sfs"
+    arg_file="results/angsd/hap{hap}/canonical_realign/by_popln/{population}_canonical_sites_control.arg",
+    mafs_file="results/angsd/hap{hap}/canonical_realign/by_popln/{population}_canonical_sites_control.mafs.gz",
+    hwe_file="results/angsd/hap{hap}/canonical_realign/by_popln/{population}_canonical_sites_control.hwe.gz",
+    depth_sample="results/angsd/hap{hap}/canonical_realign/by_popln/{population}_canonical_sites_control.depthSample",
+    depth_global="results/angsd/hap{hap}/canonical_realign/by_popln/{population}_canonical_sites_control.depthGlobal",
+    saf_1="results/angsd/hap{hap}/canonical_realign/by_popln/{population}_canonical_sites_control.saf.idx",
+    saf_2="results/angsd/hap{hap}/canonical_realign/by_popln/{population}_canonical_sites_control.saf.pos.gz",
+    saf_3="results/angsd/hap{hap}/canonical_realign/by_popln/{population}_canonical_sites_control.saf.gz",
+    beagle="results/angsd/hap{hap}/canonical_realign/by_popln/{population}_canonical_sites_control.beagle.gz"
+  params:
+    ref="data/reference/hap{hap}/lupinehap{hap}.fasta",
+    file_name="results/angsd/hap{hap}/canonical_realign/by_popln/{population}_canonical_sites_control"
   log:
-    "results/logs/angsd/hap{hap}/globalSFS/{population}_hap{hap}_globalSFS.log"
-  threads: 8
+    "results/logs/angsd/hap{hap}/canonical_realign/by_popln/angsd_canonical_sites_control_hap{hap}_{population}.log"
   envmodules:
     "angsd/0.939"
+  threads: 8
   shell:
     """
-    realSFS {input.saf_idx} -P {threads} -fold 1 > {output.sfs} 2> {log}
+    angsd -bam {input.bam_list} -ref {params.ref}\
+    -out {params.file_name}\
+    -remove_bads 1\
+    -GL 1\
+    -C 50\
+    -minMapQ 30\
+    -minQ 20 \
+    -baq 2\
+    -only_proper_pairs 1\
+    -nThreads {threads}\
+    -doHWE 1\
+    -doCounts 1\
+    -doDepth 1\
+    -doMajorMinor 1\
+    -doMaf 2\
+    -doSaf 1\
+    -anc {params.ref}\
+    -doGlf 2\
+    &> {log}
+    """
+
+# FILTERED SFS: Optimize and calculate SFS with folded spectra (-fold 1) since ancestral state unknown
+# Can bootstrap to get confidence intervals
+# We use 'winsfs' rather than 'realSFS' because realSFS is computational heavy (>100GB RAM required) plus less accurate
+# Based on winsfs github, we allocate ~150GB RAM for ~1B sites (extracted from gzip and wc -l)
+# We set seed at 1 for reproducibility
+rule global_SFS_by_population:
+  input:
+    saf_idx="results/angsd/hap{hap}/canonical_realign/by_popln/{population}_canonical_sites.saf.idx"
+  output:
+    sfs="results/winSFS/hap{hap}/globalSFS/{population}_hap{hap}_globalSFS.sfs",
+    sfs_folded="results/winSFS/hap{hap}/globalSFS/{population}_hap{hap}_globalSFS_folded.sfs"
+  log:
+    sfs1="results/logs/winSFS/hap{hap}/globalSFS/{population}_hap{hap}_globalSFS.log",
+    sfs2="results/logs/winSFS/hap{hap}/globalSFS/{population}_hap{hap}_globalSFS_folded.log"
+  threads: 40
+  shell:
+    """
+    winsfs {input.saf_idx} -t {threads} --seed 1 -v > {output.sfs} 2> {log.sfs1}
+    winsfs view --fold {output.sfs} -v > {output.sfs_folded} 2> {log.sfs2}
     """
 
 
-# Create SFS Plots 
+rule global_SFS_control_by_population:
+  input:
+    saf_idx="results/angsd/hap{hap}/canonical_realign/by_popln/{population}_canonical_sites_control.saf.idx"
+  output:
+    sfs="results/winSFS/hap{hap}/globalSFS/{population}_hap{hap}_globalSFS_control.sfs",
+    sfs_folded="results/winSFS/hap{hap}/globalSFS/{population}_hap{hap}_globalSFS_control_folded.sfs"
+  log:
+    sfs1="results/logs/winSFS/hap{hap}/globalSFS/{population}_hap{hap}_globalSFS_control.log",
+    sfs2="results/logs/winSFS/hap{hap}/globalSFS/{population}_hap{hap}_globalSFS_control_folded.log"
+  threads: 40
+  shell:
+    """
+    winsfs {input.saf_idx} -t {threads} --seed 1 -v > {output.sfs} 2> {log.sfs1}
+    winsfs view --fold {output.sfs} -v > {output.sfs_folded} 2> {log.sfs2}
+    """
+
+
+# Create SFS Plots on filtered data
 rule global_SFS_by_population_plots:
   input:
-    sfs_file="results/angsd/hap{hap}/globalSFS/{population}_hap{hap}_globalSFS.sfs"
+    sfs_file="results/winSFS/hap{hap}/globalSFS/{population}_hap{hap}_globalSFS.sfs"
   output:
     plot="results/plots/hap{hap}/SFS/{population}_globalSFS.png"
   envmodules:
     "r/4.3.1"
   threads: 2
   shell:
-    "Rscript scripts/SFS_graphs.R {input.sfs_file} {output.plot}"
+    "Rscript scripts/SFS_1D_graph.R {input.sfs_file} {output.plot}"
 
 
-
+# Create SFS plots on control data
+rule global_SFS_control_by_population_plots:
+  input:
+    sfs_file="results/winSFS/hap{hap}/globalSFS/{population}_hap{hap}_globalSFS_control.sfs"
+  output:
+    plot="results/plots/hap{hap}/SFS/{population}_globalSFS_control.png"
+  envmodules:
+    "r/4.3.1"
+  threads: 2
+  shell:
+    "Rscript scripts/SFS_1D_graph.R {input.sfs_file} {output.plot}"
 
 
 
@@ -1164,20 +1225,20 @@ rule angsd_ngsF_by_population_on_SNPs:
     canonical_sites="results/bed/hap{hap}/filtered_sites/{population}_filtered_sites.txt",
     bin_index="results/bed/hap{hap}/filtered_sites/{population}_filtered_sites.txt.bin"
   output:
-    arg_file="results/angsd/hap{hap}/canonical_realign/by_popln_inbreeding/{population}_canonical_sites.arg",
-    mafs_file="results/angsd/hap{hap}/canonical_realign/by_popln_inbreeding/{population}_canonical_sites.mafs.gz",
-    hwe_file="results/angsd/hap{hap}/canonical_realign/by_popln_inbreeding/{population}_canonical_sites.hwe.gz",
-    depth_sample="results/angsd/hap{hap}/canonical_realign/by_popln_inbreeding/{population}_canonical_sites.depthSample",
-    depth_global="results/angsd/hap{hap}/canonical_realign/by_popln_inbreeding/{population}_canonical_sites.depthGlobal",
-    saf_1="results/angsd/hap{hap}/canonical_realign/by_popln_inbreeding/{population}_canonical_sites.saf.idx",
-    saf_2="results/angsd/hap{hap}/canonical_realign/by_popln_inbreeding/{population}_canonical_sites.saf.pos.gz",
-    saf_3="results/angsd/hap{hap}/canonical_realign/by_popln_inbreeding/{population}_canonical_sites.saf.gz",
-    glf_gz="results/angsd/hap{hap}/canonical_realign/by_popln_inbreeding/{population}_canonical_sites.glf.gz"
+    arg_file="results/angsd/hap{hap}/canonical_realign/by_popln_inbreeding/{population}_canonical_SNPs.arg",
+    mafs_file="results/angsd/hap{hap}/canonical_realign/by_popln_inbreeding/{population}_canonical_SNPs.mafs.gz",
+    hwe_file="results/angsd/hap{hap}/canonical_realign/by_popln_inbreeding/{population}_canonical_SNPs.hwe.gz",
+    depth_sample="results/angsd/hap{hap}/canonical_realign/by_popln_inbreeding/{population}_canonical_SNPs.depthSample",
+    depth_global="results/angsd/hap{hap}/canonical_realign/by_popln_inbreeding/{population}_canonical_SNPs.depthGlobal",
+    saf_1="results/angsd/hap{hap}/canonical_realign/by_popln_inbreeding/{population}_canonical_SNPs.saf.idx",
+    saf_2="results/angsd/hap{hap}/canonical_realign/by_popln_inbreeding/{population}_canonical_SNPs.saf.pos.gz",
+    saf_3="results/angsd/hap{hap}/canonical_realign/by_popln_inbreeding/{population}_canonical_SNPs.saf.gz",
+    glf_gz="results/angsd/hap{hap}/canonical_realign/by_popln_inbreeding/{population}_canonical_SNPs.glf.gz"
   params:
     ref="data/reference/hap{hap}/lupinehap{hap}.fasta",
-    file_name="results/angsd/hap{hap}/canonical_realign/by_popln_inbreeding/{population}_canonical_sites"
+    file_name="results/angsd/hap{hap}/canonical_realign/by_popln_inbreeding/{population}_canonical_SNPs"
   log:
-    "results/logs/angsd/hap{hap}/canonical_realign/by_popln_inbreeding/angsd_canonical_sites_hap{hap}_{population}.log"
+    "results/logs/angsd/hap{hap}/canonical_realign/by_popln_inbreeding/angsd_canonical_SNPs_hap{hap}_{population}.log"
   envmodules:
     "angsd/0.939"
   threads: 8
@@ -1210,9 +1271,9 @@ rule angsd_ngsF_by_population_on_SNPs:
 # Grab number of variable sites (SNPs) per population
 rule count_variable_sites:
   input:
-    mafs_file="results/angsd/hap{hap}/canonical_realign/by_popln_inbreeding/{population}_canonical_sites.mafs.gz"
+    mafs_file="results/angsd/hap{hap}/canonical_realign/by_popln_inbreeding/{population}_canonical_SNPs.mafs.gz"
   output:
-    site_count="results/angsd/hap{hap}/canonical_realign/by_popln_inbreeding/{population}_variable_sites_count.txt"
+    site_count="results/ngsF/hap{hap}/by_popln_inbreeding/{population}_SNPs_count.txt"
   shell:
     """
     zcat {input.mafs_file} | tail -n +2 | wc -l > {output.site_count}
@@ -1223,26 +1284,25 @@ rule count_variable_sites:
 # For low-coverage data, set min_epsilon for lower threshold b/w 1e-5 and 1e-9 so algorithm keeps exploring before stopping
 rule ngsF_estimate_inbreeding:
   input:
-    GL3="results/angsd/hap{hap}/canonical_realign/by_popln_inbreeding/{population}_canonical_sites.saf.idx",
-    site_count="results/angsd/hap{hap}/canonical_realign/by_popln_inbreeding/{population}_variable_sites_count.txt"
+    GL3="results/angsd/hap{hap}/canonical_realign/by_popln_inbreeding/{population}_canonical_SNPs.saf.idx",
+    SNP_count="results/ngsF/hap{hap}/by_popln_inbreeding/{population}_SNPs_count.txt"
   output:
     inbreeding_param="results/ngsF/hap{hap}/by_popln_inbreeding/{population}_inbreeding.pars",
     inbreeding_est="results/ngsF/hap{hap}/by_popln_inbreeding/{population}_inbreeding_estimate.ngsF"
   params:
     file_name="results/ngsF/hap{hap}/by_popln_inbreeding/{population}_inbreeding",
-    pop_size=27,
-    num_sites=""
+    pop_size=27
   log:
     "results/logs/ngsF/hap{hap}/by_popln_inbreeding/{population}_inbreeding_estimate.log"
   threads: 8
   shell:
     """
-    /home/socamero/ngsF -glf {input.GL3}\
-    -n_threads {threads}\
+    ngsF --glf {input.GL3}\
+    --n_threads {threads}\
     --calc_LRT 1\
     --out {params.file_name}\
     --n_ind {params.pop_size}\
-    --n_sites {params.num_sites}\
+    --n_sites {input.SNP_count}\
     --init_values r\
     --min_epsilon 1e-8\
     &> {log}
@@ -1314,12 +1374,13 @@ rule global_SFS_with_inbreeding_by_population:
     sfs="results/angsd/hap{hap}/globalSFS/{population}_hap{hap}_globalSFS_inbreeding.sfs"
   log:
     "results/logs/angsd/hap{hap}/globalSFS/{population}_hap{hap}_globalSFS_inbreeding.log"
-  threads: 8
+  threads: 40
   envmodules:
     "angsd/0.939"
   shell:
     """
-    realSFS {input.saf_idx} -P {threads} -fold 1 > {output.sfs} 2> {log}
+    winsfs {input.saf_idx} -t {threads} --seed 1 -v > {output.sfs} 2> {log.sfs1}
+    winsfs view --fold {output.sfs} -v > {output.sfs_folded} 2> {log.sfs2}
     """
 
 
@@ -1356,7 +1417,10 @@ rule generate_bam_list_all_populations:
                 output.write(f"{bam_file}\n")
 
 
+
 # Join together paralogs into one .BED file
+# Include checks for correct UNIX file format and newline endings
+# For some reason, 5 rows of data are incomplete so we remove filter these out. 
 rule combine_population_paralog_bed_files:
   input:
     lambda wildcards: expand("results/bed/hap{hap}/deviant_SNPs_realign/{population}_deviant_SNPs_realign_BH_correction.BED", 
@@ -1364,10 +1428,12 @@ rule combine_population_paralog_bed_files:
                              population=POPULATIONS),
   output:
     "results/bed/hap{hap}/combined/hap{hap}_combined_deviant_SNPs_realign_BH_correction.BED"
+  envmodules:
+    "bedtools/2.30.0"
   shell:
     """
     # Combine all BED files for a specific haplotype and remove duplicates
-    cat {input} | sort -k1,1 -k2,2n | uniq > {output}
+    bedtools merge -i <(sort -k1,1 -k2,2n $(echo {{' '.join(input)}})) > {output}
     """
 
 
@@ -1421,11 +1487,24 @@ rule filter_all_sites_all_populations:
     """
 
 
+rule index_all_sites_all_popln:
+  input: 
+    all_sites="results/bed/hap{hap}/all_poplns/filtered_sites.txt"
+  output: 
+    bin_index="results/bed/hap{hap}/all_poplns/filtered_sites.txt.bin"
+  envmodules:
+    "angsd/0.939"
+  shell: 
+    """
+    angsd sites index {input.all_sites}
+    """
+
 # Estimate SAF, HWE, GL with SNPs on entire population
 rule angsd_SNP_on_all_populations:
   input:
     bam_list="data/lists/hap{hap}/all_populations_realign_hap{hap}.txt",
-    canonical_sites="results/bed/hap{hap}/all_poplns/filtered_sites.txt"
+    canonical_sites="results/bed/hap{hap}/all_poplns/filtered_sites.txt",
+    bin_index="results/bed/hap{hap}/all_poplns/filtered_sites.txt.bin"
   output:
     arg_file="results/angsd/hap{hap}/canonical_realign/all_poplns/all_poplns_canonical_SNPs.arg",
     mafs_file="results/angsd/hap{hap}/canonical_realign/all_poplns/all_poplns_canonical_SNPs.mafs.gz",
@@ -1443,7 +1522,7 @@ rule angsd_SNP_on_all_populations:
     "results/logs/angsd/hap{hap}/canonical_realign/all_poplns/angsd_canonical_SNPs_hap{hap}_all_poplns.log"
   envmodules:
     "angsd/0.939"
-  threads: 16
+  threads: 8
   shell:
     """
     angsd -bam {input.bam_list} -ref {params.ref}\
