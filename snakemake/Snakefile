@@ -76,12 +76,11 @@ SAMPLES = sorted(list(SAMPLES))
 ## BEGINNING OF WORKFLOW ##
 ###########################
 
-
+# still gotta do HPW and SWCP
 # final files desired (can change)
 rule all:
   input:
-    "results/bed/hap2/combined/hap2_combined_deviant_SNPs_realign_BH_correction.BED",
-    "results/angsd/hap2/canonical_realign/all_poplns/all_poplns_canonical_SNPs.beagle.gz"
+    expand("results/bed/hap2/filtered_sites/dupHMM/{population}_filtered_sites_dupHMM_calcLR.txt.bin", population=POPULATIONS)
     
 
 
@@ -580,6 +579,18 @@ rule concatenate_paralog_hap2:
     """
 
 
+# Print summary of calcLR quantile ranges
+rule quantile_summary:
+  input:
+    "results/ngs_paralog/hap{hap}/concat_realign/{population}_paralog_realign_WGS.lr"
+  output:
+    "results/ngs_paralog/hap{hap}/quantile_summary/{population}_calcLR_quantile_summary.txt"
+  envmodules:
+    "r/4.3.1"
+  shell:
+    "Rscript scripts/calcLR_quantile_summary.R {input} {output}"
+
+
 # Identify false positives from ngsParalog (grab only true Paralogs) and filter out
 # NOTE: R script indexes positions back to 1bp start
 rule ngsParalog_false_pos:
@@ -628,6 +639,18 @@ rule ngsParalog_manhattan:
 ## dupHMM - Discover paralogous regions rather than individual sites ##
 # Requires calcLR .lr files and depth of coverage .tsv files 
 
+# Convert ngsParalog calcLR outputs (.lr files) to BED format
+rule convert_calcLR_output_to_BED:
+  input:
+    lr_file="results/ngs_paralog/hap{hap}/concat_realign/{population}_paralog_realign_WGS.lr"
+  output:
+    bed="results/bed/hap{hap}/deviant_SNPs_realign/{population}_deviant_SNPs_calcLR_realign.BED"
+  envmodules:
+    "r/4.3.1"
+  threads: 2
+  shell:
+    "Rscript scripts/convert_calcLR_to_bed.R {input.lr_file} {output.bed}"
+
 # Generate average depth of coverage per site for dupHMM
 # Only estimate depth at sites deemed 'paralogous' from raw ngsParalog (pre BH filter)
 rule calculate_average_coverage_per_population:
@@ -635,7 +658,7 @@ rule calculate_average_coverage_per_population:
     bam_files=lambda wildcards: expand("results/bam_realign/hap{hap}/{sample}_hap{hap}_realign.bam", sample=[s for s in SAMPLES if s.startswith(wildcards.population)], hap=(1,2)),
     raw_lr="results/ngs_paralog/hap{hap}/concat_realign/{population}_paralog_realign_WGS.lr"
   output:
-    bed="results/bed/hap{hap}/deviant_SNPs_realign/{population}_deviant_SNPs_realign.BED",
+    bed="results/bed/hap{hap}/deviant_SNPs_realign/{population}_deviant_SNPs_calcLR_realign.BED",
     avg_cov_file="results/coverage_realign/hap{hap}/{population}_average_coverage.tsv"
   threads: 2
   log:
@@ -692,7 +715,7 @@ rule dupHMM_setup:
     Rscript {params.r_script_path} --lrfile {input.lr_file} \
     --outfile {params.name_output} \
     --covfile {input.cov_file} \
-    --lrquantile 0.98 \
+    --lrquantile 0.975 \
     --paramOnly 1 \
     2> {log}
     """
@@ -834,10 +857,10 @@ rule dupHMM_run_hap1:
         Rscript {params.r_script_path} --lrfile {input.lr_file} \
         --outfile {params.name_output} \
         --covfile {input.cov_file} \
-        --lrquantile 0.98 \
-        --maxcoverage 12 \
+        --lrquantile 0.975 \
+        --maxcoverage 15 \
         --paramfile {input.parameters} \
-        2> {log}
+        2> {log} || touch {output.paralog_region}
     else
         echo "Skipping .lr file due to insufficient data (empty or only one row): {input.lr_file}" >> {log}
         touch {output.paralog_region}
@@ -865,10 +888,10 @@ rule dupHMM_run_hap2:
         Rscript {params.r_script_path} --lrfile {input.lr_file} \
         --outfile {params.name_output} \
         --covfile {input.cov_file} \
-        --lrquantile 0.98 \
-        --maxcoverage 12 \
+        --lrquantile 0.975 \
+        --maxcoverage 15 \
         --paramfile {input.parameters} \
-        2> {log}
+        2> {log} || touch {output.paralog_region}
     else
         echo "Skipping .lr file due to insufficient data (empty or only one row): {input.lr_file}" >> {log}
         touch {output.paralog_region}
@@ -881,12 +904,12 @@ rule concatenate_dupHMM_hap1:
   input:
     dupHMM_files=lambda wildcards: expand("results/ngs_paralog/hap1/dupHMM_realign/{population}_scaffolds/{{population}}-{hap1scaffold_prefix}_dupHMM_realign_run.rf", population=wildcards.population, hap1scaffold_prefix=HAP1SCAFFOLD_PREFIXES)
   output:
-    dupHMM_final="results/ngs_paralog/hap1/concat_realign/{population}_dupHMM_realign_WGS.lr"
+    dupHMM_final="results/ngs_paralog/hap1/dupHMM_realign/{population}_dupHMM_realign_WGS.lr"
   log:
-    "results/logs/ngs_paralog/hap1/concat_realign/{population}_dupHMM_realign_WGS.log"
+    "results/logs/ngs_paralog/hap1/dupHMM_realign/{population}_dupHMM_realign_WGS.log"
   shell:
     """
-    cat {input.dupHMM_files} >> {output.paralog_final}
+    cat {input.dupHMM_files} >> {output.dupHMM_final}
     """
 
 
@@ -894,17 +917,48 @@ rule concatenate_dupHMM_hap2:
   input:
     dupHMM_files=lambda wildcards: expand("results/ngs_paralog/hap2/dupHMM_realign/{population}_scaffolds/{{population}}-{hap2scaffold_prefix}_dupHMM_realign_run.rf", population=wildcards.population, hap2scaffold_prefix=HAP2SCAFFOLD_PREFIXES)
   output:
-    dupHMM_final="results/ngs_paralog/hap2/concat_realign/{population}_dupHMM_realign_WGS.lr"
+    dupHMM_final="results/ngs_paralog/hap2/dupHMM_realign/{population}_dupHMM_realign_WGS.lr"
   log:
-    "results/logs/ngs_paralog/hap2/concat_realign/{population}_dupHMM_realign_WGS.log"
+    "results/logs/ngs_paralog/hap2/dupHMM_realign/{population}_dupHMM_realign_WGS.log"
   shell:
     """
-    cat {input.dupHMM_files} >> {output.paralog_final}
+    cat {input.dupHMM_files} >> {output.dupHMM_final}
     """
 
 
+# Convert dupHMM outputs (.lr files) to BED format
+rule convert_dupHMM_output_to_BED:
+  input:
+    lr_file="results/ngs_paralog/hap{hap}/dupHMM_realign/{population}_paralog_realign_WGS.lr"
+  output:
+    bed="results/bed/hap{hap}/deviant_SNPs_realign/{population}_deviant_SNPs_dupHMM_realign.BED"
+  envmodules:
+    "r/4.3.1"
+  threads: 2
+  shell:
+    "Rscript scripts/convert_dupHMM_to_bed.R {input.lr_file} {output.bed}"
 
-## STEP 3: VERIFY HETEROZYGOTE EXCESS REDUCED .. METHOD 1: RE-RUN ANGSD
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+## STEP 3: VERIFY PARALOGS REDUCED -> look at SFS with RE-RUN ANGSD
 
 # Print out all sites (monomorphic or not)
 rule extract_all_sites_by_popln:
@@ -933,63 +987,29 @@ rule extract_all_sites_by_popln:
     """
 
 
-rule check_bed_files:
-  input:
-    all_sites_bed = "results/angsd/hap2/all_sites/{population}_all_sites.BED",
-    deviant_snps_bed = "results/bed/hap2/deviant_SNPs_realign/{population}_deviant_SNPs_realign_BH_correction.BED"
-  output:
-    touch("results/checks/hap2/{population}_bed_files_checked.txt")
-  log:
-    "results/logs/check_bed/check_bed_files_hap2_{population}.log"
-  shell:
-    """
-    echo "Checking files for population {wildcards.population}" >> {log}
-
-    for bed_file in {input.all_sites_bed} {input.deviant_snps_bed}; do
-        echo "Checking file: $bed_file" >> {log}
-
-        # Check if file is tab-delimited and columns 2 and 3 are integers
-        awk -F '\\t' 'BEGIN {{ OFS = FS; hasNonIntegers = 0; notTabDelimited = 0; }}
-        {{
-            if (NF < 3) {{ 
-                notTabDelimited = 1; 
-                exit; 
-            }}
-            if ($2 != int($2) || $3 != int($3)) {{ 
-                hasNonIntegers = 1; 
-                exit; 
-            }}
-        }}
-        END {{
-            if (notTabDelimited) {{ 
-                print "ERROR: File is not tab-delimited or does not have at least 3 columns: " bed_file; 
-            }} else if (hasNonIntegers) {{ 
-                print "ERROR: File contains non-integer values in columns 2 or 3: " bed_file; 
-            }} else {{ 
-                print "OK: File passed checks: " bed_file; 
-            }}
-        }}' bed_file="$bed_file" >> {log}
-    done
-    """
-
-
 # Format all BED files accordingly and make sure they're in UNIX format + tab delimited
 rule preprocess_bed_files_all_populations:
   input:
     all_sites_bed="results/angsd/hap{hap}/all_sites/{population}_all_sites.BED",
-    deviant_snps="results/bed/hap{hap}/deviant_SNPs_realign/{population}_deviant_SNPs_realign_BH_correction.BED"
+    calcLR_deviant_snps_bed="results/bed/hap{hap}/deviant_SNPs_realign/{population}_deviant_SNPs_realign_BH_correction.BED",
+    dupHMM_deviant_regs_bed="results/bed/hap{hap}/deviant_SNPs_realign/{population}_deviant_SNPs_dupHMM_realign.BED"
   output:
     processed_all_sites_bed="results/angsd/hap{hap}/all_sites/{population}_all_sites_processed.BED",
-    processed_deviant_snps="results/bed/hap{hap}/deviant_SNPs_realign/{population}_deviant_SNPs_realign_BH_correction_processed.BED"
+    processed_calcLR_snps="results/bed/hap{hap}/deviant_SNPs_realign/{population}_deviant_SNPs_realign_BH_correction_processed.BED",
+    processed_dupHMM_regs="results/bed/hap{hap}/deviant_SNPs_realign/{population}_deviant_SNPs_dupHMM_realign_processed.BED"
   shell:
     """
     # Convert all_sites_bed BED file from DOS to UNIX line endings and process
     dos2unix {input.all_sites_bed}
     awk 'NF >= 3 {{print $1"\t"$2"\t"$3}}' {input.all_sites_bed} > {output.processed_all_sites_bed}
 
-    # Convert deviant_snps BED file from DOS to UNIX line endings and process
-    dos2unix {input.deviant_snps}
-    awk 'NF >= 3 {{print $1"\t"$2"\t"$3}}' {input.deviant_snps} > {output.processed_deviant_snps}
+    # Convert calcLR_snps BED file from DOS to UNIX line endings and process
+    dos2unix {input.calcLR_deviant_snps_bed}
+    awk 'NF >= 3 {{print $1"\t"$2"\t"$3}}' {input.calcLR_deviant_snps_bed} > {output.processed_calcLR_snps}
+
+    # Convert dupHMM_regions BED file from DOS to UNIX line endings and process
+    dos2unix {input.dupHMM_deviant_regs_bed}
+    awk 'NF >= 3 {{print $1"\t"$2"\t"$3}}' {input.dupHMM_deviant_regs_bed} > {output.processed_dupHMM_regs}
     
 
     # Optional: Print lines before and after removal for auditing
@@ -998,10 +1018,15 @@ rule preprocess_bed_files_all_populations:
     echo "Lines after processing in {output.processed_all_sites_bed}:"
     wc -l {output.processed_all_sites_bed}
 
-    echo "Lines before processing in {input.deviant_snps}:"
-    wc -l {input.deviant_snps}
-    echo "Lines after processing in {output.processed_deviant_snps}:"
-    wc -l {output.processed_deviant_snps}
+    echo "Lines before processing in {input.calcLR_deviant_snps_bed}:"
+    wc -l {input.calcLR_deviant_snps_bed}
+    echo "Lines after processing in {output.processed_calcLR_snps}:"
+    wc -l {output.processed_calcLR_snps}
+
+    echo "Lines before processing in {input.dupHMM_deviant_regs_bed}:"
+    wc -l {input.dupHMM_deviant_regs_bed}
+    echo "Lines after processing in {output.processed_dupHMM_regs}:"
+    wc -l {output.processed_dupHMM_regs}
     """
 
 
@@ -1011,63 +1036,93 @@ rule preprocess_bed_files_all_populations:
 
 
 # Filter out deviant SNPs from all known sites
-rule filter_all_sites_by_popln:
+rule filter_all_sites_by_popln_calcLR:
   input:
     processed_all_sites_bed="results/angsd/hap{hap}/all_sites/{population}_all_sites_processed.BED",
-    processed_deviant_snps="results/bed/hap{hap}/deviant_SNPs_realign/{population}_deviant_SNPs_realign_BH_correction_processed.BED"
+    processed_calcLR_snps="results/bed/hap{hap}/deviant_SNPs_realign/{population}_deviant_SNPs_realign_BH_correction_processed.BED",
+    processed_dupHMM_regs="results/bed/hap{hap}/deviant_SNPs_realign/{population}_deviant_SNPs_dupHMM_realign_processed.BED"
   output:
-    filtered_sites_bed="results/bed/hap{hap}/filtered_sites/{population}_filtered_sites.BED",
-    filtered_sites_txt="results/bed/hap{hap}/filtered_sites/{population}_filtered_sites.txt"
+    filtered_calcLR_bed="results/bed/hap{hap}/filtered_sites/calcLR/{population}_filtered_sites.BED",
+    filtered_calcLR_txt="results/bed/hap{hap}/filtered_sites/calcLR/{population}_filtered_sites.txt"
   log:
-    bedtools_log="results/logs/bedtools/hap{hap}/filtered_sites/{population}_filtered_sites.log"
+    calcLR_log="results/logs/bedtools/hap{hap}/filtered_sites/{population}_filtered_sites.log"
   envmodules:
     "bedtools/2.30.0"
   shell:
     """
-    # Filter out deviant sites using bedtools
-    bedtools subtract -a {input.processed_all_sites_bed} -b {input.processed_deviant_snps} > {output.filtered_sites_bed} \
-    2> {log.bedtools_log}
+    # Filter out deviant calcLR SNPs using bedtools and save to BED file
+    bedtools subtract -a {input.processed_all_sites_bed} -b {input.processed_calcLR_snps} > {output.filtered_calcLR_bed} 2> {log.calcLR_log}
 
-    # Convert the filtered BED file to a .txt file formatted for -sites in ANGSD
-    awk '{{print $1, $3}}' {output.filtered_sites_bed} > {output.filtered_sites_txt}
+    # Convert the filtered BED files to a .txt file formatted for -sites in ANGSD
+    awk '{{print $1, $3}}' {output.filtered_calcLR_bed} > {output.filtered_calcLR_txt}
     """
 
 
+rule filter_all_sites_by_popln_dupHMM:
+  input:
+    processed_dupHMM_regs="results/bed/hap{hap}/deviant_SNPs_realign/{population}_deviant_SNPs_dupHMM_realign_processed.BED",
+    filtered_calcLR_bed="results/bed/hap{hap}/filtered_sites/calcLR/{population}_filtered_sites.BED"
+  output:
+    filtered_dupHMM_bed="results/bed/hap{hap}/filtered_sites/dupHMM/{population}_filtered_sites_dupHMM_calcLR.BED",
+    filtered_dupHMM_txt="results/bed/hap{hap}/filtered_sites/dupHMM/{population}_filtered_sites_dupHMM_calcLR.txt"
+  log:
+    dupHMM_log="results/logs/bedtools/hap{hap}/filtered_sites/{population}_filtered_sites_dupHMM_calcLR.log"
+  envmodules:
+    "bedtools/2.30.0"
+  shell:
+    """
+    # Filter out dupHMM regions from the calcLR BED file
+    bedtools subtract -a {input.filtered_calcLR_bed} -b {input.processed_dupHMM_regs} > {output.filtered_dupHMM_bed} 2> {log.dupHMM_log}
+
+    # Convert the filtered BED files to a .txt file formatted for -sites in ANGSD
+    awk '{{print $1, $3}}' {output.filtered_dupHMM_bed} > {output.filtered_dupHMM_txt}
+    """
+
 # Index filtered all sites BED file
-rule index_all_sites_by_popln:
+rule index_all_sites_by_popln_calcLR:
   input: 
-    canonical_sites = "results/bed/hap{hap}/filtered_sites/{population}_filtered_sites.txt"
+    canonical_calcLR_sites="results/bed/hap{hap}/filtered_sites/calcLR/{population}_filtered_sites.txt"
   output: 
-    bin_index = "results/bed/hap{hap}/filtered_sites/{population}_filtered_sites.txt.bin"
+    calcLR_index="results/bed/hap{hap}/filtered_sites/calcLR/{population}_filtered_sites.txt.bin"
   envmodules:
     "angsd/0.939"
   shell: 
-    """
-    angsd sites index {input.canonical_sites}
-    """
+    "angsd sites index {input.canonical_dupHMM_sites}"
+
+
+rule index_all_sites_by_popln_dupHMM:
+  input:
+    canonical_dupHMM_sites="results/bed/hap{hap}/filtered_sites/dupHMM/{population}_filtered_sites_dupHMM_calcLR.txt"
+  output:
+    dupHMM_index="results/bed/hap{hap}/filtered_sites/dupHMM/{population}_filtered_sites_dupHMM_calcLR.txt.bin"
+  envmodules:
+    "angsd/0.939"
+  shell:
+    "angsd sites index {input.canonical_calcLR_sites}"
 
 
 # ANGSD by population: To calculate SFS (check if heterozygote excess reduced) with filtered sites by ngsParalog
+# Previously attempted just calcLR outputs but this did not remove paralogs. We now incorporate dupHMM and calcLR
 rule angsd_SFS_by_population_on_all_sites:
   input:
     bam_list="data/lists/hap{hap}/{population}_realign_hap{hap}.txt",
-    canonical_sites="results/bed/hap{hap}/filtered_sites/{population}_filtered_sites.txt",
-    bin_index="results/bed/hap{hap}/filtered_sites/{population}_filtered_sites.txt.bin"
+    canonical_sites="results/bed/hap{hap}/filtered_sites/dupHMM/{population}_filtered_sites_dupHMM_calcLR.txt",
+    bin_index="results/bed/hap{hap}/filtered_sites/dupHMM/{population}_filtered_sites_dupHMM_calcLR.txt.bin"
   output:
-    arg_file="results/angsd/hap{hap}/canonical_realign/by_popln/{population}_canonical_sites.arg",
-    mafs_file="results/angsd/hap{hap}/canonical_realign/by_popln/{population}_canonical_sites.mafs.gz",
-    hwe_file="results/angsd/hap{hap}/canonical_realign/by_popln/{population}_canonical_sites.hwe.gz",
-    depth_sample="results/angsd/hap{hap}/canonical_realign/by_popln/{population}_canonical_sites.depthSample",
-    depth_global="results/angsd/hap{hap}/canonical_realign/by_popln/{population}_canonical_sites.depthGlobal",
-    saf_1="results/angsd/hap{hap}/canonical_realign/by_popln/{population}_canonical_sites.saf.idx",
-    saf_2="results/angsd/hap{hap}/canonical_realign/by_popln/{population}_canonical_sites.saf.pos.gz",
-    saf_3="results/angsd/hap{hap}/canonical_realign/by_popln/{population}_canonical_sites.saf.gz",
-    beagle="results/angsd/hap{hap}/canonical_realign/by_popln/{population}_canonical_sites.beagle.gz"
+    arg_file="results/angsd/hap{hap}/canonical_realign/by_popln/{population}_canonical_sites_dupHMM.arg",
+    mafs_file="results/angsd/hap{hap}/canonical_realign/by_popln/{population}_canonical_sites_dupHMM.mafs.gz",
+    hwe_file="results/angsd/hap{hap}/canonical_realign/by_popln/{population}_canonical_sites_dupHMM.hwe.gz",
+    depth_sample="results/angsd/hap{hap}/canonical_realign/by_popln/{population}_canonical_sites_dupHMM.depthSample",
+    depth_global="results/angsd/hap{hap}/canonical_realign/by_popln/{population}_canonical_sites_dupHMM.depthGlobal",
+    saf_1="results/angsd/hap{hap}/canonical_realign/by_popln/{population}_canonical_sites_dupHMM.saf.idx",
+    saf_2="results/angsd/hap{hap}/canonical_realign/by_popln/{population}_canonical_sites_dupHMM.saf.pos.gz",
+    saf_3="results/angsd/hap{hap}/canonical_realign/by_popln/{population}_canonical_sites_dupHMM.saf.gz",
+    beagle="results/angsd/hap{hap}/canonical_realign/by_popln/{population}_canonical_sites_dupHMM.beagle.gz"
   params:
     ref="data/reference/hap{hap}/lupinehap{hap}.fasta",
-    file_name="results/angsd/hap{hap}/canonical_realign/by_popln/{population}_canonical_sites"
+    file_name="results/angsd/hap{hap}/canonical_realign/by_popln/{population}_canonical_sites_dupHMM"
   log:
-    "results/logs/angsd/hap{hap}/canonical_realign/by_popln/angsd_canonical_sites_hap{hap}_{population}.log"
+    "results/logs/angsd/hap{hap}/canonical_realign/by_popln/angsd_canonical_sites_dupHMM_hap{hap}_{population}.log"
   envmodules:
     "angsd/0.939"
   threads: 8
@@ -1099,8 +1154,7 @@ rule angsd_SFS_by_population_on_all_sites:
 # ANGSD by population:  To calculate SFS and compare to filtered data. this is the CONTROL
 rule angsd_SFS_control_by_population_on_all_sites:
   input:
-    bam_list="data/lists/hap{hap}/{population}_realign_hap{hap}.txt",
-    bin_index="results/bed/hap{hap}/filtered_sites/{population}_filtered_sites.txt.bin"
+    bam_list="data/lists/hap{hap}/{population}_realign_hap{hap}.txt"
   output:
     arg_file="results/angsd/hap{hap}/canonical_realign/by_popln/{population}_canonical_sites_control.arg",
     mafs_file="results/angsd/hap{hap}/canonical_realign/by_popln/{population}_canonical_sites_control.mafs.gz",
@@ -1149,13 +1203,13 @@ rule angsd_SFS_control_by_population_on_all_sites:
 # We set seed at 1 for reproducibility
 rule global_SFS_by_population:
   input:
-    saf_idx="results/angsd/hap{hap}/canonical_realign/by_popln/{population}_canonical_sites.saf.idx"
+    saf_idx="results/angsd/hap{hap}/canonical_realign/by_popln/{population}_canonical_sites_dupHMM.saf.idx"
   output:
-    sfs="results/winSFS/hap{hap}/globalSFS/{population}_hap{hap}_globalSFS.sfs",
-    sfs_folded="results/winSFS/hap{hap}/globalSFS/{population}_hap{hap}_globalSFS_folded.sfs"
+    sfs="results/winSFS/hap{hap}/globalSFS/{population}_hap{hap}_globalSFS_dupHMM.sfs",
+    sfs_folded="results/winSFS/hap{hap}/globalSFS/{population}_hap{hap}_globalSFS_dupHMM_folded.sfs"
   log:
-    sfs1="results/logs/winSFS/hap{hap}/globalSFS/{population}_hap{hap}_globalSFS.log",
-    sfs2="results/logs/winSFS/hap{hap}/globalSFS/{population}_hap{hap}_globalSFS_folded.log"
+    sfs1="results/logs/winSFS/hap{hap}/globalSFS/{population}_hap{hap}_globalSFS_dupHMM.log",
+    sfs2="results/logs/winSFS/hap{hap}/globalSFS/{population}_hap{hap}_globalSFS_dupHMM_folded.log"
   threads: 40
   shell:
     """
@@ -1184,9 +1238,9 @@ rule global_SFS_control_by_population:
 # Create SFS Plots on filtered data
 rule global_SFS_by_population_plots:
   input:
-    sfs_file="results/winSFS/hap{hap}/globalSFS/{population}_hap{hap}_globalSFS.sfs"
+    sfs_file="results/winSFS/hap{hap}/globalSFS/{population}_hap{hap}_globalSFS_dupHMM.sfs"
   output:
-    plot="results/plots/hap{hap}/SFS/{population}_globalSFS.png"
+    plot="results/plots/hap{hap}/SFS/{population}_globalSFS_dupHMM.png"
   envmodules:
     "r/4.3.1"
   threads: 2
@@ -1498,6 +1552,7 @@ rule index_all_sites_all_popln:
     """
     angsd sites index {input.all_sites}
     """
+
 
 # Estimate SAF, HWE, GL with SNPs on entire population
 rule angsd_SNP_on_all_populations:
