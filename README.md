@@ -62,6 +62,9 @@ snakemake --profile snakeprofile all
 # Calls snakemake using --profile snakeprofile. Tells Snakemake to specific run the rule 'all'.
 # Add -np to run a practice run
 ```
+5b. Call Snakemake in a SLURM job.
+
+Calling Snakemake on a login-node may take extremely long depending on your workflow complexity. To decrease timing, ComputeCanada suggests building a virtual environment within a job and activating Snakemake in the job. See https://docs.alliancecan.ca/wiki/Python#Creating_virtual_environments_inside_of_your_jobs for details. This should reduce wait times for Building DAG jobs. 
 
 ## Some other notes
 
