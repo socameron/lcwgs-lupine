@@ -48,13 +48,19 @@ set-threads:
   dupHMM_run_hap2: 2
   angsd_SFS_by_population_on_all_sites: 8
   angsd_SFS_control_by_population_on_all_sites: 8
+  angsd_HWE_by_population_on_SNPs: 8
+  angsd_SFS_by_population_on_CDS_sites: 8
+  angsd_HWE_by_population_on_CDS_SNPs: 8
   global_SFS_by_population: 40
+  fold_global_SFS_by_population: 40
   global_SFS_control_by_population: 40
   global_SFS_with_inbreeding_by_population: 40
   extract_all_sites: 8
   extract_all_sites_all_populations: 8
-  filter_all_sites_by_popln: 2
-  filter_all_sites_all_populations: 2
+  filter_all_sites_by_popln_calcLR: 2
+  filter_all_sites_by_popln_dupHMM: 2
+  filter_all_sites_all_populations_calcLR: 2
+  filter_all_sites_all_populations_dupHMM: 2
   angsd_SNP_on_entire_population: 8
   angsd_ngsF_by_population_on_SNPs: 8
   PCAngsd_all_populations: 8
@@ -129,17 +135,45 @@ set-resources:
     mem_mb: 6900
   angsd_SFS_by_population_on_all_sites:
     mem_mb: 34400
-    time: "47:59:00"
+    time: "23:59:00"
     threads: 8
   angsd_SFS_control_by_population_on_all_sites:
     mem_mb: 34400
-    time: "47:59:00"
+    time: "23:59:00"
+    threads: 8
+  angsd_HWE_by_population_on_SNPs:
+    mem_mb: 34400
+    time: "23:59:00"
+    threads: 8
+  angsd_HWE_by_population_on_CDS_SNPs:
+    mem_mb: 34400
+    time: "23:59:00"
+    threads: 8
+  angsd_SFS_by_population_on_CDS_sites:
+    mem_mb: 34400
+    time: "23:59:00"
     threads: 8
   global_SFS_by_population:
     mem_mb: 149500
     time: "47:59:00"
     threads: 40
+  fold_global_SFS_by_population:
+    mem_mb: 149500
+    time: "47:59:00"
+    threads: 40
   global_SFS_control_by_population:
+    mem_mb: 149500
+    time: "47:59:00"
+    threads: 40
+  fold_global_SFS_control_by_population:
+    mem_mb: 149500
+    time: "47:59:00"
+    threads: 40
+  global_SFS_by_population_CDS_sites:
+    mem_mb: 149500
+    time: "47:59:00"
+    threads: 40
+  fold_global_SFS_by_population_CDS_sites:
     mem_mb: 149500
     time: "47:59:00"
     threads: 40
@@ -151,9 +185,13 @@ set-resources:
     mem_mb: 13800
     time: "4:00:00"
     threads: 8
-  filter_all_sites_by_popln:
+  filter_all_sites_by_popln_calcLR:
     mem_mb: 13800
-    time: "4:00:00"
+    time: "3:00:00"
+    threads: 2
+  filter_all_sites_by_popln_dupHMM:
+    mem_mb: 13800
+    time: "3:00:00"
     threads: 2
   extract_all_sites_all_populations:
     mem_mb: 34400
@@ -162,9 +200,12 @@ set-resources:
   preprocess_bed_files_all_populations:
     mem_mb: 6900
     time: "2:00:00"
-  filter_all_sites_all_populations:
+  filter_all_sites_all_populations_calcLR:
     mem_mb: 13800
-    time: "12:00:00"
+    time: "3:00:00"
+  filter_all_sites_all_populations_dupHMM:
+    mem_mb: 13800
+    time: "3:00:00"
   angsd_SNP_on_all_populations:
     mem_mb: 34400
     time: "12:00:00"
@@ -177,3 +218,7 @@ set-resources:
     mem_mb: 13800
     time: "23:59:00"
     threads: 8
+  hwe_histogram_dupHMM:
+    mem_mb: 13800
+    time: "2:00:00"
+    threads: 2

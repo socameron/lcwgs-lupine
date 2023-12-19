@@ -19,12 +19,12 @@ lr <- read.table(input_file, header=FALSE, sep="\t")
 lr$pval <- 0.5 * pchisq(lr$V5, df=1, lower.tail=FALSE)
 lr$pval.adj <- p.adjust(lr$pval, method="fdr")
 
-# Setting proportion of kept SNPs at 50%, controlling for false positives
+# Setting proportion of kept SNPs at 25%, controlling for false positives
 # In other words, paralog.sites will be paralogous or deviant SNPs 
 # Here we keep all 5 columns for bp.1 that we can input the .lr file for dupHMM (need all 5 columns - 1-indexed).
 # Here we only keep 2 columns for bp.0 so we can create a BED file (0-indexed)
-paralog.sites.bp0 <- lr[-which(lr$pval.adj < 0.1), 1:2]
-paralog.sites.bp1 <- lr[-which(lr$pval.adj < 0.1), 1:5]
+paralog.sites.bp0 <- lr[-which(lr$pval.adj < 0.25), 1:2]
+paralog.sites.bp1 <- lr[-which(lr$pval.adj < 0.25), 1:5]
 
 
 # Converting paralog.sites to BED format for filtering in SAMtools (0-based start)
