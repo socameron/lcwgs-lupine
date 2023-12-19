@@ -62,9 +62,35 @@ snakemake --profile snakeprofile all
 # Calls snakemake using --profile snakeprofile. Tells Snakemake to specific run the rule 'all'.
 # Add -np to run a practice run
 ```
-5b. Call Snakemake in a SLURM job.
+6. Call Snakemake in a SLURM job ** **RECOMMENDED**
 
-Calling Snakemake on a login-node may take extremely long depending on your workflow complexity. To decrease timing, ComputeCanada suggests building a virtual environment within a job and activating Snakemake in the job. See https://docs.alliancecan.ca/wiki/Python#Creating_virtual_environments_inside_of_your_jobs for details. This should reduce wait times for Building DAG jobs. 
+Calling Snakemake (i.e building DAG of jobs) on a login-node may take extremely long depending on your workflow complexity. To decrease timing, ComputeCanada suggests building a virtual environment within a job and activating Snakemake in the job. See https://docs.alliancecan.ca/wiki/Python#Creating_virtual_environments_inside_of_your_jobs for details. This should reduce wait times for 'Building DAG of jobs' and require no screen.
+
+Here's an example of an SBATCH script that you could use for running snakemake from inside a job. Be sure to set the total time to equal or greater than the biggest snakemake rule required.
+
+```
+#!/bin/bash
+#SBATCH --account= XXX
+#SBATCH --mem-per-cpu=10G      # decrease/increase as needed
+#SBATCH --time=8:00:00         # equal or greater than longest snakemake rule
+#SBATCH --mail-user= yourusername@email.com
+#SBATCH --output=/path/to/some/folder/where/snakemake/outputs/are/held/snakemake_%j.out # %j is the job number
+
+module load python/3.10
+virtualenv --no-download $SLURM_TMPDIR/env
+source $SLURM_TMPDIR/env/bin/activate
+pip install --no-index --upgrade pip
+pip install --no-index snakemake
+
+snakemake --profile snakeprofile all
+```
+
+Then you get a constant update of the snakemake in your terminal, for last 50 lines:
+
+```
+cd /path/to/some/folder/where/snakemake/outputs/are/held/snakemake_%j.out
+tail -f SNAKEMAKE_%j.out file -n 50 
+```
 
 ## Some other notes
 
