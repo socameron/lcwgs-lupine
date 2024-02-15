@@ -89,13 +89,13 @@ rule all:
 # When batch 2 is available, use wildcard {batch}
 rule trim_reads:
   input:
-    r1="data/batch_{batch}/{sample}_L001_R1_001.fastq.gz",
-    r2="data/batch_{batch}/{sample}_L001_R2_001.fastq.gz",
+    r1="data/batch_1/{sample}_L001_R1_001.fastq.gz",
+    r2="data/batch_1/{sample}_L001_R2_001.fastq.gz",
   output:
-    r1="results/trimmed/{sample}_R1.fastq.gz",
-    r1_unp="results/trimmed/{sample}_R1_unpaired.fastq.gz",
-    r2="results/trimmed/{sample}_R2.fastq.gz",
-    r2_unp="results/trimmed/{sample}_R2_unpaired.fastq.gz"
+    r1="results/fastq_trimmed/batch_1/{sample}_R1.fastq.gz",
+    r1_unp="results/fastq_trimmed/batch_1/{sample}_R1_unpaired.fastq.gz",
+    r2="results/fastq_trimmed/batch_1/{sample}_R2.fastq.gz",
+    r2_unp="results/fastq_trimmed/batch_1/{sample}_R2_unpaired.fastq.gz"
   log:
     "results/logs/trim_reads/{sample}.log"
   envmodules:
@@ -115,11 +115,11 @@ rule trim_reads:
 # Unzip trimmed files as fastqc 0.12.0 cannot properly read compressed files
 rule unzip_files:
   input:
-    zipped_r1="results/batch_{batch}/trimmed/{sample}_R1.fastq.gz",
-    zipped_r2="results/batch_{batch}trimmed/{sample}_R2.fastq.gz"
+    zipped_r1="results/fastq_trimmed/batch_1/{sample}_R1.fastq.gz",
+    zipped_r2="results/fastq_trimmed/batch_1/{sample}_R2.fastq.gz"
   output: 
-    unzipped_r1="results/batch_{batch}/trimmed_unzip/{sample}_R1.fastq",
-    unzipped_r2="results/batch_{batch}/trimmed_unzip/{sample}_R2.fastq"
+    unzipped_r1="results/fastq_trimmed_unzip/batch_1/{sample}_R1.fastq",
+    unzipped_r2="results/fastq_trimmed_unzip/batch_1/{sample}_R2.fastq"
   shell:
     "gunzip -c {input.zipped_r1} > {output.unzipped_r1} && gunzip -c {input.zipped_r2} > {output.unzipped_r2}"
 
@@ -127,13 +127,13 @@ rule unzip_files:
 # Run FastQC per each trimmed sequence file
 rule fastqc:
   input:
-    fastq_r1="results/trimmed_unzip/batch_{batch}/{sample}_R1.fastq",
-    fastq_r2="results/trimmed_unzip/batch_{batch}/{sample}_R2.fastq"
+    fastq_r1="results/fastq_trimmed_unzip/batch_1/{sample}_R1.fastq",
+    fastq_r2="results/fastq_trimmed_unzip/batch_1/{sample}_R2.fastq"
   output:
-    html_report_r1="results/fastqc/batch_{batch}/{sample}_R1_fastqc.html",
-    zip_report_r1="results/fastqc/batch_{batch}/{sample}_R1_fastqc.zip",
-    html_report_r2="results/fastqc/batch_{batch}/{sample}_R2_fastqc.html",
-    zip_report_r2="results/fastqc/batch_{batch}/{sample}_R2_fastqc.zip"
+    html_report_r1="results/fastqc/batch_1/{sample}_R1_fastqc.html",
+    zip_report_r1="results/fastqc/batch_1/{sample}_R1_fastqc.zip",
+    html_report_r2="results/fastqc/batch_1/{sample}_R2_fastqc.html",
+    zip_report_r2="results/fastqc/batch_1/{sample}_R2_fastqc.zip"
   envmodules:
     "fastqc/0.12.0"
   shell:
@@ -144,11 +144,11 @@ rule fastqc:
 # Note that we create separate MultiQC reports for both batch 1 and 2
 rule multiqc_raw:
   input:
-    fastqc_dir="results/fastqc/batch_{batch}"
+    fastqc_dir="results/fastqc/batch_1"
   output:
-    html_report="results/multiqc/multiqc_raw_batch_{batch}/multiqc_report.html"
+    html_report="results/multiqc/multiqc_raw/multiqc_report_batch_1.html"
   params:
-    output_dir="results/multiqc/multiqc_raw_batch_{batch}"
+    output_dir="results/multiqc/multiqc_raw"
   shell:
     "multiqc -o {params.output_dir} {input.fastqc_dir} "
 
@@ -195,19 +195,36 @@ rule create_dict:
     "samtools dict {input} > {output} 2> {log}"
 
 
+# Removing reads smaller than 70bp so 'bwa mem' works better
+rule remove_short_reads_fastq:
+  input:
+    r1="results/fastq_trimmed/batch_1/{sample}_R1.fastq.gz",
+    r2="results/fastq_trimmed/batch_1/{sample}_R2.fastq.gz"
+    output:
+    r1_filtered="results/fastq_filtered/batch_1/{sample}_R1_filtered.fastq.gz",
+    r2_filtered="results/fastq_filtered/batch_1/{sample}_R2_filtered.fastq.gz"
+  log:
+    "results/logs/fastq_filter/batch_1/{sample}_filter_fastq.log"
+  envmodules:
+    "seqkit/2.3.1"
+  shell:
+    """
+    seqkit seq -m 70 {input.r1} | gzip > {output.r1_filtered}
+    seqkit seq -m 70 {input.r2} | gzip > {output.r2_filtered}
+    """
+
+
 # Mapping/Aligning reads to haplotypes
 rule map_reads:
   input:
-    r1="results/trimmed/{sample}_R1.fastq.gz",
-    r2="results/trimmed/{sample}_R2.fastq.gz",
+    r1="results/fastq_filtered/batch_1/{sample}_R1.fastq.gz",
+    r2="results/fastq_filtered/batch_1/{sample}_R2.fastq.gz",
     genome="data/reference/hap{hap}/lupinehap{hap}.fasta",
     idx=multiext("data/reference/hap{hap}/lupinehap{hap}.fasta", ".amb", ".ann", ".bwt", ".pac", ".sa")
   output:
-    "results/bam/hap{hap}/{sample}_hap{hap}.bam"
+    "results/bam_raw/hap{hap}/{sample}_hap{hap}.bam"
   log:
     "results/logs/map_reads/hap{hap}/{sample}_hap{hap}.log"
-  benchmark:
-    "results/benchmarks/map_reads/{sample}_hap{hap}.bmk"
   envmodules:
     "bwa/0.7.17",
     "samtools/1.17"
@@ -250,18 +267,18 @@ rule map_reads:
 # Merge replicates
 rule merge_replicates:
   input:
-    MFNP_48A="results/bam/hap{hap}/MFNP-48_2-2695929_S1_hap{hap}.bam",
-    MFNP_48B="results/bam/hap{hap}/MFNP-48_2-2697940_S99_hap{hap}.bam",
-    IDNP_6A="results/bam/hap{hap}/IDNP-MW-6_2-2698020_S129_hap{hap}.bam",
-    IDNP_6B="results/bam/hap{hap}/IDNP-MW-6_2-2698118_S177_hap{hap}.bam",
-    RLPLV_13A="results/bam/hap{hap}/RLPLV-13_2-2696026_S48_hap{hap}.bam",
-    RLPLV_13B="results/bam/hap{hap}/RLPLV-13_2-2696110_S82_hap{hap}.bam"
+    MFNP_48A="results/bam_raw/hap{hap}/MFNP-48_2-2695929_S1_hap{hap}.bam",
+    MFNP_48B="results/bam_raw/hap{hap}/MFNP-48_2-2697940_S99_hap{hap}.bam",
+    IDNP_6A="results/bam_raw/hap{hap}/IDNP-MW-6_2-2698020_S129_hap{hap}.bam",
+    IDNP_6B="results/bam_raw/hap{hap}/IDNP-MW-6_2-2698118_S177_hap{hap}.bam",
+    RLPLV_13A="results/bam_raw/hap{hap}/RLPLV-13_2-2696026_S48_hap{hap}.bam",
+    RLPLV_13B="results/bam_raw/hap{hap}/RLPLV-13_2-2696110_S82_hap{hap}.bam"
   output:
-    MFNP_48="results/bam/hap{hap}/MFNP-48_2_269001_S193_hap{hap}.bam",
-    IDNP_6="results/bam/hap{hap}/IDNP-MW-6_2_269002_S194_hap{hap}.bam",
-    RLPLV_13="results/bam/hap{hap}/RLPLV-13_2_269003_S195_hap{hap}.bam"
+    MFNP_48="results/bam_raw/hap{hap}/MFNP-48_2_269001_S193_hap{hap}.bam",
+    IDNP_6="results/bam_raw/hap{hap}/IDNP-MW-6_2_269002_S194_hap{hap}.bam",
+    RLPLV_13="results/bam_raw/hap{hap}/RLPLV-13_2_269003_S195_hap{hap}.bam"
   params:
-    archive="results/bam/archive/hap{hap}"
+    archive="results/bam_raw/archive/hap{hap}"
   envmodules:
     "samtools/1.17"
   shell:
@@ -279,7 +296,7 @@ rule merge_replicates:
 # Note that: /bam_mkdup/ is where marked duplicates are marked but not removed. This is backed up in the projects folder.
 rule mark_remove_duplicates:
   input:
-    "results/bam/hap{hap}/{sample}_hap{hap}.bam"
+    "results/bam_raw/hap{hap}/{sample}_hap{hap}.bam"
   output:
     bam="results/bam_mkdup/hap{hap}/{sample}_hap{hap}_mkdup.bam",
     bai="results/bam_mkdup/hap{hap}/{sample}_hap{hap}_mkdup.bai",
@@ -391,3 +408,45 @@ rule realign_indels:
     &> {log}
     module --force purge
     """
+
+
+# Remove reads below ~70bp length
+rule remove_small_reads:
+  input: 
+    bam="results/bam_realign/hap{hap}/{sample}_hap{hap}_realign.bam"
+  output:
+    bam_qc1="results/bam_qc1/hap{hap}/{sample}_hap{hap}_qc1.bam"
+  log:
+    "results/logs/remove_small/hap{hap}/{sample}_hap{hap}_qc1.log"
+  envmodules:
+    "samtools/1.17"
+  shell:
+    """
+    samtools view -h -b -e 'length(seq) >= 70' {input.bam} > {output.bam_qc1} 2> {log}
+    """
+  
+
+# Estimate depth per bp per samplen
+rule estimate_depth:
+  input:
+    bam="results/bam_qc1/hap{hap}/{sample}_hap{hap}_qc1.bam"
+  output:
+    depth="results/depths/hap{hap}/{sample}_hap{hap}_depth.txt"
+  envmodules:
+    "samtools/1.17"
+  shell:
+    """
+    samtools depth -a {input.bam} > {output.depth}
+    """
+
+
+# Aggregate depth per population 
+rule aggregate_depths:
+    input:
+        depths=lambda wildcards: expand("results/depths/hap{{hap}}/{{sample}}_hap{{hap}}_depth.txt", sample=populations[wildcards.pop])
+    output:
+        aggregated_depth="results/depths/hap{hap}/{pop}_hap{hap}_aggregated_depth.txt"
+    shell:
+        """
+        python sum_depths.py {input.depths} > {output.aggregated_depth}
+        """

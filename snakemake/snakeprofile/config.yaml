@@ -39,6 +39,8 @@ set-threads:
   clip_overlapping_reads: 2
   indel_list: 4
   realign_indels: 8
+  estimate_depth: 4
+  plot_aggregate_depths: 4
   angsd_raw_SNP: 8
   ngsParalog_manhattan: 2
   angsd_SFS_canonical_sites: 12
@@ -61,9 +63,10 @@ set-threads:
   filter_all_sites_by_popln_dupHMM: 2
   filter_all_sites_all_populations_calcLR: 2
   filter_all_sites_all_populations_dupHMM: 2
-  angsd_SNP_on_entire_population: 8
+  angsd_SNP_on_all_populations: 16
   angsd_ngsF_by_population_on_SNPs: 8
   PCAngsd_all_populations: 8
+
 
 set-resources:
   trim_reads:
@@ -87,6 +90,14 @@ set-resources:
   realign_indels:
     mem_mb: 13800
     time: "47:59:00"
+  estimate_depth:
+    mem_mb: 23000
+    threads: 4
+    time: "96:00:00"
+  plot_aggregate_depths:
+    mem_mb: 23000
+    threads: 4
+    time: "12:00:00"
   ngsPara_hap1_scaffold_1:
     mem_mb: 6900
     time: "47:59:00"
@@ -207,16 +218,16 @@ set-resources:
     mem_mb: 13800
     time: "3:00:00"
   angsd_SNP_on_all_populations:
-    mem_mb: 34400
-    time: "12:00:00"
-    threads: 8
+    mem_mb: 153000
+    time: "168:00:00"
+    threads: 16
   angsd_ngsF_by_population_on_SNPs:
     mem_mb: 34400
     time: "23:59:00"
     threads: 8
   PCAngsd_all_populations:
-    mem_mb: 13800
-    time: "23:59:00"
+    mem_mb: 34400
+    time: "28:00:00"
     threads: 8
   hwe_histogram_dupHMM:
     mem_mb: 13800
