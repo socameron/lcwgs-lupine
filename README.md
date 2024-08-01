@@ -21,7 +21,7 @@ Setting up this workflow on DRAC clusters is simpler than you think:
 
 ```
 # We create a virtual environment in the login node.
-module load python/3.10
+module load python/3.11.5
 virtualenv --no-download ENV
 
 # Just labelled the virtual environment folder as 'ENV'
@@ -37,10 +37,11 @@ pip install --no-index --upgrade pip
 pip install --no-index snakemake
 pip install --no-index multiqc
 pip install --no-index matplotlib
+pip install snakemake-executor-plugin-cluster-generic
 
 # Also installing multiqc and matplotlib for further down analyses
 
-# Double check version of Snakemake
+# Double check version of Snakemake  - this is compatible with v8.16.0
 snakemake --version
 ```
 3. Download Snakemake files from my repository
