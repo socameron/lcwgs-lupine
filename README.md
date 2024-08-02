@@ -38,6 +38,7 @@ pip install --no-index snakemake
 pip install --no-index multiqc
 pip install --no-index matplotlib
 pip install snakemake-executor-plugin-cluster-generic
+pip install snakemake-executor-plugin-slurm
 
 # Also installing multiqc and matplotlib for further down analyses
 
