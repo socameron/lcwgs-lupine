@@ -43,6 +43,7 @@ pip install snakemake-executor-plugin-cluster-generic
 
 # Double check version of Snakemake  - this is compatible with v8.16.0
 snakemake --version
+
 ```
 3. Download Snakemake files from my repository
 
@@ -62,6 +63,10 @@ Wherever your storing your data, say in `scratch/data`, then use `chmod ug+x *.f
 snakemake --profile snakeprofile all
 # Calls snakemake using --profile snakeprofile. Tells Snakemake to specific run the rule 'all'.
 # Add -np to run a practice run
+
+# *** Note that snakemake version >8 uses an 'executor' plug-in to interact with SLURM.
+# To u se the executor, you will have to call it
+snakemake --profile snakeprofile --executor cluster-generic all
 ```
 6. Call Snakemake in a SLURM job ** **RECOMMENDED**
 
