@@ -1,7 +1,0 @@
-#!/cvmfs/soft.computecanada.ca/easybuild/software/2020/avx512/Core/r/4.3.1/bin/Rscript
-SnakemakeDagR::condense_dag(
-  dagfile = file("stdin"),
-  outfile = stdout() 
-)
-
-# Be sure to put this in your PATH! (e.g home directory)
