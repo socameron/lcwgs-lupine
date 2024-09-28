@@ -1,0 +1,240 @@
+executor: slurm
+default-resources:
+  - time= 120 #minutes
+  - mem_mb= 4600
+  - slurm_account= "def-schoen_cpu"
+  - user= "socamero"
+cluster-generic-submit-cmd:
+  mkdir -p results/slurm_logs/{rule} && 
+  sbatch
+    --cpus-per-task={threads}
+    --mem={resources.mem_mb}
+    --time={resources.time}
+    --job-name=smk-{rule}-{wildcards}
+    --output=results/slurm_logs/{rule}/{rule}-{wildcards}-%j.out
+    --error=results/slurm_logs/{rule}/{rule}-{wildcards}-%j.err
+    --parsable
+restart-times: 0
+max-jobs-per-second: 10
+max-status-checks-per-second: 50
+local-cores: 1
+latency-wait: 120
+cores: 960
+jobs: 750
+keep-going: True
+rerun-incomplete: True
+printshellcmds: True
+use-envmodules: True
+rerun-trigger: mtime
+cluster-generic-status-cmd: status-sacct-robust.sh
+cluster-generic-cancel-cmd: scancel
+cluster-generic-cancel-nargs: 4000
+
+set-threads:
+  calculate_ld: 8
+  plot_ld: 2
+  map_reads: 8
+  multiqc_raw: 2
+  mark_remove_duplicates: 2
+  clip_overlapping_reads: 2
+  indel_list: 4
+  realign_indels: 8
+  estimate_depth: 4
+  plot_aggregate_depths: 4
+  angsd_raw_SNP: 8
+  ngsParalog_manhattan: 2
+  angsd_SFS_canonical_sites: 12
+  calculate_coverage_per_population_and_scaffold_hap1: 2
+  calculate_coverage_per_population_and_scaffold_hap2: 2
+  dupHMM_run_hap1: 2
+  dupHMM_run_hap2: 2
+  angsd_SFS_by_population_on_all_sites: 8
+  angsd_SFS_control_by_population_on_all_sites: 8
+  angsd_HWE_by_population_on_SNPs: 8
+  angsd_SFS_by_population_on_CDS_sites: 8
+  angsd_HWE_by_population_on_CDS_SNPs: 8
+  global_SFS_by_population: 40
+  fold_global_SFS_by_population: 40
+  global_SFS_control_by_population: 40
+  global_SFS_with_inbreeding_by_population: 40
+  extract_all_sites: 8
+  extract_all_sites_all_populations: 8
+  filter_all_sites_by_popln_calcLR: 2
+  filter_all_sites_by_popln_dupHMM: 2
+  filter_all_sites_all_populations_calcLR: 2
+  filter_all_sites_all_populations_dupHMM: 2
+  angsd_SNP_on_all_populations: 16
+  angsd_ngsF_by_population_on_SNPs: 8
+  PCAngsd_all_populations: 8
+
+
+set-resources:
+  calculate_ld:
+    mem_mb: 46000
+    time: 360
+  plot_ld:
+    mem_mb: 46000
+  trim_reads:
+    time: "03:00:00"
+  multiqc_raw:
+    mem_mb: 6900
+    time: "04:00:00"
+  map_reads:
+    mem_mb: 23000
+    time: "143:59:00"
+    threads: 8
+  mark_remove_duplicates:
+    mem_mb: 13800
+    time: "47:59:00"
+  clip_overlapping_reads: 
+    mem_mb: 13800
+    time: "2:00:00"
+  indel_list:
+    mem_mb: 13800
+    time: "23:59:00"
+  realign_indels:
+    mem_mb: 13800
+    time: "47:59:00"
+  estimate_depth:
+    mem_mb: 23000
+    threads: 4
+    time: "96:00:00"
+  plot_aggregate_depths:
+    mem_mb: 23000
+    threads: 4
+    time: "12:00:00"
+  ngsPara_hap1_scaffold_1:
+    mem_mb: 6900
+    time: "47:59:00"
+  ngsPara_hap2_scaffold_1:
+    mem_mb: 6900
+    time: "47:59:00"
+  angsd_raw_SNP:
+    mem_mb: 34400
+    time: "47:59:00"
+    threads: 8
+  ngsParalog_hap1:
+    mem_mb: 6900
+    time: "6:00:00"
+  ngsParalog_hap2:
+    mem_mb: 6900
+    time: "6:00:00"
+  ngsParalog_manhattan:
+    mem_mb: 13800
+    time: "2:00:00"
+    threads: 2
+  calculate_average_coverage_per_population:
+    mem_mb: 6900
+    time: "3:00:00"
+    threads: 2
+  calculate_coverage_per_population_and_scaffold_hap1:
+    mem_mb: 6900
+    time: "3:00:00"
+    threads: 2
+  calculate_coverage_per_population_and_scaffold_hap2:
+    mem_mb: 6900
+    time: "3:00:00"
+    threads: 2
+  filter_scaffold_lr_by_coverage_hap1:
+    time: "3:00:00"
+  filter_scaffold_lr_by_coverage_hap2:
+    time: "3:00:00"
+  dupHMM_run_hap1:
+    mem_mb: 13800
+    time: "23:59:00"
+    threads: 2
+  dupHMM_run_hap2:
+    mem_mb: 13800
+    time: "23:59:00"
+    threads: 2
+  aggregate_excess_heterozygotes_histograms_canonical:
+    mem_mb: 6900
+  angsd_SFS_by_population_on_all_sites:
+    mem_mb: 34400
+    time: "23:59:00"
+    threads: 8
+  angsd_SFS_control_by_population_on_all_sites:
+    mem_mb: 34400
+    time: "23:59:00"
+    threads: 8
+  angsd_HWE_by_population_on_SNPs:
+    mem_mb: 34400
+    time: "23:59:00"
+    threads: 8
+  angsd_HWE_by_population_on_CDS_SNPs:
+    mem_mb: 34400
+    time: "23:59:00"
+    threads: 8
+  angsd_SFS_by_population_on_CDS_sites:
+    mem_mb: 34400
+    time: "23:59:00"
+    threads: 8
+  global_SFS_by_population:
+    mem_mb: 149500
+    time: "47:59:00"
+    threads: 40
+  fold_global_SFS_by_population:
+    mem_mb: 149500
+    time: "47:59:00"
+    threads: 40
+  global_SFS_control_by_population:
+    mem_mb: 149500
+    time: "47:59:00"
+    threads: 40
+  fold_global_SFS_control_by_population:
+    mem_mb: 149500
+    time: "47:59:00"
+    threads: 40
+  global_SFS_by_population_CDS_sites:
+    mem_mb: 149500
+    time: "47:59:00"
+    threads: 40
+  fold_global_SFS_by_population_CDS_sites:
+    mem_mb: 149500
+    time: "47:59:00"
+    threads: 40
+  global_SFS_with_inbreeding_by_population:
+    mem_mb: 149500
+    time: "47:59:00"
+    threads: 40
+  extract_all_sites_by_popln:
+    mem_mb: 13800
+    time: "4:00:00"
+    threads: 8
+  filter_all_sites_by_popln_calcLR:
+    mem_mb: 13800
+    time: "3:00:00"
+    threads: 2
+  filter_all_sites_by_popln_dupHMM:
+    mem_mb: 13800
+    time: "3:00:00"
+    threads: 2
+  extract_all_sites_all_populations:
+    mem_mb: 34400
+    time: "71:59:00"
+    threads: 8
+  preprocess_bed_files_all_populations:
+    mem_mb: 6900
+    time: "2:00:00"
+  filter_all_sites_all_populations_calcLR:
+    mem_mb: 13800
+    time: "3:00:00"
+  filter_all_sites_all_populations_dupHMM:
+    mem_mb: 13800
+    time: "3:00:00"
+  angsd_SNP_on_all_populations:
+    mem_mb: 153000
+    time: "168:00:00"
+    threads: 16
+  angsd_ngsF_by_population_on_SNPs:
+    mem_mb: 34400
+    time: "23:59:00"
+    threads: 8
+  PCAngsd_all_populations:
+    mem_mb: 34400
+    time: "28:00:00"
+    threads: 8
+  hwe_histogram_dupHMM:
+    mem_mb: 13800
+    time: "2:00:00"
+    threads: 2

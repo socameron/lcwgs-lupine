@@ -1,0 +1,136 @@
+# Workflow for Lupinus perennis RAD-seq data
+# The RAD-seq data belongs to Cooper Kimbal-Rhines and Brook Moyers
+
+import os
+import subprocess
+
+populations = [
+    "92-CL", "92-HK", "AB", "AL", "ANF", "BW", "C", "CL", "CNA", "CNE", 
+    "F", "HK", "M", "MO", "NK", "P", "PM", "SA"
+]
+
+# Get first 24 scaffold names to later estimate LD on scaffold 2 (Cooper didn't map to 1)
+rule get_scaffold_names:
+  input:
+    "data/reference/lupinehap2.fasta"
+  output:
+    "results/scaffolds/hap2_scaffolds.txt"
+  shell:
+    """
+    python scripts/extract_24_scaffold_names_by_hap.py
+    """
+
+with open("results/scaffolds/hap2_scaffolds.txt", "r") as file:
+    hap2_scaffolds = [line.strip() for line in file.readlines()]
+
+
+
+
+
+
+
+# Define the all rule to run the entire workflow
+rule all:
+  input:
+    expand("results/plots/rad_seq/ld/LD_{population}_{scaffold}.jpg", 
+    population=populations, scaffold=hap2_scaffolds)
+
+# Define the rule to split VCF by population
+rule split_vcf_by_population:
+  input:
+    vcf="data/rad_seq/populations.snps.vcf"
+  output:
+    vcf="results/rad_seq/split_vcf/{population}.vcf"
+  envmodules:
+    "vcftools/0.1.16"
+  log:
+    "results/logs/split_vcf/{population}.log"
+  shell:
+    """
+    vcftools --vcf {input.vcf} --keep data/rad_seq/{wildcards.population}.txt --recode --out results/rad_seq/split_vcf/{wildcards.population} 2> {log}
+    mv results/rad_seq/split_vcf/{wildcards.population}.recode.vcf {output.vcf}
+    """
+
+# Define the rule to convert VCF to PLINK format per population
+# plink/1.9 is found in the StdEnv/2020, so must unload everything
+rule vcf_to_plink:
+  input:
+    vcf="results/rad_seq/split_vcf/{population}.vcf"
+  output:
+    bed="results/rad_seq/plink/{population}.bed",
+    bim="results/rad_seq/plink/{population}.bim",
+    fam="results/rad_seq/plink/{population}.fam"
+  log:
+    "results/logs/vcf_to_plink/{population}.log"
+  envmodules:
+    "StdEnv/2020",
+    "plink/1.9b_6.21-x86_64"
+  shell:
+    """
+    plink --vcf {input.vcf} --make-bed --allow-extra-chr \
+    --out results/rad_seq/plink/{wildcards.population} \
+    2> {log}
+    """
+
+# filtering low minor allele frequency
+rule prune_snps:
+  input:
+    bed="results/rad_seq/plink/{population}.bed",
+    bim="results/rad_seq/plink/{population}.bim",
+    fam="results/rad_seq/plink/{population}.fam"
+  output:
+    bed="results/rad_seq/plink_pruned/{population}.bed",
+    bim="results/rad_seq/plink_pruned/{population}.bim",
+    fam="results/rad_seq/plink_pruned/{population}.fam",
+    pruned_in="results/rad_seq/plink_pruned/{population}.prune.in",
+    pruned_out="results/rad_seq/plink_pruned/{population}.prune.out",
+  log:
+    "results/logs/prune_snps/{population}.log"
+  envmodules:
+    "StdEnv/2020",
+    "plink/1.9b_6.21-x86_64"
+  shell:
+    """
+    plink --bfile results/rad_seq/plink/{wildcards.population} --allow-extra-chr \
+    --maf 0.01 --geno 0.1 --indep-pairwise 50 5 0.2 \
+    --out results/rad_seq/plink_pruned/{wildcards.population} 2> {log}
+
+    plink --bfile results/rad_seq/plink/{wildcards.population} --allow-extra-chr \
+    --extract results/rad_seq/plink_pruned/{wildcards.population}.prune.in \
+    --make-bed --out results/rad_seq/plink_pruned/{wildcards.population} 2>> {log}
+    """
+
+# Define the rule to calculate linkage disequilibrium per population
+rule calculate_ld:
+  input:
+    bed="results/rad_seq/plink_pruned/{population}.bed",
+    bim="results/rad_seq/plink_pruned/{population}.bim",
+    fam="results/rad_seq/plink_pruned/{population}.fam",
+    scaffold_hap2="results/scaffolds/hap2_scaffolds.txt"
+  output:
+    ld="results/rad_seq/ld/{population}_{scaffold}.ld"
+  log:
+    "results/logs/calculate_ld/{population}_{scaffold}.log"
+  envmodules:
+    "StdEnv/2020",
+    "plink/1.9b_6.21-x86_64"
+  params:
+    scaffold="{scaffold}"
+  shell:
+    """
+    plink --bfile results/rad_seq/plink_pruned/{wildcards.population} \
+    --chr {params.scaffold} \
+    --r2 --allow-extra-chr --memory 46000 \
+    --ld-window 99999 --ld-window-kb 2000 \
+    --ld-window-r2 0 \
+    --out results/rad_seq/ld/{wildcards.population}_{wildcards.scaffold} >> {log} 2>&1
+    """
+rule plot_ld:
+  input:
+    ld="results/rad_seq/ld/{population}_{hap2_scaffold}.ld"
+  output:
+    jpg="results/plots/rad_seq/ld/LD_{population}_{hap2_scaffold}.jpg"
+  envmodules:
+    "r/4.4.0"
+  shell:
+    "Rscript scripts/LD_rad_seq_graph.R {input.ld} {output.jpg}"
