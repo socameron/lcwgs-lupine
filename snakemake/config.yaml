@@ -1,0 +1,756 @@
+batches:
+  batch_1:
+  - HPW-10_2-2695941_S13
+  - HPW-12_2-2698037_S146
+  - HPW-15_2-2698019_S128
+  - HPW-16_2-2698004_S113
+  - HPW-17_2-2698024_S133
+  - HPW-1_2-2698017_S126
+  - HPW-22_2-2696112_S84
+  - HPW-23_2-2698108_S167
+  - HPW-24_2-2696016_S38
+  - HPW-25_2-2698050_S159
+  - HPW-26_2-2698132_S191
+  - HPW-28_2-2698030_S139
+  - HPW-2_2-2695937_S9
+  - HPW-30_2-2698041_S150
+  - HPW-31_2-2698047_S156
+  - HPW-34_2-2696034_S56
+  - HPW-35_2-2698120_S179
+  - HPW-37_2-2696018_S40
+  - HPW-40_2-2697946_S105
+  - HPW-44_2-2696107_S79
+  - HPW-48_2-2697948_S107
+  - HPW-49_2-2695934_S6
+  - HPW-50_2-2695931_S3
+  - HPW-5_2-2698009_S118
+  - HPW-6_2-2698035_S144
+  - HPW-7_2-2698045_S154
+  - HPW-8_2-2697941_S100
+  - IDNP-MW-10_2-2698028_S137
+  - IDNP-MW-12_2-2697947_S106
+  - IDNP-MW-14_2-2697949_S108
+  - IDNP-MW-17_2-2696117_S89
+  - IDNP-MW-19_2-2698025_S134
+  - IDNP-MW-1_2-2695943_S15
+  - IDNP-MW-20_2-2698119_S178
+  - IDNP-MW-21_2-2698003_S112
+  - IDNP-MW-22_2-2696049_S71
+  - IDNP-MW-24_2-2696009_S31
+  - IDNP-MW-25_2-2696044_S66
+  - IDNP-MW-27_2-2696103_S75
+  - IDNP-MW-28_2-2698021_S130
+  - IDNP-MW-29_2-2696021_S43
+  - IDNP-MW-2_2-2698121_S180
+  - IDNP-MW-30_2-2695942_S14
+  - IDNP-MW-31_2-2698008_S117
+  - IDNP-MW-32_2-2698039_S148
+  - IDNP-MW-33_2-2696032_S54
+  - IDNP-MW-36_2-2696113_S85
+  - IDNP-MW-37_2-2696011_S33
+  - IDNP-MW-39_2-2698011_S120
+  - IDNP-MW-3_2-2696030_S52
+  - IDNP-MW-4_2-2696045_S67
+  - IDNP-MW-6_2-2698020_S129
+  - IDNP-MW-6_2-2698118_S177
+  - IDNP-MW-7_2-2696121_S93
+  - IDNP-MW-9_2-2696007_S29
+  - LCTGP-11_2-2698026_S135
+  - LCTGP-12_2-2695949_S21
+  - LCTGP-14_2-2698116_S175
+  - LCTGP-15_2-2696033_S55
+  - LCTGP-16_2-2695933_S5
+  - LCTGP-19_2-2695945_S17
+  - LCTGP-1_2-2698034_S143
+  - LCTGP-20_2-2698110_S169
+  - LCTGP-22_2-2696010_S32
+  - LCTGP-23_2-2696006_S28
+  - LCTGP-24_2-2696013_S35
+  - LCTGP-26_2-2695936_S8
+  - LCTGP-27_2-2695950_S22
+  - LCTGP-28_2-2696023_S45
+  - LCTGP-2_2-2698006_S115
+  - LCTGP-33_2-2698044_S153
+  - LCTGP-34_2-2695938_S10
+  - LCTGP-38_2-2698131_S190
+  - LCTGP-3_2-2698032_S141
+  - LCTGP-40_2-2698027_S136
+  - LCTGP-41_2-2696028_S50
+  - LCTGP-42_2-2698005_S114
+  - LCTGP-44_2-2696108_S80
+  - LCTGP-45_2-2698014_S123
+  - LCTGP-46_2-2696123_S95
+  - LCTGP-49_2-2696025_S47
+  - LCTGP-7_2-2698040_S149
+  - MFNP-10_2-2698043_S152
+  - MFNP-12_2-2696046_S68
+  - MFNP-14_2-2696041_S63
+  - MFNP-15_2-2698113_S172
+  - MFNP-16_2-2695930_S2
+  - MFNP-17_2-2696115_S87
+  - MFNP-21_2-2696106_S78
+  - MFNP-23_2-2696035_S57
+  - MFNP-26_2-2698128_S187
+  - MFNP-29_2-2698122_S181
+  - MFNP-2_2-2696116_S88
+  - MFNP-30_2-2696019_S41
+  - MFNP-34_2-2696114_S86
+  - MFNP-35_2-2696119_S91
+  - MFNP-39_2-2696111_S83
+  - MFNP-3_2-2697943_S102
+  - MFNP-40_2-2698112_S171
+  - MFNP-41_2-2696050_S72
+  - MFNP-43_2-2696101_S73
+  - MFNP-44_2-2698046_S155
+  - MFNP-46_2-2698038_S147
+  - MFNP-48_2-2695929_S1
+  - MFNP-48_2-2697940_S99
+  - MFNP-50_2-2698013_S122
+  - MFNP-51_2-2698127_S186
+  - MFNP-52_2-2696027_S49
+  - MFNP-6_2-2697950_S109
+  - MFNP-8_2-2696031_S53
+  - PPP-10_2-2696020_S42
+  - PPP-11_2-2696024_S46
+  - PPP-12_2-2696042_S64
+  - PPP-17_2-2698012_S121
+  - PPP-18_2-2696036_S58
+  - PPP-1_2-2697942_S101
+  - PPP-20_2-2696001_S23
+  - PPP-21_2-2696003_S25
+  - PPP-23_2-2696040_S62
+  - PPP-25_2-2698042_S151
+  - PPP-28_2-2696109_S81
+  - PPP-29_2-2698115_S174
+  - PPP-30_2-2695948_S20
+  - PPP-31_2-2695940_S12
+  - PPP-32_2-2696004_S26
+  - PPP-33_2-2698031_S140
+  - PPP-34_2-2695935_S7
+  - PPP-36_2-2698125_S184
+  - PPP-37_2-2697938_S97
+  - PPP-38_2-2698126_S185
+  - PPP-39_2-2698023_S132
+  - PPP-41_2-2698036_S145
+  - PPP-43_2-2695947_S19
+  - PPP-48_2-2696015_S37
+  - PPP-50_2-2698124_S183
+  - PPP-8_2-2698018_S127
+  - PPP-9_2-2698105_S164
+  - RLPLV-10_2-2696047_S69
+  - RLPLV-13_2-2696026_S48
+  - RLPLV-13_2-2696110_S82
+  - RLPLV-14_2-2698101_S160
+  - RLPLV-15_2-2698048_S157
+  - RLPLV-16_2-2698109_S168
+  - RLPLV-17_2-2698022_S131
+  - RLPLV-18_2-2696118_S90
+  - RLPLV-23_2-2696008_S30
+  - RLPLV-26_2-2698029_S138
+  - RLPLV-27_2-2696120_S92
+  - RLPLV-28_2-2698133_S192
+  - RLPLV-29_2-2696104_S76
+  - RLPLV-31_2-2698129_S188
+  - RLPLV-33_2-2696037_S59
+  - RLPLV-34_2-2698104_S163
+  - RLPLV-35_2-2698130_S189
+  - RLPLV-36_2-2696124_S96
+  - RLPLV-37_2-2696105_S77
+  - RLPLV-39_2-2698016_S125
+  - RLPLV-40_2-2698033_S142
+  - RLPLV-46_2-2696039_S61
+  - RLPLV-49_2-2695939_S11
+  - RLPLV-4_2-2697945_S104
+  - RLPLV-50_2-2698114_S173
+  - RLPLV-6_2-2696038_S60
+  - RLPLV-8_2-2698107_S166
+  - RLPLV-9_2-2698123_S182
+  - SWCP-14_2-2696029_S51
+  - SWCP-15_2-2697944_S103
+  - SWCP-18_2-2698007_S116
+  - SWCP-19_2-2695946_S18
+  - SWCP-23_2-2697939_S98
+  - SWCP-24_2-2696012_S34
+  - SWCP-25_2-2698001_S110
+  - SWCP-27_2-2698010_S119
+  - SWCP-28_2-2698111_S170
+  - SWCP-29_2-2698102_S161
+  - SWCP-2_2-2696122_S94
+  - SWCP-33_2-2696017_S39
+  - SWCP-34_2-2696048_S70
+  - SWCP-35_2-2698002_S111
+  - SWCP-36_2-2696002_S24
+  - SWCP-37_2-2698015_S124
+  - SWCP-38_2-2696014_S36
+  - SWCP-40_2-2698117_S176
+  - SWCP-43_2-2696022_S44
+  - SWCP-44_2-2698049_S158
+  - SWCP-45_2-2698103_S162
+  - SWCP-46_2-2696005_S27
+  - SWCP-48_2-2696102_S74
+  - SWCP-49_2-2695944_S16
+  - SWCP-50_2-2698106_S165
+  - SWCP-6_2-2696043_S65
+  - SWCP-7_2-2695932_S4
+  batch_2:
+  - HPW-10_2-2695941_S13
+  - HPW-12_2-2698037_S144
+  - HPW-15_2-2698019_S126
+  - HPW-16_2-2698004_S111
+  - HPW-17_2-2698024_S131
+  - HPW-1_2-2698017_S124
+  - HPW-22_2-2696112_S82
+  - HPW-23_2-2698108_S165
+  - HPW-24_2-2696016_S38
+  - HPW-25_2-2698050_S157
+  - HPW-26_2-2698132_S189
+  - HPW-28_2-2698030_S137
+  - HPW-2_2-2695937_S9
+  - HPW-30_2-2698041_S148
+  - HPW-31_2-2698047_S154
+  - HPW-34_2-2696034_S55
+  - HPW-35_2-2698120_S177
+  - HPW-37_2-2696018_S40
+  - HPW-40_2-2697946_S103
+  - HPW-44_2-2696107_S77
+  - HPW-48_2-2697948_S105
+  - HPW-49_2-2695934_S6
+  - HPW-50_2-2695931_S3
+  - HPW-5_2-2698009_S116
+  - HPW-6_2-2698035_S142
+  - HPW-7_2-2698045_S152
+  - HPW-8_2-2697941_S98
+  - IDNP-MW-10_2-2698028_S135
+  - IDNP-MW-12_2-2697947_S104
+  - IDNP-MW-14_2-2697949_S106
+  - IDNP-MW-17_2-2696117_S87
+  - IDNP-MW-19_2-2698025_S132
+  - IDNP-MW-1_2-2695943_S15
+  - IDNP-MW-20_2-2698119_S176
+  - IDNP-MW-21_2-2698003_S110
+  - IDNP-MW-22_2-2696049_S70
+  - IDNP-MW-24_2-2696009_S31
+  - IDNP-MW-25_2-2696044_S65
+  - IDNP-MW-27_2-2696103_S73
+  - IDNP-MW-28_2-2698021_S128
+  - IDNP-MW-2_2-2698121_S178
+  - IDNP-MW-30_2-2695942_S14
+  - IDNP-MW-31_2-2698008_S115
+  - IDNP-MW-32_2-2698039_S146
+  - IDNP-MW-33_2-2696032_S53
+  - IDNP-MW-36_2-2696113_S83
+  - IDNP-MW-37_2-2696011_S33
+  - IDNP-MW-39_2-2698011_S118
+  - IDNP-MW-3_2-2696030_S51
+  - IDNP-MW-4_2-2696045_S66
+  - IDNP-MW-6_2-2698020_S127
+  - IDNP-MW-6_2-2698118_S175
+  - IDNP-MW-7_2-2696121_S91
+  - IDNP-MW-9_2-2696007_S29
+  - LCTGP-11_2-2698026_S133
+  - LCTGP-12_2-2695949_S21
+  - LCTGP-14_2-2698116_S173
+  - LCTGP-15_2-2696033_S54
+  - LCTGP-16_2-2695933_S5
+  - LCTGP-19_2-2695945_S17
+  - LCTGP-1_2-2698034_S141
+  - LCTGP-20_2-2698110_S167
+  - LCTGP-22_2-2696010_S32
+  - LCTGP-23_2-2696006_S28
+  - LCTGP-24_2-2696013_S35
+  - LCTGP-26_2-2695936_S8
+  - LCTGP-27_2-2695950_S22
+  - LCTGP-28_2-2696023_S44
+  - LCTGP-2_2-2698006_S113
+  - LCTGP-33_2-2698044_S151
+  - LCTGP-34_2-2695938_S10
+  - LCTGP-38_2-2698131_S188
+  - LCTGP-3_2-2698032_S139
+  - LCTGP-40_2-2698027_S134
+  - LCTGP-41_2-2696028_S49
+  - LCTGP-42_2-2698005_S112
+  - LCTGP-44_2-2696108_S78
+  - LCTGP-45_2-2698014_S121
+  - LCTGP-46_2-2696123_S93
+  - LCTGP-49_2-2696025_S46
+  - LCTGP-7_2-2698040_S147
+  - MFNP-10_2-2698043_S150
+  - MFNP-12_2-2696046_S67
+  - MFNP-14_2-2696041_S62
+  - MFNP-15_2-2698113_S170
+  - MFNP-16_2-2695930_S2
+  - MFNP-17_2-2696115_S85
+  - MFNP-21_2-2696106_S76
+  - MFNP-23_2-2696035_S56
+  - MFNP-26_2-2698128_S185
+  - MFNP-29_2-2698122_S179
+  - MFNP-2_2-2696116_S86
+  - MFNP-30_2-2696019_S41
+  - MFNP-34_2-2696114_S84
+  - MFNP-35_2-2696119_S89
+  - MFNP-39_2-2696111_S81
+  - MFNP-3_2-2697943_S100
+  - MFNP-40_2-2698112_S169
+  - MFNP-41_2-2696050_S71
+  - MFNP-43_2-2696101_S72
+  - MFNP-44_2-2698046_S153
+  - MFNP-46_2-2698038_S145
+  - MFNP-48_2-2695929_S1
+  - MFNP-48_2-2697940_S97
+  - MFNP-50_2-2698013_S120
+  - MFNP-51_2-2698127_S184
+  - MFNP-52_2-2696027_S48
+  - MFNP-6_2-2697950_S107
+  - MFNP-8_2-2696031_S52
+  - PPP-10_2-2696020_S42
+  - PPP-11_2-2696024_S45
+  - PPP-12_2-2696042_S63
+  - PPP-17_2-2698012_S119
+  - PPP-18_2-2696036_S57
+  - PPP-1_2-2697942_S99
+  - PPP-20_2-2696001_S23
+  - PPP-21_2-2696003_S25
+  - PPP-23_2-2696040_S61
+  - PPP-25_2-2698042_S149
+  - PPP-28_2-2696109_S79
+  - PPP-29_2-2698115_S172
+  - PPP-30_2-2695948_S20
+  - PPP-31_2-2695940_S12
+  - PPP-32_2-2696004_S26
+  - PPP-33_2-2698031_S138
+  - PPP-34_2-2695935_S7
+  - PPP-36_2-2698125_S182
+  - PPP-37_2-2697938_S95
+  - PPP-38_2-2698126_S183
+  - PPP-39_2-2698023_S130
+  - PPP-41_2-2698036_S143
+  - PPP-43_2-2695947_S19
+  - PPP-48_2-2696015_S37
+  - PPP-50_2-2698124_S181
+  - PPP-8_2-2698018_S125
+  - PPP-9_2-2698105_S162
+  - RLPLV-10_2-2696047_S68
+  - RLPLV-13_2-2696026_S47
+  - RLPLV-13_2-2696110_S80
+  - RLPLV-14_2-2698101_S158
+  - RLPLV-15_2-2698048_S155
+  - RLPLV-16_2-2698109_S166
+  - RLPLV-17_2-2698022_S129
+  - RLPLV-18_2-2696118_S88
+  - RLPLV-23_2-2696008_S30
+  - RLPLV-26_2-2698029_S136
+  - RLPLV-27_2-2696120_S90
+  - RLPLV-28_2-2698133_S190
+  - RLPLV-29_2-2696104_S74
+  - RLPLV-31_2-2698129_S186
+  - RLPLV-33_2-2696037_S58
+  - RLPLV-34_2-2698104_S161
+  - RLPLV-35_2-2698130_S187
+  - RLPLV-36_2-2696124_S94
+  - RLPLV-37_2-2696105_S75
+  - RLPLV-39_2-2698016_S123
+  - RLPLV-40_2-2698033_S140
+  - RLPLV-46_2-2696039_S60
+  - RLPLV-49_2-2695939_S11
+  - RLPLV-4_2-2697945_S102
+  - RLPLV-50_2-2698114_S171
+  - RLPLV-6_2-2696038_S59
+  - RLPLV-8_2-2698107_S164
+  - RLPLV-9_2-2698123_S180
+  - SWCP-14_2-2696029_S50
+  - SWCP-15_2-2697944_S101
+  - SWCP-18_2-2698007_S114
+  - SWCP-19_2-2695946_S18
+  - SWCP-23_2-2697939_S96
+  - SWCP-24_2-2696012_S34
+  - SWCP-25_2-2698001_S108
+  - SWCP-27_2-2698010_S117
+  - SWCP-28_2-2698111_S168
+  - SWCP-29_2-2698102_S159
+  - SWCP-2_2-2696122_S92
+  - SWCP-33_2-2696017_S39
+  - SWCP-34_2-2696048_S69
+  - SWCP-35_2-2698002_S109
+  - SWCP-36_2-2696002_S24
+  - SWCP-37_2-2698015_S122
+  - SWCP-38_2-2696014_S36
+  - SWCP-40_2-2698117_S174
+  - SWCP-43_2-2696022_S43
+  - SWCP-44_2-2698049_S156
+  - SWCP-45_2-2698103_S160
+  - SWCP-46_2-2696005_S27
+  - SWCP-49_2-2695944_S16
+  - SWCP-50_2-2698106_S163
+  - SWCP-6_2-2696043_S64
+  - SWCP-7_2-2695932_S4
+cluster-generic-cancel-cmd: scancel
+cluster-generic-cancel-nargs: 4000
+cluster-generic-status-cmd: status-sacct-robust.sh
+cluster-generic-submit-cmd: mkdir -p results/slurm_logs/{rule} && sbatch --cpus-per-task={threads}
+  --mem={resources.mem_mb} --time={resources.time} --job-name=smk-{rule}-{wildcards}
+  --output=results/slurm_logs/{rule}/{rule}-{wildcards}-%j.out --error=results/slurm_logs/{rule}/{rule}-{wildcards}-%j.err
+  --parsable
+cores: 960
+default-resources:
+- time= 120
+- mem_mb= 4600
+- slurm_account= "def-schoen_cpu"
+- user= "socamero"
+executor: slurm
+jobs: 750
+keep-going: true
+latency-wait: 360
+local-cores: 1
+max-jobs-per-second: 10
+max-status-checks-per-second: 50
+printshellcmds: true
+rerun-incomplete: true
+rerun-trigger: mtime
+restart-times: 0
+set-resources:
+  PCAngsd_all_populations:
+    mem_mb: 34400
+    threads: 8
+    time: 1680
+  aggregate_excess_heterozygotes_histograms_canonical:
+    mem_mb: 6900
+  angsd_for_ngsRelate:
+    mem_mb: 34400
+    threads: 8
+    time: 1440
+  angsd_HWE_by_population_on_CDS_SNPs:
+    mem_mb: 34400
+    threads: 8
+    time: 1440
+  angsd_HWE_by_population_on_control_SNPs:
+    mem_mb: 34400
+    threads: 8
+    time: 1440
+  angsd_HWE_by_population_on_dupHMM_SNPs:
+    mem_mb: 34400
+    threads: 8
+    time: 1440
+  angsd_SFS_by_population_on_CDS_sites:
+    mem_mb: 34400
+    threads: 8
+    time: 1440
+  angsd_SFS_by_population_on_all_sites:
+    mem_mb: 34400
+    threads: 8
+    time: 1920
+  angsd_SFS_control_by_population_on_all_sites:
+    mem_mb: 34400
+    threads: 8
+    time: 1920
+  angsd_for_thetas:
+    mem_mb: 34400
+    threads: 8
+    time: 1920
+  angsd_for_PCAngsd:
+    mem_mb: 153000
+    threads: 16
+    time: 10000
+  angsd_for_EMU:
+    mem_mb: 153000
+    threads: 16
+    time: 10000
+  angsd_for_ngsF:
+    mem_mb: 34400
+    threads: 8
+    time: 1440
+  angsd_for_bcftools_roh:
+    mem_mb: 6900
+    threads: 4
+    time: 240
+  angsd_raw_SNP:
+    mem_mb: 34400
+    threads: 8
+    time: 2880
+  angsd_raw_sites_all_poplns:
+    mem_mb: 86600
+    threads: 8
+    time: 4300
+  angsd_raw_sites_by_popln:
+    mem_mb: 13800
+    threads: 8
+    time: 540
+  bcftools_roh_across_samples:
+    mem_mb: 34400
+    threads: 24
+    time: 240
+  bcftools_roh_single_sample:
+    mem_mb: 34400
+    threads: 24
+    time: 240  
+  clip_overlapping_reads:
+    mem_mb: 13800
+    time: 120
+  convert_raw_sites_all_poplns:
+    mem_mb: 68800
+    threads: 4
+    time: 420
+  dupHMM_run_hap1:
+    mem_mb: 13800
+    threads: 2
+    time: 1440
+  dupHMM_run_hap2:
+    mem_mb: 13800
+    threads: 2
+    time: 1440
+  estimate_depth_hap1:
+    mem_mb: 23000
+    threads: 4
+    time: 2880
+  estimate_depth_hap2:
+    mem_mb: 23000
+    threads: 4
+    time: 2880
+  estimate_theta_by_site:
+    mem_mb: 13800
+    threads: 4
+    time: 360
+  estimate_theta_sliding_window:
+    mem_mb: 13800
+    threads: 4
+    time: 360
+  estimate_fst_stats:
+    mem_mb: 13800
+    threads: 4
+    time: 120
+  estimate_average_coverage_per_population:
+    mem_mb: 9200
+    threads: 4
+    time: 540
+  estimate_coverage_per_population_and_scaffold_hap1:
+    mem_mb: 9200
+    threads: 4
+    time: 420
+  estimate_coverage_per_population_and_scaffold_hap2:
+    mem_mb: 9200
+    threads: 4
+    time: 420
+  fastqc:
+    mem_mb: 6900
+    threads: 2
+    time: 150
+  filter_all_sites_all_populations_calcLR:
+    mem_mb: 13800
+    time: 180
+  filter_all_sites_all_populations_dupHMM:
+    mem_mb: 13800
+    time: 180
+  filter_all_sites_by_popln_calcLR:
+    mem_mb: 13800
+    threads: 2
+    time: 180
+  filter_all_sites_by_popln_dupHMM:
+    mem_mb: 13800
+    threads: 2
+    time: 180
+  filter_scaffold_lr_by_coverage_hap1:
+    time: 180
+  filter_scaffold_lr_by_coverage_hap2:
+    time: 180
+  fold_global_SFS_by_population:
+    mem_mb: 149500
+    threads: 40
+    time: 240
+  fold_global_SFS_theta_by_population:
+    mem_mb: 149500
+    threads: 40
+    time: 240
+  fold_global_SFS_by_population_CDS_sites:
+    mem_mb: 149500
+    threads: 40
+    time: 240
+  fold_global_SFS_control_by_population:
+    mem_mb: 149500
+    threads: 40
+    time: 240
+  fst_prep_by_population:
+    mem_mb: 149500
+    threads: 40
+    time: 1080
+  fst_analysis:
+    mem_mb: 149500
+    threads: 40
+    time: 1080
+  global_SFS_theta_by_population:
+    mem_mb: 149500
+    threads: 40
+    time: 240
+  global_SFS_by_population:
+    mem_mb: 149500
+    threads: 40
+    time: 240
+  global_SFS_by_population_CDS_sites:
+    mem_mb: 149500
+    threads: 40
+    time: 240
+  global_SFS_control_by_population:
+    mem_mb: 149500
+    threads: 40
+    time: 240
+  global_SFS_with_inbreeding_by_population:
+    mem_mb: 149500
+    threads: 40
+    time: 240
+  hwe_histogram_control:
+    mem_mb: 13800
+    threads: 2
+    time: 120
+  indel_list:
+    mem_mb: 13800
+    time: 1440
+  index_bams:
+    mem_mb: 13800
+    time: 1440
+  map_reads:
+    mem_mb: 23000
+    threads: 8
+    time: 8600
+  mark_remove_duplicates:
+    mem_mb: 13800
+    time: 2880
+  merge_bams:
+    mem_mb: 13800
+    time: 2880
+    threads: 4
+  multiqc_raw:
+    mem_mb: 6900
+    time: 240
+  ngsPara_hap1_scaffold_1:
+    mem_mb: 6900
+    time: 2880
+  ngsPara_hap2_scaffold_1:
+    mem_mb: 6900
+    time: 2880
+  ngsParalog_hap1:
+    mem_mb: 6900
+    time: 360
+  ngsParalog_hap2:
+    mem_mb: 6900
+    time: 360
+  ngsParalog_manhattan:
+    mem_mb: 13800
+    threads: 2
+    time: 120
+  ngsRelate_prep:
+    mem_mb: 9200
+    threads: 4
+    time: 60
+  ngsRelate_analysis:
+    mem_mb: 34400
+    threads: 8
+    time: 120
+  ngsRelate_analysis_inbreeding:
+    mem_mb: 34400
+    threads: 4
+    time: 60
+  ngsF_analysis:
+    mem_mb: 13800
+    threads: 4
+    time: 360
+  ngsF_HMM_analysis:
+    mem_mb: 13800
+    threads: 4
+    time: 360
+  plot_depth_per_scaffold_hap1:
+    mem_mb: 149500
+    threads: 4
+    time: 720
+  plot_depth_per_scaffold_hap2:
+    mem_mb: 149500
+    threads: 4
+    time: 720
+  plot_aggregate_depths_hap1:
+    mem_mb: 149500
+    threads: 4
+    time: 720
+  plot_aggregate_depths_hap2:
+    mem_mb: 149500
+    threads: 4
+    time: 720
+  plot_ld:
+    mem_mb: 46000
+    time: 720
+  preprocess_bed_files_all_populations:
+    mem_mb: 6900
+    time: 120
+  realign_indels:
+    mem_mb: 13800
+    time: 2880
+  rohan_analysis:
+    mem_mb: 13800
+    threads: 4
+    time: 240
+  theta_prep_by_population:
+    mem_mb: 13800
+    threads: 8
+    time: 360
+  trim_reads:
+    time: 180
+set-threads:
+  angsd_HWE_by_population_on_CDS_SNPs: 8
+  angsd_HWE_by_population_on_control_SNPs: 8
+  angsd_HWE_by_population_on_dupHMM_SNPs: 8
+  angsd_SFS_by_population_on_CDS_sites: 8
+  angsd_SFS_by_population_on_all_sites: 8
+  angsd_SFS_canonical_sites: 12
+  angsd_SFS_control_by_population_on_all_sites: 8
+  angsd_for_EMU: 16
+  angsd_for_PCAngsd: 16
+  angsd_for_ngsRelate: 8
+  angsd_for_ngsF: 8
+  angsd_for_thetas: 8
+  angsd_raw_SNP: 8
+  angsd_for_ngsRelate: 8
+  angsd_for_bcftools_roh: 4
+  bcftools_roh_across_samples: 24
+  bcftools_roh_single_sample: 24
+  estimate_coverage_per_population_and_scaffold_hap1: 2
+  estimate_coverage_per_population_and_scaffold_hap2: 2
+  clip_overlapping_reads: 2
+  convert_raw_sites_all_poplns: 4
+  dupHMM_run_hap1: 2
+  dupHMM_run_hap2: 2
+  estimate_depth_hap1: 4
+  estimate_depth_hap2: 4
+  estimate_theta_by_site: 4
+  estimate_theta_sliding_window: 4
+  estimate_fst_stats: 4
+  extract_all_sites: 8
+  extract_all_sites_all_populations: 8
+  fastqc: 2
+  filter_all_sites_all_populations_calcLR: 2
+  filter_all_sites_all_populations_dupHMM: 2
+  filter_all_sites_by_popln_calcLR: 2
+  filter_all_sites_by_popln_dupHMM: 2
+  fold_global_SFS_by_population: 40
+  fst_analysis: 40
+  fst_prep_by_population: 40
+  global_SFS_by_population: 40
+  global_SFS_control_by_population: 40
+  global_SFS_with_inbreeding_by_population: 40
+  global_SFS_theta_by_population: 40
+  indel_list: 4
+  map_reads: 8
+  mark_remove_duplicates: 2
+  merge_bams: 4
+  multiqc_raw: 2
+  ngsParalog_manhattan: 2
+  PCAngsd_all_populations: 8
+  plot_depth_per_scaffold_hap1: 4
+  plot_depth_per_scaffold_hap2: 4
+  plot_aggregate_depths_hap1: 4
+  plot_aggregate_depths_hap2: 4
+  plot_ld: 4
+  realign_indels: 8
+  rohan_analysis: 4
+  ngsRelate_prep: 4
+  ngsRelate_analysis: 4
+  ngsRelate_analysis_inbreeding: 4
+  ngsF_analysis: 4
+  ngsF_HMM_analysis: 4
+  theta_prep_by_population: 4
+use-envmodules: true
