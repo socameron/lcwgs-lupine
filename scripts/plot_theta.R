@@ -111,7 +111,7 @@ p_nucleotide_div <- combined_theta_data %>%
   ggplot(aes(x = population, y = nucleotide_diversity/sites, fill = population)) +
   geom_boxplot() +
   scale_fill_manual(values = population_colors) +
-  labs(title = "Nucleotide Diversity (θ) across Populations", x = "Population", y = "Nucleotide Diversity (π)") +
+  labs(title = "Nucleotide Diversity (π) across Populations", x = "Population", y = "Nucleotide Diversity (π)") +
   custom_theme
 
 # Save the plots
