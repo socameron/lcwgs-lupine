@@ -1,6 +1,6 @@
 # Population Genetics - _Lupinus perennis_ (lcWGS)
 
-This is a Snakemake workflow for running the following analyses:
+This is a Snakemake workflow for running the population genetic analyses. It includes the following analyses:
 
 1. Relatedness structure for identifying clones
 2. Individual-level inbreeding coeffcieints
@@ -14,8 +14,9 @@ This is a Snakemake workflow for running the following analyses:
 
 ## About the _Lupinus perennis_ dataset
 
-The _Lupinus perennis_ genomic dataset represents 19 populations sampled across the southern Ontario and the US Midwest. I collected leaf samples from 22+ Wild lupine (_Lupinus perennis_) populations in 2022 and 2023 and sequenced 16 populations using low coverage whole genome sequencing (lcWGS; about 10x coverage).
-The [University of Wisconsin Biotechnology Center DNA Sequencing Facility](https://dnaseq.biotech.wisc.edu/) completed our DNA extractions and the [McGill Genome Centre](https://www.mcgillgenomecentre.ca/) performed the sequencing. 
+The _Lupinus perennis_ genomic dataset represents 19 populations sampled across the southern Ontario and the US Midwest. I collected leaf samples from 22+ Wild lupine (_Lupinus perennis_) populations in 2022 and 2023 and sequenced 19 populations using low coverage whole genome sequencing (lcWGS; about 10x coverage). Some populations were sampled by colllaborators in American state agencies. 
+
+The [University of Wisconsin Biotechnology Center DNA Sequencing Facility](https://dnaseq.biotech.wisc.edu/) completed our DNA extractions and the [McGill Genome Centre](https://www.mcgillgenomecentre.ca/) performed the sequencing using Illumina NovaSeq6000. 
 
 Populations are distinguished based on their geographical position relative to the overall species' distribution. 8 populations are considered 'core' populations, and the other 11 are northern 'edge' populations. No populations in the southern range were sampled (i.e towards Florida). 
 
