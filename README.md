@@ -26,7 +26,9 @@ Populations are distinguished based on their geographical position relative to t
 
 My analyses uses the Snakemake workflow and is adapted for reproducibility on [Digital Research Alliance of Canada](alliancecan.ca/en) clusters. I specifically used the #Beluga cluster because it's located in Montreal. Setting up this workflow would not have been possible without [Eric Anderson](https://github.com/eriqande/mega-lcwgs-pw-fst-snakeflow) (Research Geneticist, NOAA) whom I met at [ConGen2023](https://www.umt.edu/ces/conferences/congen/). For more information about Snakemake's amazing abilities, see Eric Anderson's lecture slides [here](https://eriqande.github.io/con-gen-2023/slides/snake-slides.html#/section). Please review my Snakemake tutorial if you'd like to setup the workflow manager on DRAC clusters.
 
+## Python and R
 
+If you take a look into my scripts folder, you'll notice a lot of other python and R scripts. I mostly use Python to run analyses that do NOT require graphing for publication/presentations. On the other hand, I use R largely for small-data processing and making pretty graphs. R's 'ggplot2' package has some pretty settings compared to Python. 
 
 
 ## Some other notes
