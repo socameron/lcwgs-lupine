@@ -1,6 +1,16 @@
 # Population Genetics - _Lupinus perennis_ (lcWGS)
 
-This is a Snakemake workflow for creating PCA plots (so far) from raw fastq.gz files using PCAngsd. 
+This is a Snakemake workflow for running the following analyses:
+
+1. Relatedness structure for identifying clones
+2. Individual-level inbreeding coeffcieints
+3. Runs of Homozygosity (ROH) for inbreeding
+4. Population structure and admixture
+5. Thetas for Taijama's D, nucleotide diversity, and Watterson's theta
+6. Population-level pairwise Fst and Fst by Distance (IBD)
+7. Contemporary effective population size
+8. Linkage disequilibrium
+9. Mutation screens (dN/dS)
 
 ## About the _Lupinus perennis_ dataset
 
