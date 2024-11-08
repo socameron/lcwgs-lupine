@@ -2,15 +2,15 @@
 
 This is a Snakemake workflow for running the population genetic analyses. It includes the following analyses:
 
-1. Relatedness structure for identifying clones
-2. Individual-level inbreeding coeffcieints
-3. Runs of Homozygosity (ROH) for inbreeding
-4. Population structure and admixture
-5. Thetas for Taijama's D, nucleotide diversity, and Watterson's theta
-6. Population-level pairwise Fst and Fst by Distance (IBD)
-7. Contemporary effective population size
-8. Linkage disequilibrium
-9. Mutation screens (dN/dS)
+1. Relatedness structure for identifying clones (software `ngsRelate`)
+2. Individual-level inbreeding coeffcieints (software `ngsF-HMM`)
+3. Runs of Homozygosity (ROH) for inbreeding (software `bcftools roh`
+4. Population structure and admixture (software `PCangsd`)
+5. Thetas for Taijama's D, nucleotide diversity, and Watterson's theta (software `angsd` with command `thetaStat`) 
+6. Population-level pairwise Fst and Fst by Distance (IBD) (software `realSFS`)
+7. Contemporary effective population size (software `GONE`)
+8. Linkage disequilibrium (software `ngsLD`)
+9. Mutation screens (dN/dS) (custom software, email dan.schoen@mcgill.ca for info)
 
 ## About the _Lupinus perennis_ dataset
 
@@ -29,6 +29,25 @@ My analyses uses the Snakemake workflow and is adapted for reproducibility on [D
 ## Python and R
 
 If you take a look into my scripts folder, you'll notice a lot of other python and R scripts. I mostly use Python to run analyses that do NOT require graphing for publication/presentations. On the other hand, I use R largely for small-data processing and making pretty graphs. R's 'ggplot2' package has some pretty settings compared to Python. 
+
+Some Python and R packages that I require include:
+
+```
+# Python packages
+matplotlib
+biopython
+numpy
+multiqc
+snakemake
+
+# R packages
+tidyverse
+purrr
+Rcpp
+geosphere
+RColorBrewer
+
+```
 
 
 ## Some other notes
