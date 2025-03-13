@@ -20,7 +20,7 @@ The [University of Wisconsin Biotechnology Center DNA Sequencing Facility](https
 
 Populations are distinguished based on their geographical position relative to the overall species' distribution. 8 populations are considered 'core' populations, and the other 11 are northern 'edge' populations. No populations in the southern range were sampled (i.e towards Florida). 
 
-![Sequence Map](https://github.com/socameron/lcwgs-lupine/blob/main/19%20populations%20to%20sequence.png?raw=true)
+![Sequence Map](https://github.com/socameron/lcwgs-lupine/blob/f8d73f7020cf4419618df976f589a47877c65d3b/GEA_sampling_figure.svg)
 
 ## Snakemake
 
