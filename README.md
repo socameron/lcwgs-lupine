@@ -14,13 +14,17 @@ This is a Snakemake workflow for running the population genetic analyses. It inc
 
 ## About the _Lupinus perennis_ dataset
 
-The _Lupinus perennis_ genomic dataset represents 19 populations sampled across the southern Ontario and the US Midwest. I collected leaf samples from 22+ Wild lupine (_Lupinus perennis_) populations in 2022 and 2023 and sequenced 19 populations using low coverage whole genome sequencing (lcWGS; about 10x coverage). Some populations were sampled by colllaborators in American state agencies. 
+The _Lupinus perennis_ genomic dataset represents 18 populations sampled across the southern Ontario and the US Midwest. I collected leaf samples from 22+ Wild lupine (_Lupinus perennis_) populations in 2022, 2023, and 2024 and sequenced 18 populations using low coverage whole genome sequencing (lcWGS; about 10x coverage). Some populations were sampled by colllaborators in American state agencies. 
 
-The [University of Wisconsin Biotechnology Center DNA Sequencing Facility](https://dnaseq.biotech.wisc.edu/) completed our DNA extractions and the [McGill Genome Centre](https://www.mcgillgenomecentre.ca/) performed the sequencing using Illumina NovaSeq6000. 
+For 7 populations, the [University of Wisconsin Biotechnology Center DNA Sequencing Facility](https://dnaseq.biotech.wisc.edu/) completed our DNA extractions and the [McGill Genome Centre](https://www.mcgillgenomecentre.ca/) performed the sequencing using Illumina NovaSeq6000. For the remaining 11 populations, [Génome Québec](https://genomequebec.com/en/) completed our DNA extractions and sequencing using Illumina NovaSeq X+. 
 
-Populations are distinguished based on their geographical position relative to the overall species' distribution. 8 populations are considered 'core' populations, and the other 11 are northern 'edge' populations. No populations in the southern range were sampled (i.e towards Florida). 
+Populations are distinguished based on their geographical position relative to the overall species' distribution. 8 populations are considered 'core' populations, and the other 10 are northern 'edge' populations. No populations in the southern range were sampled (i.e towards Florida). 
 
 ![Sequence Map](https://github.com/socameron/lcwgs-lupine/blob/f8d73f7020cf4419618df976f589a47877c65d3b/GEA_sampling_figure.svg)
+
+## Quality control prior to analyses
+
+Before running any analyses, I mapped my reads to a scaffold-based reference genome. Since I'm using ANGSD for a majority of my analyses, I also clipped overlapping reads with `bamutil/1.0.14` and realigned around indels using `gatk/3.8`. I then filtered out potential paralogs using `ngsParalog` and its internal program called `dupHMM`. Any downstream analyses then underwent its own filtering criteria, but was required to constrain the analysis to the first 24 scaffolds of our reference assembly, as these in theory should represent the 24 chromosomes of _Lupinus perennis_. In the future, we'll likely utilize our Hi-C data to construct a chromosome-based reference assembly. 
 
 ## Snakemake
 
