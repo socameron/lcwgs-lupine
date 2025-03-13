@@ -3,8 +3,8 @@
 This is a Snakemake workflow for running the population genetic analyses. It includes the following analyses:
 
 1. Relatedness structure for identifying clones (software `ngsRelate`)
-2. Individual-level inbreeding coeffcieints (software `ngsF-HMM`)
-3. Runs of Homozygosity (ROH) for inbreeding (software `bcftools roh`
+2. Individual-level inbreeding coefficients (software `ngsF-HMM`)
+3. Runs of Homozygosity (ROH) for inbreeding (software `bcftools roh`)
 4. Population structure and admixture (software `PCangsd`)
 5. Thetas for Taijama's D, nucleotide diversity, and Watterson's theta (software `angsd` with command `thetaStat`) 
 6. Population-level pairwise Fst and Fst by Distance (IBD) (software `realSFS`)
