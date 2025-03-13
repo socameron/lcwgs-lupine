@@ -9,11 +9,6 @@ pop_names <- args[2]
 plot_file <- args[3]
 
 
-input_file <- "results/pcangsd/hap2/canonical/pcangsd_input/all_popln_canonical_SNP_pcangsd.cov"
-pop_names <- "data/lists/Batch1_popln_to_samples.info"
-plot_file <- "results/plots/hap2/PCAngsd/all_popln_SNP_PCA.png"
-
-
 # Read population names and covariance matrix
 pop <- read.table(pop_names, header = FALSE, sep = "\t")
 C <- as.matrix(read.table(input_file, header = FALSE))

@@ -1,235 +1,2366 @@
-cluster:
-  mkdir -p results/slurm_logs/{rule} &&
-  sbatch
-    --cpus-per-task={threads}
-    --mem={resources.mem_mb}
-    --time={resources.time}
-    --job-name=smk-{rule}-{wildcards}
-    --output=results/slurm_logs/{rule}/{rule}-{wildcards}-%j.out
-    --error=results/slurm_logs/{rule}/{rule}-{wildcards}-%j.err
-    --parsable
+batches:
+  batch_1:
+    HPW-10_2-2695941_S13:
+      R1: data/batch_1/HPW-10_2-2695941_S13_L001_R1_001.fastq.gz
+      R2: data/batch_1/HPW-10_2-2695941_S13_L001_R2_001.fastq.gz
+    HPW-12_2-2698037_S146:
+      R1: data/batch_1/HPW-12_2-2698037_S146_L001_R1_001.fastq.gz
+      R2: data/batch_1/HPW-12_2-2698037_S146_L001_R2_001.fastq.gz
+    HPW-15_2-2698019_S128:
+      R1: data/batch_1/HPW-15_2-2698019_S128_L001_R1_001.fastq.gz
+      R2: data/batch_1/HPW-15_2-2698019_S128_L001_R2_001.fastq.gz
+    HPW-16_2-2698004_S113:
+      R1: data/batch_1/HPW-16_2-2698004_S113_L001_R1_001.fastq.gz
+      R2: data/batch_1/HPW-16_2-2698004_S113_L001_R2_001.fastq.gz
+    HPW-17_2-2698024_S133:
+      R1: data/batch_1/HPW-17_2-2698024_S133_L001_R1_001.fastq.gz
+      R2: data/batch_1/HPW-17_2-2698024_S133_L001_R2_001.fastq.gz
+    HPW-1_2-2698017_S126:
+      R1: data/batch_1/HPW-1_2-2698017_S126_L001_R1_001.fastq.gz
+      R2: data/batch_1/HPW-1_2-2698017_S126_L001_R2_001.fastq.gz
+    HPW-22_2-2696112_S84:
+      R1: data/batch_1/HPW-22_2-2696112_S84_L001_R1_001.fastq.gz
+      R2: data/batch_1/HPW-22_2-2696112_S84_L001_R2_001.fastq.gz
+    HPW-23_2-2698108_S167:
+      R1: data/batch_1/HPW-23_2-2698108_S167_L001_R1_001.fastq.gz
+      R2: data/batch_1/HPW-23_2-2698108_S167_L001_R2_001.fastq.gz
+    HPW-24_2-2696016_S38:
+      R1: data/batch_1/HPW-24_2-2696016_S38_L001_R1_001.fastq.gz
+      R2: data/batch_1/HPW-24_2-2696016_S38_L001_R2_001.fastq.gz
+    HPW-25_2-2698050_S159:
+      R1: data/batch_1/HPW-25_2-2698050_S159_L001_R1_001.fastq.gz
+      R2: data/batch_1/HPW-25_2-2698050_S159_L001_R2_001.fastq.gz
+    HPW-26_2-2698132_S191:
+      R1: data/batch_1/HPW-26_2-2698132_S191_L001_R1_001.fastq.gz
+      R2: data/batch_1/HPW-26_2-2698132_S191_L001_R2_001.fastq.gz
+    HPW-28_2-2698030_S139:
+      R1: data/batch_1/HPW-28_2-2698030_S139_L001_R1_001.fastq.gz
+      R2: data/batch_1/HPW-28_2-2698030_S139_L001_R2_001.fastq.gz
+    HPW-2_2-2695937_S9:
+      R1: data/batch_1/HPW-2_2-2695937_S9_L001_R1_001.fastq.gz
+      R2: data/batch_1/HPW-2_2-2695937_S9_L001_R2_001.fastq.gz
+    HPW-30_2-2698041_S150:
+      R1: data/batch_1/HPW-30_2-2698041_S150_L001_R1_001.fastq.gz
+      R2: data/batch_1/HPW-30_2-2698041_S150_L001_R2_001.fastq.gz
+    HPW-31_2-2698047_S156:
+      R1: data/batch_1/HPW-31_2-2698047_S156_L001_R1_001.fastq.gz
+      R2: data/batch_1/HPW-31_2-2698047_S156_L001_R2_001.fastq.gz
+    HPW-34_2-2696034_S56:
+      R1: data/batch_1/HPW-34_2-2696034_S56_L001_R1_001.fastq.gz
+      R2: data/batch_1/HPW-34_2-2696034_S56_L001_R2_001.fastq.gz
+    HPW-35_2-2698120_S179:
+      R1: data/batch_1/HPW-35_2-2698120_S179_L001_R1_001.fastq.gz
+      R2: data/batch_1/HPW-35_2-2698120_S179_L001_R2_001.fastq.gz
+    HPW-37_2-2696018_S40:
+      R1: data/batch_1/HPW-37_2-2696018_S40_L001_R1_001.fastq.gz
+      R2: data/batch_1/HPW-37_2-2696018_S40_L001_R2_001.fastq.gz
+    HPW-40_2-2697946_S105:
+      R1: data/batch_1/HPW-40_2-2697946_S105_L001_R1_001.fastq.gz
+      R2: data/batch_1/HPW-40_2-2697946_S105_L001_R2_001.fastq.gz
+    HPW-44_2-2696107_S79:
+      R1: data/batch_1/HPW-44_2-2696107_S79_L001_R1_001.fastq.gz
+      R2: data/batch_1/HPW-44_2-2696107_S79_L001_R2_001.fastq.gz
+    HPW-48_2-2697948_S107:
+      R1: data/batch_1/HPW-48_2-2697948_S107_L001_R1_001.fastq.gz
+      R2: data/batch_1/HPW-48_2-2697948_S107_L001_R2_001.fastq.gz
+    HPW-49_2-2695934_S6:
+      R1: data/batch_1/HPW-49_2-2695934_S6_L001_R1_001.fastq.gz
+      R2: data/batch_1/HPW-49_2-2695934_S6_L001_R2_001.fastq.gz
+    HPW-50_2-2695931_S3:
+      R1: data/batch_1/HPW-50_2-2695931_S3_L001_R1_001.fastq.gz
+      R2: data/batch_1/HPW-50_2-2695931_S3_L001_R2_001.fastq.gz
+    HPW-5_2-2698009_S118:
+      R1: data/batch_1/HPW-5_2-2698009_S118_L001_R1_001.fastq.gz
+      R2: data/batch_1/HPW-5_2-2698009_S118_L001_R2_001.fastq.gz
+    HPW-6_2-2698035_S144:
+      R1: data/batch_1/HPW-6_2-2698035_S144_L001_R1_001.fastq.gz
+      R2: data/batch_1/HPW-6_2-2698035_S144_L001_R2_001.fastq.gz
+    HPW-7_2-2698045_S154:
+      R1: data/batch_1/HPW-7_2-2698045_S154_L001_R1_001.fastq.gz
+      R2: data/batch_1/HPW-7_2-2698045_S154_L001_R2_001.fastq.gz
+    HPW-8_2-2697941_S100:
+      R1: data/batch_1/HPW-8_2-2697941_S100_L001_R1_001.fastq.gz
+      R2: data/batch_1/HPW-8_2-2697941_S100_L001_R2_001.fastq.gz
+    IDNP-MW-10_2-2698028_S137:
+      R1: data/batch_1/IDNP-MW-10_2-2698028_S137_L001_R1_001.fastq.gz
+      R2: data/batch_1/IDNP-MW-10_2-2698028_S137_L001_R2_001.fastq.gz
+    IDNP-MW-12_2-2697947_S106:
+      R1: data/batch_1/IDNP-MW-12_2-2697947_S106_L001_R1_001.fastq.gz
+      R2: data/batch_1/IDNP-MW-12_2-2697947_S106_L001_R2_001.fastq.gz
+    IDNP-MW-14_2-2697949_S108:
+      R1: data/batch_1/IDNP-MW-14_2-2697949_S108_L001_R1_001.fastq.gz
+      R2: data/batch_1/IDNP-MW-14_2-2697949_S108_L001_R2_001.fastq.gz
+    IDNP-MW-17_2-2696117_S89:
+      R1: data/batch_1/IDNP-MW-17_2-2696117_S89_L001_R1_001.fastq.gz
+      R2: data/batch_1/IDNP-MW-17_2-2696117_S89_L001_R2_001.fastq.gz
+    IDNP-MW-19_2-2698025_S134:
+      R1: data/batch_1/IDNP-MW-19_2-2698025_S134_L001_R1_001.fastq.gz
+      R2: data/batch_1/IDNP-MW-19_2-2698025_S134_L001_R2_001.fastq.gz
+    IDNP-MW-1_2-2695943_S15:
+      R1: data/batch_1/IDNP-MW-1_2-2695943_S15_L001_R1_001.fastq.gz
+      R2: data/batch_1/IDNP-MW-1_2-2695943_S15_L001_R2_001.fastq.gz
+    IDNP-MW-20_2-2698119_S178:
+      R1: data/batch_1/IDNP-MW-20_2-2698119_S178_L001_R1_001.fastq.gz
+      R2: data/batch_1/IDNP-MW-20_2-2698119_S178_L001_R2_001.fastq.gz
+    IDNP-MW-21_2-2698003_S112:
+      R1: data/batch_1/IDNP-MW-21_2-2698003_S112_L001_R1_001.fastq.gz
+      R2: data/batch_1/IDNP-MW-21_2-2698003_S112_L001_R2_001.fastq.gz
+    IDNP-MW-22_2-2696049_S71:
+      R1: data/batch_1/IDNP-MW-22_2-2696049_S71_L001_R1_001.fastq.gz
+      R2: data/batch_1/IDNP-MW-22_2-2696049_S71_L001_R2_001.fastq.gz
+    IDNP-MW-24_2-2696009_S31:
+      R1: data/batch_1/IDNP-MW-24_2-2696009_S31_L001_R1_001.fastq.gz
+      R2: data/batch_1/IDNP-MW-24_2-2696009_S31_L001_R2_001.fastq.gz
+    IDNP-MW-25_2-2696044_S66:
+      R1: data/batch_1/IDNP-MW-25_2-2696044_S66_L001_R1_001.fastq.gz
+      R2: data/batch_1/IDNP-MW-25_2-2696044_S66_L001_R2_001.fastq.gz
+    IDNP-MW-27_2-2696103_S75:
+      R1: data/batch_1/IDNP-MW-27_2-2696103_S75_L001_R1_001.fastq.gz
+      R2: data/batch_1/IDNP-MW-27_2-2696103_S75_L001_R2_001.fastq.gz
+    IDNP-MW-28_2-2698021_S130:
+      R1: data/batch_1/IDNP-MW-28_2-2698021_S130_L001_R1_001.fastq.gz
+      R2: data/batch_1/IDNP-MW-28_2-2698021_S130_L001_R2_001.fastq.gz
+    IDNP-MW-29_2-2696021_S43:
+      R1: data/batch_1/IDNP-MW-29_2-2696021_S43_L001_R1_001.fastq.gz
+      R2: data/batch_1/IDNP-MW-29_2-2696021_S43_L001_R2_001.fastq.gz
+    IDNP-MW-2_2-2698121_S180:
+      R1: data/batch_1/IDNP-MW-2_2-2698121_S180_L001_R1_001.fastq.gz
+      R2: data/batch_1/IDNP-MW-2_2-2698121_S180_L001_R2_001.fastq.gz
+    IDNP-MW-30_2-2695942_S14:
+      R1: data/batch_1/IDNP-MW-30_2-2695942_S14_L001_R1_001.fastq.gz
+      R2: data/batch_1/IDNP-MW-30_2-2695942_S14_L001_R2_001.fastq.gz
+    IDNP-MW-31_2-2698008_S117:
+      R1: data/batch_1/IDNP-MW-31_2-2698008_S117_L001_R1_001.fastq.gz
+      R2: data/batch_1/IDNP-MW-31_2-2698008_S117_L001_R2_001.fastq.gz
+    IDNP-MW-32_2-2698039_S148:
+      R1: data/batch_1/IDNP-MW-32_2-2698039_S148_L001_R1_001.fastq.gz
+      R2: data/batch_1/IDNP-MW-32_2-2698039_S148_L001_R2_001.fastq.gz
+    IDNP-MW-33_2-2696032_S54:
+      R1: data/batch_1/IDNP-MW-33_2-2696032_S54_L001_R1_001.fastq.gz
+      R2: data/batch_1/IDNP-MW-33_2-2696032_S54_L001_R2_001.fastq.gz
+    IDNP-MW-36_2-2696113_S85:
+      R1: data/batch_1/IDNP-MW-36_2-2696113_S85_L001_R1_001.fastq.gz
+      R2: data/batch_1/IDNP-MW-36_2-2696113_S85_L001_R2_001.fastq.gz
+    IDNP-MW-37_2-2696011_S33:
+      R1: data/batch_1/IDNP-MW-37_2-2696011_S33_L001_R1_001.fastq.gz
+      R2: data/batch_1/IDNP-MW-37_2-2696011_S33_L001_R2_001.fastq.gz
+    IDNP-MW-39_2-2698011_S120:
+      R1: data/batch_1/IDNP-MW-39_2-2698011_S120_L001_R1_001.fastq.gz
+      R2: data/batch_1/IDNP-MW-39_2-2698011_S120_L001_R2_001.fastq.gz
+    IDNP-MW-3_2-2696030_S52:
+      R1: data/batch_1/IDNP-MW-3_2-2696030_S52_L001_R1_001.fastq.gz
+      R2: data/batch_1/IDNP-MW-3_2-2696030_S52_L001_R2_001.fastq.gz
+    IDNP-MW-4_2-2696045_S67:
+      R1: data/batch_1/IDNP-MW-4_2-2696045_S67_L001_R1_001.fastq.gz
+      R2: data/batch_1/IDNP-MW-4_2-2696045_S67_L001_R2_001.fastq.gz
+    IDNP-MW-6_2-2698020_S129:
+      R1: data/batch_1/IDNP-MW-6_2-2698020_S129_L001_R1_001.fastq.gz
+      R2: data/batch_1/IDNP-MW-6_2-2698020_S129_L001_R2_001.fastq.gz
+    IDNP-MW-6_2-2698118_S177:
+      R1: data/batch_1/IDNP-MW-6_2-2698118_S177_L001_R1_001.fastq.gz
+      R2: data/batch_1/IDNP-MW-6_2-2698118_S177_L001_R2_001.fastq.gz
+    IDNP-MW-7_2-2696121_S93:
+      R1: data/batch_1/IDNP-MW-7_2-2696121_S93_L001_R1_001.fastq.gz
+      R2: data/batch_1/IDNP-MW-7_2-2696121_S93_L001_R2_001.fastq.gz
+    IDNP-MW-9_2-2696007_S29:
+      R1: data/batch_1/IDNP-MW-9_2-2696007_S29_L001_R1_001.fastq.gz
+      R2: data/batch_1/IDNP-MW-9_2-2696007_S29_L001_R2_001.fastq.gz
+    LCTGP-11_2-2698026_S135:
+      R1: data/batch_1/LCTGP-11_2-2698026_S135_L001_R1_001.fastq.gz
+      R2: data/batch_1/LCTGP-11_2-2698026_S135_L001_R2_001.fastq.gz
+    LCTGP-12_2-2695949_S21:
+      R1: data/batch_1/LCTGP-12_2-2695949_S21_L001_R1_001.fastq.gz
+      R2: data/batch_1/LCTGP-12_2-2695949_S21_L001_R2_001.fastq.gz
+    LCTGP-14_2-2698116_S175:
+      R1: data/batch_1/LCTGP-14_2-2698116_S175_L001_R1_001.fastq.gz
+      R2: data/batch_1/LCTGP-14_2-2698116_S175_L001_R2_001.fastq.gz
+    LCTGP-15_2-2696033_S55:
+      R1: data/batch_1/LCTGP-15_2-2696033_S55_L001_R1_001.fastq.gz
+      R2: data/batch_1/LCTGP-15_2-2696033_S55_L001_R2_001.fastq.gz
+    LCTGP-16_2-2695933_S5:
+      R1: data/batch_1/LCTGP-16_2-2695933_S5_L001_R1_001.fastq.gz
+      R2: data/batch_1/LCTGP-16_2-2695933_S5_L001_R2_001.fastq.gz
+    LCTGP-19_2-2695945_S17:
+      R1: data/batch_1/LCTGP-19_2-2695945_S17_L001_R1_001.fastq.gz
+      R2: data/batch_1/LCTGP-19_2-2695945_S17_L001_R2_001.fastq.gz
+    LCTGP-1_2-2698034_S143:
+      R1: data/batch_1/LCTGP-1_2-2698034_S143_L001_R1_001.fastq.gz
+      R2: data/batch_1/LCTGP-1_2-2698034_S143_L001_R2_001.fastq.gz
+    LCTGP-20_2-2698110_S169:
+      R1: data/batch_1/LCTGP-20_2-2698110_S169_L001_R1_001.fastq.gz
+      R2: data/batch_1/LCTGP-20_2-2698110_S169_L001_R2_001.fastq.gz
+    LCTGP-22_2-2696010_S32:
+      R1: data/batch_1/LCTGP-22_2-2696010_S32_L001_R1_001.fastq.gz
+      R2: data/batch_1/LCTGP-22_2-2696010_S32_L001_R2_001.fastq.gz
+    LCTGP-23_2-2696006_S28:
+      R1: data/batch_1/LCTGP-23_2-2696006_S28_L001_R1_001.fastq.gz
+      R2: data/batch_1/LCTGP-23_2-2696006_S28_L001_R2_001.fastq.gz
+    LCTGP-24_2-2696013_S35:
+      R1: data/batch_1/LCTGP-24_2-2696013_S35_L001_R1_001.fastq.gz
+      R2: data/batch_1/LCTGP-24_2-2696013_S35_L001_R2_001.fastq.gz
+    LCTGP-26_2-2695936_S8:
+      R1: data/batch_1/LCTGP-26_2-2695936_S8_L001_R1_001.fastq.gz
+      R2: data/batch_1/LCTGP-26_2-2695936_S8_L001_R2_001.fastq.gz
+    LCTGP-27_2-2695950_S22:
+      R1: data/batch_1/LCTGP-27_2-2695950_S22_L001_R1_001.fastq.gz
+      R2: data/batch_1/LCTGP-27_2-2695950_S22_L001_R2_001.fastq.gz
+    LCTGP-28_2-2696023_S45:
+      R1: data/batch_1/LCTGP-28_2-2696023_S45_L001_R1_001.fastq.gz
+      R2: data/batch_1/LCTGP-28_2-2696023_S45_L001_R2_001.fastq.gz
+    LCTGP-2_2-2698006_S115:
+      R1: data/batch_1/LCTGP-2_2-2698006_S115_L001_R1_001.fastq.gz
+      R2: data/batch_1/LCTGP-2_2-2698006_S115_L001_R2_001.fastq.gz
+    LCTGP-33_2-2698044_S153:
+      R1: data/batch_1/LCTGP-33_2-2698044_S153_L001_R1_001.fastq.gz
+      R2: data/batch_1/LCTGP-33_2-2698044_S153_L001_R2_001.fastq.gz
+    LCTGP-34_2-2695938_S10:
+      R1: data/batch_1/LCTGP-34_2-2695938_S10_L001_R1_001.fastq.gz
+      R2: data/batch_1/LCTGP-34_2-2695938_S10_L001_R2_001.fastq.gz
+    LCTGP-38_2-2698131_S190:
+      R1: data/batch_1/LCTGP-38_2-2698131_S190_L001_R1_001.fastq.gz
+      R2: data/batch_1/LCTGP-38_2-2698131_S190_L001_R2_001.fastq.gz
+    LCTGP-3_2-2698032_S141:
+      R1: data/batch_1/LCTGP-3_2-2698032_S141_L001_R1_001.fastq.gz
+      R2: data/batch_1/LCTGP-3_2-2698032_S141_L001_R2_001.fastq.gz
+    LCTGP-40_2-2698027_S136:
+      R1: data/batch_1/LCTGP-40_2-2698027_S136_L001_R1_001.fastq.gz
+      R2: data/batch_1/LCTGP-40_2-2698027_S136_L001_R2_001.fastq.gz
+    LCTGP-41_2-2696028_S50:
+      R1: data/batch_1/LCTGP-41_2-2696028_S50_L001_R1_001.fastq.gz
+      R2: data/batch_1/LCTGP-41_2-2696028_S50_L001_R2_001.fastq.gz
+    LCTGP-42_2-2698005_S114:
+      R1: data/batch_1/LCTGP-42_2-2698005_S114_L001_R1_001.fastq.gz
+      R2: data/batch_1/LCTGP-42_2-2698005_S114_L001_R2_001.fastq.gz
+    LCTGP-44_2-2696108_S80:
+      R1: data/batch_1/LCTGP-44_2-2696108_S80_L001_R1_001.fastq.gz
+      R2: data/batch_1/LCTGP-44_2-2696108_S80_L001_R2_001.fastq.gz
+    LCTGP-45_2-2698014_S123:
+      R1: data/batch_1/LCTGP-45_2-2698014_S123_L001_R1_001.fastq.gz
+      R2: data/batch_1/LCTGP-45_2-2698014_S123_L001_R2_001.fastq.gz
+    LCTGP-46_2-2696123_S95:
+      R1: data/batch_1/LCTGP-46_2-2696123_S95_L001_R1_001.fastq.gz
+      R2: data/batch_1/LCTGP-46_2-2696123_S95_L001_R2_001.fastq.gz
+    LCTGP-49_2-2696025_S47:
+      R1: data/batch_1/LCTGP-49_2-2696025_S47_L001_R1_001.fastq.gz
+      R2: data/batch_1/LCTGP-49_2-2696025_S47_L001_R2_001.fastq.gz
+    LCTGP-7_2-2698040_S149:
+      R1: data/batch_1/LCTGP-7_2-2698040_S149_L001_R1_001.fastq.gz
+      R2: data/batch_1/LCTGP-7_2-2698040_S149_L001_R2_001.fastq.gz
+    MFNP-10_2-2698043_S152:
+      R1: data/batch_1/MFNP-10_2-2698043_S152_L001_R1_001.fastq.gz
+      R2: data/batch_1/MFNP-10_2-2698043_S152_L001_R2_001.fastq.gz
+    MFNP-12_2-2696046_S68:
+      R1: data/batch_1/MFNP-12_2-2696046_S68_L001_R1_001.fastq.gz
+      R2: data/batch_1/MFNP-12_2-2696046_S68_L001_R2_001.fastq.gz
+    MFNP-14_2-2696041_S63:
+      R1: data/batch_1/MFNP-14_2-2696041_S63_L001_R1_001.fastq.gz
+      R2: data/batch_1/MFNP-14_2-2696041_S63_L001_R2_001.fastq.gz
+    MFNP-15_2-2698113_S172:
+      R1: data/batch_1/MFNP-15_2-2698113_S172_L001_R1_001.fastq.gz
+      R2: data/batch_1/MFNP-15_2-2698113_S172_L001_R2_001.fastq.gz
+    MFNP-16_2-2695930_S2:
+      R1: data/batch_1/MFNP-16_2-2695930_S2_L001_R1_001.fastq.gz
+      R2: data/batch_1/MFNP-16_2-2695930_S2_L001_R2_001.fastq.gz
+    MFNP-17_2-2696115_S87:
+      R1: data/batch_1/MFNP-17_2-2696115_S87_L001_R1_001.fastq.gz
+      R2: data/batch_1/MFNP-17_2-2696115_S87_L001_R2_001.fastq.gz
+    MFNP-21_2-2696106_S78:
+      R1: data/batch_1/MFNP-21_2-2696106_S78_L001_R1_001.fastq.gz
+      R2: data/batch_1/MFNP-21_2-2696106_S78_L001_R2_001.fastq.gz
+    MFNP-23_2-2696035_S57:
+      R1: data/batch_1/MFNP-23_2-2696035_S57_L001_R1_001.fastq.gz
+      R2: data/batch_1/MFNP-23_2-2696035_S57_L001_R2_001.fastq.gz
+    MFNP-26_2-2698128_S187:
+      R1: data/batch_1/MFNP-26_2-2698128_S187_L001_R1_001.fastq.gz
+      R2: data/batch_1/MFNP-26_2-2698128_S187_L001_R2_001.fastq.gz
+    MFNP-29_2-2698122_S181:
+      R1: data/batch_1/MFNP-29_2-2698122_S181_L001_R1_001.fastq.gz
+      R2: data/batch_1/MFNP-29_2-2698122_S181_L001_R2_001.fastq.gz
+    MFNP-2_2-2696116_S88:
+      R1: data/batch_1/MFNP-2_2-2696116_S88_L001_R1_001.fastq.gz
+      R2: data/batch_1/MFNP-2_2-2696116_S88_L001_R2_001.fastq.gz
+    MFNP-30_2-2696019_S41:
+      R1: data/batch_1/MFNP-30_2-2696019_S41_L001_R1_001.fastq.gz
+      R2: data/batch_1/MFNP-30_2-2696019_S41_L001_R2_001.fastq.gz
+    MFNP-34_2-2696114_S86:
+      R1: data/batch_1/MFNP-34_2-2696114_S86_L001_R1_001.fastq.gz
+      R2: data/batch_1/MFNP-34_2-2696114_S86_L001_R2_001.fastq.gz
+    MFNP-35_2-2696119_S91:
+      R1: data/batch_1/MFNP-35_2-2696119_S91_L001_R1_001.fastq.gz
+      R2: data/batch_1/MFNP-35_2-2696119_S91_L001_R2_001.fastq.gz
+    MFNP-39_2-2696111_S83:
+      R1: data/batch_1/MFNP-39_2-2696111_S83_L001_R1_001.fastq.gz
+      R2: data/batch_1/MFNP-39_2-2696111_S83_L001_R2_001.fastq.gz
+    MFNP-3_2-2697943_S102:
+      R1: data/batch_1/MFNP-3_2-2697943_S102_L001_R1_001.fastq.gz
+      R2: data/batch_1/MFNP-3_2-2697943_S102_L001_R2_001.fastq.gz
+    MFNP-40_2-2698112_S171:
+      R1: data/batch_1/MFNP-40_2-2698112_S171_L001_R1_001.fastq.gz
+      R2: data/batch_1/MFNP-40_2-2698112_S171_L001_R2_001.fastq.gz
+    MFNP-41_2-2696050_S72:
+      R1: data/batch_1/MFNP-41_2-2696050_S72_L001_R1_001.fastq.gz
+      R2: data/batch_1/MFNP-41_2-2696050_S72_L001_R2_001.fastq.gz
+    MFNP-43_2-2696101_S73:
+      R1: data/batch_1/MFNP-43_2-2696101_S73_L001_R1_001.fastq.gz
+      R2: data/batch_1/MFNP-43_2-2696101_S73_L001_R2_001.fastq.gz
+    MFNP-44_2-2698046_S155:
+      R1: data/batch_1/MFNP-44_2-2698046_S155_L001_R1_001.fastq.gz
+      R2: data/batch_1/MFNP-44_2-2698046_S155_L001_R2_001.fastq.gz
+    MFNP-46_2-2698038_S147:
+      R1: data/batch_1/MFNP-46_2-2698038_S147_L001_R1_001.fastq.gz
+      R2: data/batch_1/MFNP-46_2-2698038_S147_L001_R2_001.fastq.gz
+    MFNP-48_2-2695929_S1:
+      R1: data/batch_1/MFNP-48_2-2695929_S1_L001_R1_001.fastq.gz
+      R2: data/batch_1/MFNP-48_2-2695929_S1_L001_R2_001.fastq.gz
+    MFNP-48_2-2697940_S99:
+      R1: data/batch_1/MFNP-48_2-2697940_S99_L001_R1_001.fastq.gz
+      R2: data/batch_1/MFNP-48_2-2697940_S99_L001_R2_001.fastq.gz
+    MFNP-50_2-2698013_S122:
+      R1: data/batch_1/MFNP-50_2-2698013_S122_L001_R1_001.fastq.gz
+      R2: data/batch_1/MFNP-50_2-2698013_S122_L001_R2_001.fastq.gz
+    MFNP-51_2-2698127_S186:
+      R1: data/batch_1/MFNP-51_2-2698127_S186_L001_R1_001.fastq.gz
+      R2: data/batch_1/MFNP-51_2-2698127_S186_L001_R2_001.fastq.gz
+    MFNP-52_2-2696027_S49:
+      R1: data/batch_1/MFNP-52_2-2696027_S49_L001_R1_001.fastq.gz
+      R2: data/batch_1/MFNP-52_2-2696027_S49_L001_R2_001.fastq.gz
+    MFNP-6_2-2697950_S109:
+      R1: data/batch_1/MFNP-6_2-2697950_S109_L001_R1_001.fastq.gz
+      R2: data/batch_1/MFNP-6_2-2697950_S109_L001_R2_001.fastq.gz
+    MFNP-8_2-2696031_S53:
+      R1: data/batch_1/MFNP-8_2-2696031_S53_L001_R1_001.fastq.gz
+      R2: data/batch_1/MFNP-8_2-2696031_S53_L001_R2_001.fastq.gz
+    PPP-10_2-2696020_S42:
+      R1: data/batch_1/PPP-10_2-2696020_S42_L001_R1_001.fastq.gz
+      R2: data/batch_1/PPP-10_2-2696020_S42_L001_R2_001.fastq.gz
+    PPP-11_2-2696024_S46:
+      R1: data/batch_1/PPP-11_2-2696024_S46_L001_R1_001.fastq.gz
+      R2: data/batch_1/PPP-11_2-2696024_S46_L001_R2_001.fastq.gz
+    PPP-12_2-2696042_S64:
+      R1: data/batch_1/PPP-12_2-2696042_S64_L001_R1_001.fastq.gz
+      R2: data/batch_1/PPP-12_2-2696042_S64_L001_R2_001.fastq.gz
+    PPP-17_2-2698012_S121:
+      R1: data/batch_1/PPP-17_2-2698012_S121_L001_R1_001.fastq.gz
+      R2: data/batch_1/PPP-17_2-2698012_S121_L001_R2_001.fastq.gz
+    PPP-18_2-2696036_S58:
+      R1: data/batch_1/PPP-18_2-2696036_S58_L001_R1_001.fastq.gz
+      R2: data/batch_1/PPP-18_2-2696036_S58_L001_R2_001.fastq.gz
+    PPP-1_2-2697942_S101:
+      R1: data/batch_1/PPP-1_2-2697942_S101_L001_R1_001.fastq.gz
+      R2: data/batch_1/PPP-1_2-2697942_S101_L001_R2_001.fastq.gz
+    PPP-20_2-2696001_S23:
+      R1: data/batch_1/PPP-20_2-2696001_S23_L001_R1_001.fastq.gz
+      R2: data/batch_1/PPP-20_2-2696001_S23_L001_R2_001.fastq.gz
+    PPP-21_2-2696003_S25:
+      R1: data/batch_1/PPP-21_2-2696003_S25_L001_R1_001.fastq.gz
+      R2: data/batch_1/PPP-21_2-2696003_S25_L001_R2_001.fastq.gz
+    PPP-23_2-2696040_S62:
+      R1: data/batch_1/PPP-23_2-2696040_S62_L001_R1_001.fastq.gz
+      R2: data/batch_1/PPP-23_2-2696040_S62_L001_R2_001.fastq.gz
+    PPP-25_2-2698042_S151:
+      R1: data/batch_1/PPP-25_2-2698042_S151_L001_R1_001.fastq.gz
+      R2: data/batch_1/PPP-25_2-2698042_S151_L001_R2_001.fastq.gz
+    PPP-28_2-2696109_S81:
+      R1: data/batch_1/PPP-28_2-2696109_S81_L001_R1_001.fastq.gz
+      R2: data/batch_1/PPP-28_2-2696109_S81_L001_R2_001.fastq.gz
+    PPP-29_2-2698115_S174:
+      R1: data/batch_1/PPP-29_2-2698115_S174_L001_R1_001.fastq.gz
+      R2: data/batch_1/PPP-29_2-2698115_S174_L001_R2_001.fastq.gz
+    PPP-30_2-2695948_S20:
+      R1: data/batch_1/PPP-30_2-2695948_S20_L001_R1_001.fastq.gz
+      R2: data/batch_1/PPP-30_2-2695948_S20_L001_R2_001.fastq.gz
+    PPP-31_2-2695940_S12:
+      R1: data/batch_1/PPP-31_2-2695940_S12_L001_R1_001.fastq.gz
+      R2: data/batch_1/PPP-31_2-2695940_S12_L001_R2_001.fastq.gz
+    PPP-32_2-2696004_S26:
+      R1: data/batch_1/PPP-32_2-2696004_S26_L001_R1_001.fastq.gz
+      R2: data/batch_1/PPP-32_2-2696004_S26_L001_R2_001.fastq.gz
+    PPP-33_2-2698031_S140:
+      R1: data/batch_1/PPP-33_2-2698031_S140_L001_R1_001.fastq.gz
+      R2: data/batch_1/PPP-33_2-2698031_S140_L001_R2_001.fastq.gz
+    PPP-34_2-2695935_S7:
+      R1: data/batch_1/PPP-34_2-2695935_S7_L001_R1_001.fastq.gz
+      R2: data/batch_1/PPP-34_2-2695935_S7_L001_R2_001.fastq.gz
+    PPP-36_2-2698125_S184:
+      R1: data/batch_1/PPP-36_2-2698125_S184_L001_R1_001.fastq.gz
+      R2: data/batch_1/PPP-36_2-2698125_S184_L001_R2_001.fastq.gz
+    PPP-37_2-2697938_S97:
+      R1: data/batch_1/PPP-37_2-2697938_S97_L001_R1_001.fastq.gz
+      R2: data/batch_1/PPP-37_2-2697938_S97_L001_R2_001.fastq.gz
+    PPP-38_2-2698126_S185:
+      R1: data/batch_1/PPP-38_2-2698126_S185_L001_R1_001.fastq.gz
+      R2: data/batch_1/PPP-38_2-2698126_S185_L001_R2_001.fastq.gz
+    PPP-39_2-2698023_S132:
+      R1: data/batch_1/PPP-39_2-2698023_S132_L001_R1_001.fastq.gz
+      R2: data/batch_1/PPP-39_2-2698023_S132_L001_R2_001.fastq.gz
+    PPP-41_2-2698036_S145:
+      R1: data/batch_1/PPP-41_2-2698036_S145_L001_R1_001.fastq.gz
+      R2: data/batch_1/PPP-41_2-2698036_S145_L001_R2_001.fastq.gz
+    PPP-43_2-2695947_S19:
+      R1: data/batch_1/PPP-43_2-2695947_S19_L001_R1_001.fastq.gz
+      R2: data/batch_1/PPP-43_2-2695947_S19_L001_R2_001.fastq.gz
+    PPP-48_2-2696015_S37:
+      R1: data/batch_1/PPP-48_2-2696015_S37_L001_R1_001.fastq.gz
+      R2: data/batch_1/PPP-48_2-2696015_S37_L001_R2_001.fastq.gz
+    PPP-50_2-2698124_S183:
+      R1: data/batch_1/PPP-50_2-2698124_S183_L001_R1_001.fastq.gz
+      R2: data/batch_1/PPP-50_2-2698124_S183_L001_R2_001.fastq.gz
+    PPP-8_2-2698018_S127:
+      R1: data/batch_1/PPP-8_2-2698018_S127_L001_R1_001.fastq.gz
+      R2: data/batch_1/PPP-8_2-2698018_S127_L001_R2_001.fastq.gz
+    PPP-9_2-2698105_S164:
+      R1: data/batch_1/PPP-9_2-2698105_S164_L001_R1_001.fastq.gz
+      R2: data/batch_1/PPP-9_2-2698105_S164_L001_R2_001.fastq.gz
+    RLPLV-10_2-2696047_S69:
+      R1: data/batch_1/RLPLV-10_2-2696047_S69_L001_R1_001.fastq.gz
+      R2: data/batch_1/RLPLV-10_2-2696047_S69_L001_R2_001.fastq.gz
+    RLPLV-13_2-2696026_S48:
+      R1: data/batch_1/RLPLV-13_2-2696026_S48_L001_R1_001.fastq.gz
+      R2: data/batch_1/RLPLV-13_2-2696026_S48_L001_R2_001.fastq.gz
+    RLPLV-13_2-2696110_S82:
+      R1: data/batch_1/RLPLV-13_2-2696110_S82_L001_R1_001.fastq.gz
+      R2: data/batch_1/RLPLV-13_2-2696110_S82_L001_R2_001.fastq.gz
+    RLPLV-14_2-2698101_S160:
+      R1: data/batch_1/RLPLV-14_2-2698101_S160_L001_R1_001.fastq.gz
+      R2: data/batch_1/RLPLV-14_2-2698101_S160_L001_R2_001.fastq.gz
+    RLPLV-15_2-2698048_S157:
+      R1: data/batch_1/RLPLV-15_2-2698048_S157_L001_R1_001.fastq.gz
+      R2: data/batch_1/RLPLV-15_2-2698048_S157_L001_R2_001.fastq.gz
+    RLPLV-16_2-2698109_S168:
+      R1: data/batch_1/RLPLV-16_2-2698109_S168_L001_R1_001.fastq.gz
+      R2: data/batch_1/RLPLV-16_2-2698109_S168_L001_R2_001.fastq.gz
+    RLPLV-17_2-2698022_S131:
+      R1: data/batch_1/RLPLV-17_2-2698022_S131_L001_R1_001.fastq.gz
+      R2: data/batch_1/RLPLV-17_2-2698022_S131_L001_R2_001.fastq.gz
+    RLPLV-18_2-2696118_S90:
+      R1: data/batch_1/RLPLV-18_2-2696118_S90_L001_R1_001.fastq.gz
+      R2: data/batch_1/RLPLV-18_2-2696118_S90_L001_R2_001.fastq.gz
+    RLPLV-23_2-2696008_S30:
+      R1: data/batch_1/RLPLV-23_2-2696008_S30_L001_R1_001.fastq.gz
+      R2: data/batch_1/RLPLV-23_2-2696008_S30_L001_R2_001.fastq.gz
+    RLPLV-26_2-2698029_S138:
+      R1: data/batch_1/RLPLV-26_2-2698029_S138_L001_R1_001.fastq.gz
+      R2: data/batch_1/RLPLV-26_2-2698029_S138_L001_R2_001.fastq.gz
+    RLPLV-27_2-2696120_S92:
+      R1: data/batch_1/RLPLV-27_2-2696120_S92_L001_R1_001.fastq.gz
+      R2: data/batch_1/RLPLV-27_2-2696120_S92_L001_R2_001.fastq.gz
+    RLPLV-28_2-2698133_S192:
+      R1: data/batch_1/RLPLV-28_2-2698133_S192_L001_R1_001.fastq.gz
+      R2: data/batch_1/RLPLV-28_2-2698133_S192_L001_R2_001.fastq.gz
+    RLPLV-29_2-2696104_S76:
+      R1: data/batch_1/RLPLV-29_2-2696104_S76_L001_R1_001.fastq.gz
+      R2: data/batch_1/RLPLV-29_2-2696104_S76_L001_R2_001.fastq.gz
+    RLPLV-31_2-2698129_S188:
+      R1: data/batch_1/RLPLV-31_2-2698129_S188_L001_R1_001.fastq.gz
+      R2: data/batch_1/RLPLV-31_2-2698129_S188_L001_R2_001.fastq.gz
+    RLPLV-33_2-2696037_S59:
+      R1: data/batch_1/RLPLV-33_2-2696037_S59_L001_R1_001.fastq.gz
+      R2: data/batch_1/RLPLV-33_2-2696037_S59_L001_R2_001.fastq.gz
+    RLPLV-34_2-2698104_S163:
+      R1: data/batch_1/RLPLV-34_2-2698104_S163_L001_R1_001.fastq.gz
+      R2: data/batch_1/RLPLV-34_2-2698104_S163_L001_R2_001.fastq.gz
+    RLPLV-35_2-2698130_S189:
+      R1: data/batch_1/RLPLV-35_2-2698130_S189_L001_R1_001.fastq.gz
+      R2: data/batch_1/RLPLV-35_2-2698130_S189_L001_R2_001.fastq.gz
+    RLPLV-36_2-2696124_S96:
+      R1: data/batch_1/RLPLV-36_2-2696124_S96_L001_R1_001.fastq.gz
+      R2: data/batch_1/RLPLV-36_2-2696124_S96_L001_R2_001.fastq.gz
+    RLPLV-37_2-2696105_S77:
+      R1: data/batch_1/RLPLV-37_2-2696105_S77_L001_R1_001.fastq.gz
+      R2: data/batch_1/RLPLV-37_2-2696105_S77_L001_R2_001.fastq.gz
+    RLPLV-39_2-2698016_S125:
+      R1: data/batch_1/RLPLV-39_2-2698016_S125_L001_R1_001.fastq.gz
+      R2: data/batch_1/RLPLV-39_2-2698016_S125_L001_R2_001.fastq.gz
+    RLPLV-40_2-2698033_S142:
+      R1: data/batch_1/RLPLV-40_2-2698033_S142_L001_R1_001.fastq.gz
+      R2: data/batch_1/RLPLV-40_2-2698033_S142_L001_R2_001.fastq.gz
+    RLPLV-46_2-2696039_S61:
+      R1: data/batch_1/RLPLV-46_2-2696039_S61_L001_R1_001.fastq.gz
+      R2: data/batch_1/RLPLV-46_2-2696039_S61_L001_R2_001.fastq.gz
+    RLPLV-49_2-2695939_S11:
+      R1: data/batch_1/RLPLV-49_2-2695939_S11_L001_R1_001.fastq.gz
+      R2: data/batch_1/RLPLV-49_2-2695939_S11_L001_R2_001.fastq.gz
+    RLPLV-4_2-2697945_S104:
+      R1: data/batch_1/RLPLV-4_2-2697945_S104_L001_R1_001.fastq.gz
+      R2: data/batch_1/RLPLV-4_2-2697945_S104_L001_R2_001.fastq.gz
+    RLPLV-50_2-2698114_S173:
+      R1: data/batch_1/RLPLV-50_2-2698114_S173_L001_R1_001.fastq.gz
+      R2: data/batch_1/RLPLV-50_2-2698114_S173_L001_R2_001.fastq.gz
+    RLPLV-6_2-2696038_S60:
+      R1: data/batch_1/RLPLV-6_2-2696038_S60_L001_R1_001.fastq.gz
+      R2: data/batch_1/RLPLV-6_2-2696038_S60_L001_R2_001.fastq.gz
+    RLPLV-8_2-2698107_S166:
+      R1: data/batch_1/RLPLV-8_2-2698107_S166_L001_R1_001.fastq.gz
+      R2: data/batch_1/RLPLV-8_2-2698107_S166_L001_R2_001.fastq.gz
+    RLPLV-9_2-2698123_S182:
+      R1: data/batch_1/RLPLV-9_2-2698123_S182_L001_R1_001.fastq.gz
+      R2: data/batch_1/RLPLV-9_2-2698123_S182_L001_R2_001.fastq.gz
+    SWCP-14_2-2696029_S51:
+      R1: data/batch_1/SWCP-14_2-2696029_S51_L001_R1_001.fastq.gz
+      R2: data/batch_1/SWCP-14_2-2696029_S51_L001_R2_001.fastq.gz
+    SWCP-15_2-2697944_S103:
+      R1: data/batch_1/SWCP-15_2-2697944_S103_L001_R1_001.fastq.gz
+      R2: data/batch_1/SWCP-15_2-2697944_S103_L001_R2_001.fastq.gz
+    SWCP-18_2-2698007_S116:
+      R1: data/batch_1/SWCP-18_2-2698007_S116_L001_R1_001.fastq.gz
+      R2: data/batch_1/SWCP-18_2-2698007_S116_L001_R2_001.fastq.gz
+    SWCP-19_2-2695946_S18:
+      R1: data/batch_1/SWCP-19_2-2695946_S18_L001_R1_001.fastq.gz
+      R2: data/batch_1/SWCP-19_2-2695946_S18_L001_R2_001.fastq.gz
+    SWCP-23_2-2697939_S98:
+      R1: data/batch_1/SWCP-23_2-2697939_S98_L001_R1_001.fastq.gz
+      R2: data/batch_1/SWCP-23_2-2697939_S98_L001_R2_001.fastq.gz
+    SWCP-24_2-2696012_S34:
+      R1: data/batch_1/SWCP-24_2-2696012_S34_L001_R1_001.fastq.gz
+      R2: data/batch_1/SWCP-24_2-2696012_S34_L001_R2_001.fastq.gz
+    SWCP-25_2-2698001_S110:
+      R1: data/batch_1/SWCP-25_2-2698001_S110_L001_R1_001.fastq.gz
+      R2: data/batch_1/SWCP-25_2-2698001_S110_L001_R2_001.fastq.gz
+    SWCP-27_2-2698010_S119:
+      R1: data/batch_1/SWCP-27_2-2698010_S119_L001_R1_001.fastq.gz
+      R2: data/batch_1/SWCP-27_2-2698010_S119_L001_R2_001.fastq.gz
+    SWCP-28_2-2698111_S170:
+      R1: data/batch_1/SWCP-28_2-2698111_S170_L001_R1_001.fastq.gz
+      R2: data/batch_1/SWCP-28_2-2698111_S170_L001_R2_001.fastq.gz
+    SWCP-29_2-2698102_S161:
+      R1: data/batch_1/SWCP-29_2-2698102_S161_L001_R1_001.fastq.gz
+      R2: data/batch_1/SWCP-29_2-2698102_S161_L001_R2_001.fastq.gz
+    SWCP-2_2-2696122_S94:
+      R1: data/batch_1/SWCP-2_2-2696122_S94_L001_R1_001.fastq.gz
+      R2: data/batch_1/SWCP-2_2-2696122_S94_L001_R2_001.fastq.gz
+    SWCP-33_2-2696017_S39:
+      R1: data/batch_1/SWCP-33_2-2696017_S39_L001_R1_001.fastq.gz
+      R2: data/batch_1/SWCP-33_2-2696017_S39_L001_R2_001.fastq.gz
+    SWCP-34_2-2696048_S70:
+      R1: data/batch_1/SWCP-34_2-2696048_S70_L001_R1_001.fastq.gz
+      R2: data/batch_1/SWCP-34_2-2696048_S70_L001_R2_001.fastq.gz
+    SWCP-35_2-2698002_S111:
+      R1: data/batch_1/SWCP-35_2-2698002_S111_L001_R1_001.fastq.gz
+      R2: data/batch_1/SWCP-35_2-2698002_S111_L001_R2_001.fastq.gz
+    SWCP-36_2-2696002_S24:
+      R1: data/batch_1/SWCP-36_2-2696002_S24_L001_R1_001.fastq.gz
+      R2: data/batch_1/SWCP-36_2-2696002_S24_L001_R2_001.fastq.gz
+    SWCP-37_2-2698015_S124:
+      R1: data/batch_1/SWCP-37_2-2698015_S124_L001_R1_001.fastq.gz
+      R2: data/batch_1/SWCP-37_2-2698015_S124_L001_R2_001.fastq.gz
+    SWCP-38_2-2696014_S36:
+      R1: data/batch_1/SWCP-38_2-2696014_S36_L001_R1_001.fastq.gz
+      R2: data/batch_1/SWCP-38_2-2696014_S36_L001_R2_001.fastq.gz
+    SWCP-40_2-2698117_S176:
+      R1: data/batch_1/SWCP-40_2-2698117_S176_L001_R1_001.fastq.gz
+      R2: data/batch_1/SWCP-40_2-2698117_S176_L001_R2_001.fastq.gz
+    SWCP-43_2-2696022_S44:
+      R1: data/batch_1/SWCP-43_2-2696022_S44_L001_R1_001.fastq.gz
+      R2: data/batch_1/SWCP-43_2-2696022_S44_L001_R2_001.fastq.gz
+    SWCP-44_2-2698049_S158:
+      R1: data/batch_1/SWCP-44_2-2698049_S158_L001_R1_001.fastq.gz
+      R2: data/batch_1/SWCP-44_2-2698049_S158_L001_R2_001.fastq.gz
+    SWCP-45_2-2698103_S162:
+      R1: data/batch_1/SWCP-45_2-2698103_S162_L001_R1_001.fastq.gz
+      R2: data/batch_1/SWCP-45_2-2698103_S162_L001_R2_001.fastq.gz
+    SWCP-46_2-2696005_S27:
+      R1: data/batch_1/SWCP-46_2-2696005_S27_L001_R1_001.fastq.gz
+      R2: data/batch_1/SWCP-46_2-2696005_S27_L001_R2_001.fastq.gz
+    SWCP-48_2-2696102_S74:
+      R1: data/batch_1/SWCP-48_2-2696102_S74_L001_R1_001.fastq.gz
+      R2: data/batch_1/SWCP-48_2-2696102_S74_L001_R2_001.fastq.gz
+    SWCP-49_2-2695944_S16:
+      R1: data/batch_1/SWCP-49_2-2695944_S16_L001_R1_001.fastq.gz
+      R2: data/batch_1/SWCP-49_2-2695944_S16_L001_R2_001.fastq.gz
+    SWCP-50_2-2698106_S165:
+      R1: data/batch_1/SWCP-50_2-2698106_S165_L001_R1_001.fastq.gz
+      R2: data/batch_1/SWCP-50_2-2698106_S165_L001_R2_001.fastq.gz
+    SWCP-6_2-2696043_S65:
+      R1: data/batch_1/SWCP-6_2-2696043_S65_L001_R1_001.fastq.gz
+      R2: data/batch_1/SWCP-6_2-2696043_S65_L001_R2_001.fastq.gz
+    SWCP-7_2-2695932_S4:
+      R1: data/batch_1/SWCP-7_2-2695932_S4_L001_R1_001.fastq.gz
+      R2: data/batch_1/SWCP-7_2-2695932_S4_L001_R2_001.fastq.gz
+  batch_2:
+    HPW-10_2-2695941_S13:
+      R1: data/batch_2/HPW-10_2-2695941_S13_L001_R1_001.fastq.gz
+      R2: data/batch_2/HPW-10_2-2695941_S13_L001_R2_001.fastq.gz
+    HPW-12_2-2698037_S144:
+      R1: data/batch_2/HPW-12_2-2698037_S144_L001_R1_001.fastq.gz
+      R2: data/batch_2/HPW-12_2-2698037_S144_L001_R2_001.fastq.gz
+    HPW-15_2-2698019_S126:
+      R1: data/batch_2/HPW-15_2-2698019_S126_L001_R1_001.fastq.gz
+      R2: data/batch_2/HPW-15_2-2698019_S126_L001_R2_001.fastq.gz
+    HPW-16_2-2698004_S111:
+      R1: data/batch_2/HPW-16_2-2698004_S111_L001_R1_001.fastq.gz
+      R2: data/batch_2/HPW-16_2-2698004_S111_L001_R2_001.fastq.gz
+    HPW-17_2-2698024_S131:
+      R1: data/batch_2/HPW-17_2-2698024_S131_L001_R1_001.fastq.gz
+      R2: data/batch_2/HPW-17_2-2698024_S131_L001_R2_001.fastq.gz
+    HPW-1_2-2698017_S124:
+      R1: data/batch_2/HPW-1_2-2698017_S124_L001_R1_001.fastq.gz
+      R2: data/batch_2/HPW-1_2-2698017_S124_L001_R2_001.fastq.gz
+    HPW-22_2-2696112_S82:
+      R1: data/batch_2/HPW-22_2-2696112_S82_L001_R1_001.fastq.gz
+      R2: data/batch_2/HPW-22_2-2696112_S82_L001_R2_001.fastq.gz
+    HPW-23_2-2698108_S165:
+      R1: data/batch_2/HPW-23_2-2698108_S165_L001_R1_001.fastq.gz
+      R2: data/batch_2/HPW-23_2-2698108_S165_L001_R2_001.fastq.gz
+    HPW-24_2-2696016_S38:
+      R1: data/batch_2/HPW-24_2-2696016_S38_L001_R1_001.fastq.gz
+      R2: data/batch_2/HPW-24_2-2696016_S38_L001_R2_001.fastq.gz
+    HPW-25_2-2698050_S157:
+      R1: data/batch_2/HPW-25_2-2698050_S157_L001_R1_001.fastq.gz
+      R2: data/batch_2/HPW-25_2-2698050_S157_L001_R2_001.fastq.gz
+    HPW-26_2-2698132_S189:
+      R1: data/batch_2/HPW-26_2-2698132_S189_L001_R1_001.fastq.gz
+      R2: data/batch_2/HPW-26_2-2698132_S189_L001_R2_001.fastq.gz
+    HPW-28_2-2698030_S137:
+      R1: data/batch_2/HPW-28_2-2698030_S137_L001_R1_001.fastq.gz
+      R2: data/batch_2/HPW-28_2-2698030_S137_L001_R2_001.fastq.gz
+    HPW-2_2-2695937_S9:
+      R1: data/batch_2/HPW-2_2-2695937_S9_L001_R1_001.fastq.gz
+      R2: data/batch_2/HPW-2_2-2695937_S9_L001_R2_001.fastq.gz
+    HPW-30_2-2698041_S148:
+      R1: data/batch_2/HPW-30_2-2698041_S148_L001_R1_001.fastq.gz
+      R2: data/batch_2/HPW-30_2-2698041_S148_L001_R2_001.fastq.gz
+    HPW-31_2-2698047_S154:
+      R1: data/batch_2/HPW-31_2-2698047_S154_L001_R1_001.fastq.gz
+      R2: data/batch_2/HPW-31_2-2698047_S154_L001_R2_001.fastq.gz
+    HPW-34_2-2696034_S55:
+      R1: data/batch_2/HPW-34_2-2696034_S55_L001_R1_001.fastq.gz
+      R2: data/batch_2/HPW-34_2-2696034_S55_L001_R2_001.fastq.gz
+    HPW-35_2-2698120_S177:
+      R1: data/batch_2/HPW-35_2-2698120_S177_L001_R1_001.fastq.gz
+      R2: data/batch_2/HPW-35_2-2698120_S177_L001_R2_001.fastq.gz
+    HPW-37_2-2696018_S40:
+      R1: data/batch_2/HPW-37_2-2696018_S40_L001_R1_001.fastq.gz
+      R2: data/batch_2/HPW-37_2-2696018_S40_L001_R2_001.fastq.gz
+    HPW-40_2-2697946_S103:
+      R1: data/batch_2/HPW-40_2-2697946_S103_L001_R1_001.fastq.gz
+      R2: data/batch_2/HPW-40_2-2697946_S103_L001_R2_001.fastq.gz
+    HPW-44_2-2696107_S77:
+      R1: data/batch_2/HPW-44_2-2696107_S77_L001_R1_001.fastq.gz
+      R2: data/batch_2/HPW-44_2-2696107_S77_L001_R2_001.fastq.gz
+    HPW-48_2-2697948_S105:
+      R1: data/batch_2/HPW-48_2-2697948_S105_L001_R1_001.fastq.gz
+      R2: data/batch_2/HPW-48_2-2697948_S105_L001_R2_001.fastq.gz
+    HPW-49_2-2695934_S6:
+      R1: data/batch_2/HPW-49_2-2695934_S6_L001_R1_001.fastq.gz
+      R2: data/batch_2/HPW-49_2-2695934_S6_L001_R2_001.fastq.gz
+    HPW-50_2-2695931_S3:
+      R1: data/batch_2/HPW-50_2-2695931_S3_L001_R1_001.fastq.gz
+      R2: data/batch_2/HPW-50_2-2695931_S3_L001_R2_001.fastq.gz
+    HPW-5_2-2698009_S116:
+      R1: data/batch_2/HPW-5_2-2698009_S116_L001_R1_001.fastq.gz
+      R2: data/batch_2/HPW-5_2-2698009_S116_L001_R2_001.fastq.gz
+    HPW-6_2-2698035_S142:
+      R1: data/batch_2/HPW-6_2-2698035_S142_L001_R1_001.fastq.gz
+      R2: data/batch_2/HPW-6_2-2698035_S142_L001_R2_001.fastq.gz
+    HPW-7_2-2698045_S152:
+      R1: data/batch_2/HPW-7_2-2698045_S152_L001_R1_001.fastq.gz
+      R2: data/batch_2/HPW-7_2-2698045_S152_L001_R2_001.fastq.gz
+    HPW-8_2-2697941_S98:
+      R1: data/batch_2/HPW-8_2-2697941_S98_L001_R1_001.fastq.gz
+      R2: data/batch_2/HPW-8_2-2697941_S98_L001_R2_001.fastq.gz
+    IDNP-MW-10_2-2698028_S135:
+      R1: data/batch_2/IDNP-MW-10_2-2698028_S135_L001_R1_001.fastq.gz
+      R2: data/batch_2/IDNP-MW-10_2-2698028_S135_L001_R2_001.fastq.gz
+    IDNP-MW-12_2-2697947_S104:
+      R1: data/batch_2/IDNP-MW-12_2-2697947_S104_L001_R1_001.fastq.gz
+      R2: data/batch_2/IDNP-MW-12_2-2697947_S104_L001_R2_001.fastq.gz
+    IDNP-MW-14_2-2697949_S106:
+      R1: data/batch_2/IDNP-MW-14_2-2697949_S106_L001_R1_001.fastq.gz
+      R2: data/batch_2/IDNP-MW-14_2-2697949_S106_L001_R2_001.fastq.gz
+    IDNP-MW-17_2-2696117_S87:
+      R1: data/batch_2/IDNP-MW-17_2-2696117_S87_L001_R1_001.fastq.gz
+      R2: data/batch_2/IDNP-MW-17_2-2696117_S87_L001_R2_001.fastq.gz
+    IDNP-MW-19_2-2698025_S132:
+      R1: data/batch_2/IDNP-MW-19_2-2698025_S132_L001_R1_001.fastq.gz
+      R2: data/batch_2/IDNP-MW-19_2-2698025_S132_L001_R2_001.fastq.gz
+    IDNP-MW-1_2-2695943_S15:
+      R1: data/batch_2/IDNP-MW-1_2-2695943_S15_L001_R1_001.fastq.gz
+      R2: data/batch_2/IDNP-MW-1_2-2695943_S15_L001_R2_001.fastq.gz
+    IDNP-MW-20_2-2698119_S176:
+      R1: data/batch_2/IDNP-MW-20_2-2698119_S176_L001_R1_001.fastq.gz
+      R2: data/batch_2/IDNP-MW-20_2-2698119_S176_L001_R2_001.fastq.gz
+    IDNP-MW-21_2-2698003_S110:
+      R1: data/batch_2/IDNP-MW-21_2-2698003_S110_L001_R1_001.fastq.gz
+      R2: data/batch_2/IDNP-MW-21_2-2698003_S110_L001_R2_001.fastq.gz
+    IDNP-MW-22_2-2696049_S70:
+      R1: data/batch_2/IDNP-MW-22_2-2696049_S70_L001_R1_001.fastq.gz
+      R2: data/batch_2/IDNP-MW-22_2-2696049_S70_L001_R2_001.fastq.gz
+    IDNP-MW-24_2-2696009_S31:
+      R1: data/batch_2/IDNP-MW-24_2-2696009_S31_L001_R1_001.fastq.gz
+      R2: data/batch_2/IDNP-MW-24_2-2696009_S31_L001_R2_001.fastq.gz
+    IDNP-MW-25_2-2696044_S65:
+      R1: data/batch_2/IDNP-MW-25_2-2696044_S65_L001_R1_001.fastq.gz
+      R2: data/batch_2/IDNP-MW-25_2-2696044_S65_L001_R2_001.fastq.gz
+    IDNP-MW-27_2-2696103_S73:
+      R1: data/batch_2/IDNP-MW-27_2-2696103_S73_L001_R1_001.fastq.gz
+      R2: data/batch_2/IDNP-MW-27_2-2696103_S73_L001_R2_001.fastq.gz
+    IDNP-MW-28_2-2698021_S128:
+      R1: data/batch_2/IDNP-MW-28_2-2698021_S128_L001_R1_001.fastq.gz
+      R2: data/batch_2/IDNP-MW-28_2-2698021_S128_L001_R2_001.fastq.gz
+    IDNP-MW-2_2-2698121_S178:
+      R1: data/batch_2/IDNP-MW-2_2-2698121_S178_L001_R1_001.fastq.gz
+      R2: data/batch_2/IDNP-MW-2_2-2698121_S178_L001_R2_001.fastq.gz
+    IDNP-MW-30_2-2695942_S14:
+      R1: data/batch_2/IDNP-MW-30_2-2695942_S14_L001_R1_001.fastq.gz
+      R2: data/batch_2/IDNP-MW-30_2-2695942_S14_L001_R2_001.fastq.gz
+    IDNP-MW-31_2-2698008_S115:
+      R1: data/batch_2/IDNP-MW-31_2-2698008_S115_L001_R1_001.fastq.gz
+      R2: data/batch_2/IDNP-MW-31_2-2698008_S115_L001_R2_001.fastq.gz
+    IDNP-MW-32_2-2698039_S146:
+      R1: data/batch_2/IDNP-MW-32_2-2698039_S146_L001_R1_001.fastq.gz
+      R2: data/batch_2/IDNP-MW-32_2-2698039_S146_L001_R2_001.fastq.gz
+    IDNP-MW-33_2-2696032_S53:
+      R1: data/batch_2/IDNP-MW-33_2-2696032_S53_L001_R1_001.fastq.gz
+      R2: data/batch_2/IDNP-MW-33_2-2696032_S53_L001_R2_001.fastq.gz
+    IDNP-MW-36_2-2696113_S83:
+      R1: data/batch_2/IDNP-MW-36_2-2696113_S83_L001_R1_001.fastq.gz
+      R2: data/batch_2/IDNP-MW-36_2-2696113_S83_L001_R2_001.fastq.gz
+    IDNP-MW-37_2-2696011_S33:
+      R1: data/batch_2/IDNP-MW-37_2-2696011_S33_L001_R1_001.fastq.gz
+      R2: data/batch_2/IDNP-MW-37_2-2696011_S33_L001_R2_001.fastq.gz
+    IDNP-MW-39_2-2698011_S118:
+      R1: data/batch_2/IDNP-MW-39_2-2698011_S118_L001_R1_001.fastq.gz
+      R2: data/batch_2/IDNP-MW-39_2-2698011_S118_L001_R2_001.fastq.gz
+    IDNP-MW-3_2-2696030_S51:
+      R1: data/batch_2/IDNP-MW-3_2-2696030_S51_L001_R1_001.fastq.gz
+      R2: data/batch_2/IDNP-MW-3_2-2696030_S51_L001_R2_001.fastq.gz
+    IDNP-MW-4_2-2696045_S66:
+      R1: data/batch_2/IDNP-MW-4_2-2696045_S66_L001_R1_001.fastq.gz
+      R2: data/batch_2/IDNP-MW-4_2-2696045_S66_L001_R2_001.fastq.gz
+    IDNP-MW-6_2-2698020_S127:
+      R1: data/batch_2/IDNP-MW-6_2-2698020_S127_L001_R1_001.fastq.gz
+      R2: data/batch_2/IDNP-MW-6_2-2698020_S127_L001_R2_001.fastq.gz
+    IDNP-MW-6_2-2698118_S175:
+      R1: data/batch_2/IDNP-MW-6_2-2698118_S175_L001_R1_001.fastq.gz
+      R2: data/batch_2/IDNP-MW-6_2-2698118_S175_L001_R2_001.fastq.gz
+    IDNP-MW-7_2-2696121_S91:
+      R1: data/batch_2/IDNP-MW-7_2-2696121_S91_L001_R1_001.fastq.gz
+      R2: data/batch_2/IDNP-MW-7_2-2696121_S91_L001_R2_001.fastq.gz
+    IDNP-MW-9_2-2696007_S29:
+      R1: data/batch_2/IDNP-MW-9_2-2696007_S29_L001_R1_001.fastq.gz
+      R2: data/batch_2/IDNP-MW-9_2-2696007_S29_L001_R2_001.fastq.gz
+    LCTGP-11_2-2698026_S133:
+      R1: data/batch_2/LCTGP-11_2-2698026_S133_L001_R1_001.fastq.gz
+      R2: data/batch_2/LCTGP-11_2-2698026_S133_L001_R2_001.fastq.gz
+    LCTGP-12_2-2695949_S21:
+      R1: data/batch_2/LCTGP-12_2-2695949_S21_L001_R1_001.fastq.gz
+      R2: data/batch_2/LCTGP-12_2-2695949_S21_L001_R2_001.fastq.gz
+    LCTGP-14_2-2698116_S173:
+      R1: data/batch_2/LCTGP-14_2-2698116_S173_L001_R1_001.fastq.gz
+      R2: data/batch_2/LCTGP-14_2-2698116_S173_L001_R2_001.fastq.gz
+    LCTGP-15_2-2696033_S54:
+      R1: data/batch_2/LCTGP-15_2-2696033_S54_L001_R1_001.fastq.gz
+      R2: data/batch_2/LCTGP-15_2-2696033_S54_L001_R2_001.fastq.gz
+    LCTGP-16_2-2695933_S5:
+      R1: data/batch_2/LCTGP-16_2-2695933_S5_L001_R1_001.fastq.gz
+      R2: data/batch_2/LCTGP-16_2-2695933_S5_L001_R2_001.fastq.gz
+    LCTGP-19_2-2695945_S17:
+      R1: data/batch_2/LCTGP-19_2-2695945_S17_L001_R1_001.fastq.gz
+      R2: data/batch_2/LCTGP-19_2-2695945_S17_L001_R2_001.fastq.gz
+    LCTGP-1_2-2698034_S141:
+      R1: data/batch_2/LCTGP-1_2-2698034_S141_L001_R1_001.fastq.gz
+      R2: data/batch_2/LCTGP-1_2-2698034_S141_L001_R2_001.fastq.gz
+    LCTGP-20_2-2698110_S167:
+      R1: data/batch_2/LCTGP-20_2-2698110_S167_L001_R1_001.fastq.gz
+      R2: data/batch_2/LCTGP-20_2-2698110_S167_L001_R2_001.fastq.gz
+    LCTGP-22_2-2696010_S32:
+      R1: data/batch_2/LCTGP-22_2-2696010_S32_L001_R1_001.fastq.gz
+      R2: data/batch_2/LCTGP-22_2-2696010_S32_L001_R2_001.fastq.gz
+    LCTGP-23_2-2696006_S28:
+      R1: data/batch_2/LCTGP-23_2-2696006_S28_L001_R1_001.fastq.gz
+      R2: data/batch_2/LCTGP-23_2-2696006_S28_L001_R2_001.fastq.gz
+    LCTGP-24_2-2696013_S35:
+      R1: data/batch_2/LCTGP-24_2-2696013_S35_L001_R1_001.fastq.gz
+      R2: data/batch_2/LCTGP-24_2-2696013_S35_L001_R2_001.fastq.gz
+    LCTGP-26_2-2695936_S8:
+      R1: data/batch_2/LCTGP-26_2-2695936_S8_L001_R1_001.fastq.gz
+      R2: data/batch_2/LCTGP-26_2-2695936_S8_L001_R2_001.fastq.gz
+    LCTGP-27_2-2695950_S22:
+      R1: data/batch_2/LCTGP-27_2-2695950_S22_L001_R1_001.fastq.gz
+      R2: data/batch_2/LCTGP-27_2-2695950_S22_L001_R2_001.fastq.gz
+    LCTGP-28_2-2696023_S44:
+      R1: data/batch_2/LCTGP-28_2-2696023_S44_L001_R1_001.fastq.gz
+      R2: data/batch_2/LCTGP-28_2-2696023_S44_L001_R2_001.fastq.gz
+    LCTGP-2_2-2698006_S113:
+      R1: data/batch_2/LCTGP-2_2-2698006_S113_L001_R1_001.fastq.gz
+      R2: data/batch_2/LCTGP-2_2-2698006_S113_L001_R2_001.fastq.gz
+    LCTGP-33_2-2698044_S151:
+      R1: data/batch_2/LCTGP-33_2-2698044_S151_L001_R1_001.fastq.gz
+      R2: data/batch_2/LCTGP-33_2-2698044_S151_L001_R2_001.fastq.gz
+    LCTGP-34_2-2695938_S10:
+      R1: data/batch_2/LCTGP-34_2-2695938_S10_L001_R1_001.fastq.gz
+      R2: data/batch_2/LCTGP-34_2-2695938_S10_L001_R2_001.fastq.gz
+    LCTGP-38_2-2698131_S188:
+      R1: data/batch_2/LCTGP-38_2-2698131_S188_L001_R1_001.fastq.gz
+      R2: data/batch_2/LCTGP-38_2-2698131_S188_L001_R2_001.fastq.gz
+    LCTGP-3_2-2698032_S139:
+      R1: data/batch_2/LCTGP-3_2-2698032_S139_L001_R1_001.fastq.gz
+      R2: data/batch_2/LCTGP-3_2-2698032_S139_L001_R2_001.fastq.gz
+    LCTGP-40_2-2698027_S134:
+      R1: data/batch_2/LCTGP-40_2-2698027_S134_L001_R1_001.fastq.gz
+      R2: data/batch_2/LCTGP-40_2-2698027_S134_L001_R2_001.fastq.gz
+    LCTGP-41_2-2696028_S49:
+      R1: data/batch_2/LCTGP-41_2-2696028_S49_L001_R1_001.fastq.gz
+      R2: data/batch_2/LCTGP-41_2-2696028_S49_L001_R2_001.fastq.gz
+    LCTGP-42_2-2698005_S112:
+      R1: data/batch_2/LCTGP-42_2-2698005_S112_L001_R1_001.fastq.gz
+      R2: data/batch_2/LCTGP-42_2-2698005_S112_L001_R2_001.fastq.gz
+    LCTGP-44_2-2696108_S78:
+      R1: data/batch_2/LCTGP-44_2-2696108_S78_L001_R1_001.fastq.gz
+      R2: data/batch_2/LCTGP-44_2-2696108_S78_L001_R2_001.fastq.gz
+    LCTGP-45_2-2698014_S121:
+      R1: data/batch_2/LCTGP-45_2-2698014_S121_L001_R1_001.fastq.gz
+      R2: data/batch_2/LCTGP-45_2-2698014_S121_L001_R2_001.fastq.gz
+    LCTGP-46_2-2696123_S93:
+      R1: data/batch_2/LCTGP-46_2-2696123_S93_L001_R1_001.fastq.gz
+      R2: data/batch_2/LCTGP-46_2-2696123_S93_L001_R2_001.fastq.gz
+    LCTGP-49_2-2696025_S46:
+      R1: data/batch_2/LCTGP-49_2-2696025_S46_L001_R1_001.fastq.gz
+      R2: data/batch_2/LCTGP-49_2-2696025_S46_L001_R2_001.fastq.gz
+    LCTGP-7_2-2698040_S147:
+      R1: data/batch_2/LCTGP-7_2-2698040_S147_L001_R1_001.fastq.gz
+      R2: data/batch_2/LCTGP-7_2-2698040_S147_L001_R2_001.fastq.gz
+    MFNP-10_2-2698043_S150:
+      R1: data/batch_2/MFNP-10_2-2698043_S150_L001_R1_001.fastq.gz
+      R2: data/batch_2/MFNP-10_2-2698043_S150_L001_R2_001.fastq.gz
+    MFNP-12_2-2696046_S67:
+      R1: data/batch_2/MFNP-12_2-2696046_S67_L001_R1_001.fastq.gz
+      R2: data/batch_2/MFNP-12_2-2696046_S67_L001_R2_001.fastq.gz
+    MFNP-14_2-2696041_S62:
+      R1: data/batch_2/MFNP-14_2-2696041_S62_L001_R1_001.fastq.gz
+      R2: data/batch_2/MFNP-14_2-2696041_S62_L001_R2_001.fastq.gz
+    MFNP-15_2-2698113_S170:
+      R1: data/batch_2/MFNP-15_2-2698113_S170_L001_R1_001.fastq.gz
+      R2: data/batch_2/MFNP-15_2-2698113_S170_L001_R2_001.fastq.gz
+    MFNP-16_2-2695930_S2:
+      R1: data/batch_2/MFNP-16_2-2695930_S2_L001_R1_001.fastq.gz
+      R2: data/batch_2/MFNP-16_2-2695930_S2_L001_R2_001.fastq.gz
+    MFNP-17_2-2696115_S85:
+      R1: data/batch_2/MFNP-17_2-2696115_S85_L001_R1_001.fastq.gz
+      R2: data/batch_2/MFNP-17_2-2696115_S85_L001_R2_001.fastq.gz
+    MFNP-21_2-2696106_S76:
+      R1: data/batch_2/MFNP-21_2-2696106_S76_L001_R1_001.fastq.gz
+      R2: data/batch_2/MFNP-21_2-2696106_S76_L001_R2_001.fastq.gz
+    MFNP-23_2-2696035_S56:
+      R1: data/batch_2/MFNP-23_2-2696035_S56_L001_R1_001.fastq.gz
+      R2: data/batch_2/MFNP-23_2-2696035_S56_L001_R2_001.fastq.gz
+    MFNP-26_2-2698128_S185:
+      R1: data/batch_2/MFNP-26_2-2698128_S185_L001_R1_001.fastq.gz
+      R2: data/batch_2/MFNP-26_2-2698128_S185_L001_R2_001.fastq.gz
+    MFNP-29_2-2698122_S179:
+      R1: data/batch_2/MFNP-29_2-2698122_S179_L001_R1_001.fastq.gz
+      R2: data/batch_2/MFNP-29_2-2698122_S179_L001_R2_001.fastq.gz
+    MFNP-2_2-2696116_S86:
+      R1: data/batch_2/MFNP-2_2-2696116_S86_L001_R1_001.fastq.gz
+      R2: data/batch_2/MFNP-2_2-2696116_S86_L001_R2_001.fastq.gz
+    MFNP-30_2-2696019_S41:
+      R1: data/batch_2/MFNP-30_2-2696019_S41_L001_R1_001.fastq.gz
+      R2: data/batch_2/MFNP-30_2-2696019_S41_L001_R2_001.fastq.gz
+    MFNP-34_2-2696114_S84:
+      R1: data/batch_2/MFNP-34_2-2696114_S84_L001_R1_001.fastq.gz
+      R2: data/batch_2/MFNP-34_2-2696114_S84_L001_R2_001.fastq.gz
+    MFNP-35_2-2696119_S89:
+      R1: data/batch_2/MFNP-35_2-2696119_S89_L001_R1_001.fastq.gz
+      R2: data/batch_2/MFNP-35_2-2696119_S89_L001_R2_001.fastq.gz
+    MFNP-39_2-2696111_S81:
+      R1: data/batch_2/MFNP-39_2-2696111_S81_L001_R1_001.fastq.gz
+      R2: data/batch_2/MFNP-39_2-2696111_S81_L001_R2_001.fastq.gz
+    MFNP-3_2-2697943_S100:
+      R1: data/batch_2/MFNP-3_2-2697943_S100_L001_R1_001.fastq.gz
+      R2: data/batch_2/MFNP-3_2-2697943_S100_L001_R2_001.fastq.gz
+    MFNP-40_2-2698112_S169:
+      R1: data/batch_2/MFNP-40_2-2698112_S169_L001_R1_001.fastq.gz
+      R2: data/batch_2/MFNP-40_2-2698112_S169_L001_R2_001.fastq.gz
+    MFNP-41_2-2696050_S71:
+      R1: data/batch_2/MFNP-41_2-2696050_S71_L001_R1_001.fastq.gz
+      R2: data/batch_2/MFNP-41_2-2696050_S71_L001_R2_001.fastq.gz
+    MFNP-43_2-2696101_S72:
+      R1: data/batch_2/MFNP-43_2-2696101_S72_L001_R1_001.fastq.gz
+      R2: data/batch_2/MFNP-43_2-2696101_S72_L001_R2_001.fastq.gz
+    MFNP-44_2-2698046_S153:
+      R1: data/batch_2/MFNP-44_2-2698046_S153_L001_R1_001.fastq.gz
+      R2: data/batch_2/MFNP-44_2-2698046_S153_L001_R2_001.fastq.gz
+    MFNP-46_2-2698038_S145:
+      R1: data/batch_2/MFNP-46_2-2698038_S145_L001_R1_001.fastq.gz
+      R2: data/batch_2/MFNP-46_2-2698038_S145_L001_R2_001.fastq.gz
+    MFNP-48_2-2695929_S1:
+      R1: data/batch_2/MFNP-48_2-2695929_S1_L001_R1_001.fastq.gz
+      R2: data/batch_2/MFNP-48_2-2695929_S1_L001_R2_001.fastq.gz
+    MFNP-48_2-2697940_S97:
+      R1: data/batch_2/MFNP-48_2-2697940_S97_L001_R1_001.fastq.gz
+      R2: data/batch_2/MFNP-48_2-2697940_S97_L001_R2_001.fastq.gz
+    MFNP-50_2-2698013_S120:
+      R1: data/batch_2/MFNP-50_2-2698013_S120_L001_R1_001.fastq.gz
+      R2: data/batch_2/MFNP-50_2-2698013_S120_L001_R2_001.fastq.gz
+    MFNP-51_2-2698127_S184:
+      R1: data/batch_2/MFNP-51_2-2698127_S184_L001_R1_001.fastq.gz
+      R2: data/batch_2/MFNP-51_2-2698127_S184_L001_R2_001.fastq.gz
+    MFNP-52_2-2696027_S48:
+      R1: data/batch_2/MFNP-52_2-2696027_S48_L001_R1_001.fastq.gz
+      R2: data/batch_2/MFNP-52_2-2696027_S48_L001_R2_001.fastq.gz
+    MFNP-6_2-2697950_S107:
+      R1: data/batch_2/MFNP-6_2-2697950_S107_L001_R1_001.fastq.gz
+      R2: data/batch_2/MFNP-6_2-2697950_S107_L001_R2_001.fastq.gz
+    MFNP-8_2-2696031_S52:
+      R1: data/batch_2/MFNP-8_2-2696031_S52_L001_R1_001.fastq.gz
+      R2: data/batch_2/MFNP-8_2-2696031_S52_L001_R2_001.fastq.gz
+    PPP-10_2-2696020_S42:
+      R1: data/batch_2/PPP-10_2-2696020_S42_L001_R1_001.fastq.gz
+      R2: data/batch_2/PPP-10_2-2696020_S42_L001_R2_001.fastq.gz
+    PPP-11_2-2696024_S45:
+      R1: data/batch_2/PPP-11_2-2696024_S45_L001_R1_001.fastq.gz
+      R2: data/batch_2/PPP-11_2-2696024_S45_L001_R2_001.fastq.gz
+    PPP-12_2-2696042_S63:
+      R1: data/batch_2/PPP-12_2-2696042_S63_L001_R1_001.fastq.gz
+      R2: data/batch_2/PPP-12_2-2696042_S63_L001_R2_001.fastq.gz
+    PPP-17_2-2698012_S119:
+      R1: data/batch_2/PPP-17_2-2698012_S119_L001_R1_001.fastq.gz
+      R2: data/batch_2/PPP-17_2-2698012_S119_L001_R2_001.fastq.gz
+    PPP-18_2-2696036_S57:
+      R1: data/batch_2/PPP-18_2-2696036_S57_L001_R1_001.fastq.gz
+      R2: data/batch_2/PPP-18_2-2696036_S57_L001_R2_001.fastq.gz
+    PPP-1_2-2697942_S99:
+      R1: data/batch_2/PPP-1_2-2697942_S99_L001_R1_001.fastq.gz
+      R2: data/batch_2/PPP-1_2-2697942_S99_L001_R2_001.fastq.gz
+    PPP-20_2-2696001_S23:
+      R1: data/batch_2/PPP-20_2-2696001_S23_L001_R1_001.fastq.gz
+      R2: data/batch_2/PPP-20_2-2696001_S23_L001_R2_001.fastq.gz
+    PPP-21_2-2696003_S25:
+      R1: data/batch_2/PPP-21_2-2696003_S25_L001_R1_001.fastq.gz
+      R2: data/batch_2/PPP-21_2-2696003_S25_L001_R2_001.fastq.gz
+    PPP-23_2-2696040_S61:
+      R1: data/batch_2/PPP-23_2-2696040_S61_L001_R1_001.fastq.gz
+      R2: data/batch_2/PPP-23_2-2696040_S61_L001_R2_001.fastq.gz
+    PPP-25_2-2698042_S149:
+      R1: data/batch_2/PPP-25_2-2698042_S149_L001_R1_001.fastq.gz
+      R2: data/batch_2/PPP-25_2-2698042_S149_L001_R2_001.fastq.gz
+    PPP-28_2-2696109_S79:
+      R1: data/batch_2/PPP-28_2-2696109_S79_L001_R1_001.fastq.gz
+      R2: data/batch_2/PPP-28_2-2696109_S79_L001_R2_001.fastq.gz
+    PPP-29_2-2698115_S172:
+      R1: data/batch_2/PPP-29_2-2698115_S172_L001_R1_001.fastq.gz
+      R2: data/batch_2/PPP-29_2-2698115_S172_L001_R2_001.fastq.gz
+    PPP-30_2-2695948_S20:
+      R1: data/batch_2/PPP-30_2-2695948_S20_L001_R1_001.fastq.gz
+      R2: data/batch_2/PPP-30_2-2695948_S20_L001_R2_001.fastq.gz
+    PPP-31_2-2695940_S12:
+      R1: data/batch_2/PPP-31_2-2695940_S12_L001_R1_001.fastq.gz
+      R2: data/batch_2/PPP-31_2-2695940_S12_L001_R2_001.fastq.gz
+    PPP-32_2-2696004_S26:
+      R1: data/batch_2/PPP-32_2-2696004_S26_L001_R1_001.fastq.gz
+      R2: data/batch_2/PPP-32_2-2696004_S26_L001_R2_001.fastq.gz
+    PPP-33_2-2698031_S138:
+      R1: data/batch_2/PPP-33_2-2698031_S138_L001_R1_001.fastq.gz
+      R2: data/batch_2/PPP-33_2-2698031_S138_L001_R2_001.fastq.gz
+    PPP-34_2-2695935_S7:
+      R1: data/batch_2/PPP-34_2-2695935_S7_L001_R1_001.fastq.gz
+      R2: data/batch_2/PPP-34_2-2695935_S7_L001_R2_001.fastq.gz
+    PPP-36_2-2698125_S182:
+      R1: data/batch_2/PPP-36_2-2698125_S182_L001_R1_001.fastq.gz
+      R2: data/batch_2/PPP-36_2-2698125_S182_L001_R2_001.fastq.gz
+    PPP-37_2-2697938_S95:
+      R1: data/batch_2/PPP-37_2-2697938_S95_L001_R1_001.fastq.gz
+      R2: data/batch_2/PPP-37_2-2697938_S95_L001_R2_001.fastq.gz
+    PPP-38_2-2698126_S183:
+      R1: data/batch_2/PPP-38_2-2698126_S183_L001_R1_001.fastq.gz
+      R2: data/batch_2/PPP-38_2-2698126_S183_L001_R2_001.fastq.gz
+    PPP-39_2-2698023_S130:
+      R1: data/batch_2/PPP-39_2-2698023_S130_L001_R1_001.fastq.gz
+      R2: data/batch_2/PPP-39_2-2698023_S130_L001_R2_001.fastq.gz
+    PPP-41_2-2698036_S143:
+      R1: data/batch_2/PPP-41_2-2698036_S143_L001_R1_001.fastq.gz
+      R2: data/batch_2/PPP-41_2-2698036_S143_L001_R2_001.fastq.gz
+    PPP-43_2-2695947_S19:
+      R1: data/batch_2/PPP-43_2-2695947_S19_L001_R1_001.fastq.gz
+      R2: data/batch_2/PPP-43_2-2695947_S19_L001_R2_001.fastq.gz
+    PPP-48_2-2696015_S37:
+      R1: data/batch_2/PPP-48_2-2696015_S37_L001_R1_001.fastq.gz
+      R2: data/batch_2/PPP-48_2-2696015_S37_L001_R2_001.fastq.gz
+    PPP-50_2-2698124_S181:
+      R1: data/batch_2/PPP-50_2-2698124_S181_L001_R1_001.fastq.gz
+      R2: data/batch_2/PPP-50_2-2698124_S181_L001_R2_001.fastq.gz
+    PPP-8_2-2698018_S125:
+      R1: data/batch_2/PPP-8_2-2698018_S125_L001_R1_001.fastq.gz
+      R2: data/batch_2/PPP-8_2-2698018_S125_L001_R2_001.fastq.gz
+    PPP-9_2-2698105_S162:
+      R1: data/batch_2/PPP-9_2-2698105_S162_L001_R1_001.fastq.gz
+      R2: data/batch_2/PPP-9_2-2698105_S162_L001_R2_001.fastq.gz
+    RLPLV-10_2-2696047_S68:
+      R1: data/batch_2/RLPLV-10_2-2696047_S68_L001_R1_001.fastq.gz
+      R2: data/batch_2/RLPLV-10_2-2696047_S68_L001_R2_001.fastq.gz
+    RLPLV-13_2-2696026_S47:
+      R1: data/batch_2/RLPLV-13_2-2696026_S47_L001_R1_001.fastq.gz
+      R2: data/batch_2/RLPLV-13_2-2696026_S47_L001_R2_001.fastq.gz
+    RLPLV-13_2-2696110_S80:
+      R1: data/batch_2/RLPLV-13_2-2696110_S80_L001_R1_001.fastq.gz
+      R2: data/batch_2/RLPLV-13_2-2696110_S80_L001_R2_001.fastq.gz
+    RLPLV-14_2-2698101_S158:
+      R1: data/batch_2/RLPLV-14_2-2698101_S158_L001_R1_001.fastq.gz
+      R2: data/batch_2/RLPLV-14_2-2698101_S158_L001_R2_001.fastq.gz
+    RLPLV-15_2-2698048_S155:
+      R1: data/batch_2/RLPLV-15_2-2698048_S155_L001_R1_001.fastq.gz
+      R2: data/batch_2/RLPLV-15_2-2698048_S155_L001_R2_001.fastq.gz
+    RLPLV-16_2-2698109_S166:
+      R1: data/batch_2/RLPLV-16_2-2698109_S166_L001_R1_001.fastq.gz
+      R2: data/batch_2/RLPLV-16_2-2698109_S166_L001_R2_001.fastq.gz
+    RLPLV-17_2-2698022_S129:
+      R1: data/batch_2/RLPLV-17_2-2698022_S129_L001_R1_001.fastq.gz
+      R2: data/batch_2/RLPLV-17_2-2698022_S129_L001_R2_001.fastq.gz
+    RLPLV-18_2-2696118_S88:
+      R1: data/batch_2/RLPLV-18_2-2696118_S88_L001_R1_001.fastq.gz
+      R2: data/batch_2/RLPLV-18_2-2696118_S88_L001_R2_001.fastq.gz
+    RLPLV-23_2-2696008_S30:
+      R1: data/batch_2/RLPLV-23_2-2696008_S30_L001_R1_001.fastq.gz
+      R2: data/batch_2/RLPLV-23_2-2696008_S30_L001_R2_001.fastq.gz
+    RLPLV-26_2-2698029_S136:
+      R1: data/batch_2/RLPLV-26_2-2698029_S136_L001_R1_001.fastq.gz
+      R2: data/batch_2/RLPLV-26_2-2698029_S136_L001_R2_001.fastq.gz
+    RLPLV-27_2-2696120_S90:
+      R1: data/batch_2/RLPLV-27_2-2696120_S90_L001_R1_001.fastq.gz
+      R2: data/batch_2/RLPLV-27_2-2696120_S90_L001_R2_001.fastq.gz
+    RLPLV-28_2-2698133_S190:
+      R1: data/batch_2/RLPLV-28_2-2698133_S190_L001_R1_001.fastq.gz
+      R2: data/batch_2/RLPLV-28_2-2698133_S190_L001_R2_001.fastq.gz
+    RLPLV-29_2-2696104_S74:
+      R1: data/batch_2/RLPLV-29_2-2696104_S74_L001_R1_001.fastq.gz
+      R2: data/batch_2/RLPLV-29_2-2696104_S74_L001_R2_001.fastq.gz
+    RLPLV-31_2-2698129_S186:
+      R1: data/batch_2/RLPLV-31_2-2698129_S186_L001_R1_001.fastq.gz
+      R2: data/batch_2/RLPLV-31_2-2698129_S186_L001_R2_001.fastq.gz
+    RLPLV-33_2-2696037_S58:
+      R1: data/batch_2/RLPLV-33_2-2696037_S58_L001_R1_001.fastq.gz
+      R2: data/batch_2/RLPLV-33_2-2696037_S58_L001_R2_001.fastq.gz
+    RLPLV-34_2-2698104_S161:
+      R1: data/batch_2/RLPLV-34_2-2698104_S161_L001_R1_001.fastq.gz
+      R2: data/batch_2/RLPLV-34_2-2698104_S161_L001_R2_001.fastq.gz
+    RLPLV-35_2-2698130_S187:
+      R1: data/batch_2/RLPLV-35_2-2698130_S187_L001_R1_001.fastq.gz
+      R2: data/batch_2/RLPLV-35_2-2698130_S187_L001_R2_001.fastq.gz
+    RLPLV-36_2-2696124_S94:
+      R1: data/batch_2/RLPLV-36_2-2696124_S94_L001_R1_001.fastq.gz
+      R2: data/batch_2/RLPLV-36_2-2696124_S94_L001_R2_001.fastq.gz
+    RLPLV-37_2-2696105_S75:
+      R1: data/batch_2/RLPLV-37_2-2696105_S75_L001_R1_001.fastq.gz
+      R2: data/batch_2/RLPLV-37_2-2696105_S75_L001_R2_001.fastq.gz
+    RLPLV-39_2-2698016_S123:
+      R1: data/batch_2/RLPLV-39_2-2698016_S123_L001_R1_001.fastq.gz
+      R2: data/batch_2/RLPLV-39_2-2698016_S123_L001_R2_001.fastq.gz
+    RLPLV-40_2-2698033_S140:
+      R1: data/batch_2/RLPLV-40_2-2698033_S140_L001_R1_001.fastq.gz
+      R2: data/batch_2/RLPLV-40_2-2698033_S140_L001_R2_001.fastq.gz
+    RLPLV-46_2-2696039_S60:
+      R1: data/batch_2/RLPLV-46_2-2696039_S60_L001_R1_001.fastq.gz
+      R2: data/batch_2/RLPLV-46_2-2696039_S60_L001_R2_001.fastq.gz
+    RLPLV-49_2-2695939_S11:
+      R1: data/batch_2/RLPLV-49_2-2695939_S11_L001_R1_001.fastq.gz
+      R2: data/batch_2/RLPLV-49_2-2695939_S11_L001_R2_001.fastq.gz
+    RLPLV-4_2-2697945_S102:
+      R1: data/batch_2/RLPLV-4_2-2697945_S102_L001_R1_001.fastq.gz
+      R2: data/batch_2/RLPLV-4_2-2697945_S102_L001_R2_001.fastq.gz
+    RLPLV-50_2-2698114_S171:
+      R1: data/batch_2/RLPLV-50_2-2698114_S171_L001_R1_001.fastq.gz
+      R2: data/batch_2/RLPLV-50_2-2698114_S171_L001_R2_001.fastq.gz
+    RLPLV-6_2-2696038_S59:
+      R1: data/batch_2/RLPLV-6_2-2696038_S59_L001_R1_001.fastq.gz
+      R2: data/batch_2/RLPLV-6_2-2696038_S59_L001_R2_001.fastq.gz
+    RLPLV-8_2-2698107_S164:
+      R1: data/batch_2/RLPLV-8_2-2698107_S164_L001_R1_001.fastq.gz
+      R2: data/batch_2/RLPLV-8_2-2698107_S164_L001_R2_001.fastq.gz
+    RLPLV-9_2-2698123_S180:
+      R1: data/batch_2/RLPLV-9_2-2698123_S180_L001_R1_001.fastq.gz
+      R2: data/batch_2/RLPLV-9_2-2698123_S180_L001_R2_001.fastq.gz
+    SWCP-14_2-2696029_S50:
+      R1: data/batch_2/SWCP-14_2-2696029_S50_L001_R1_001.fastq.gz
+      R2: data/batch_2/SWCP-14_2-2696029_S50_L001_R2_001.fastq.gz
+    SWCP-15_2-2697944_S101:
+      R1: data/batch_2/SWCP-15_2-2697944_S101_L001_R1_001.fastq.gz
+      R2: data/batch_2/SWCP-15_2-2697944_S101_L001_R2_001.fastq.gz
+    SWCP-18_2-2698007_S114:
+      R1: data/batch_2/SWCP-18_2-2698007_S114_L001_R1_001.fastq.gz
+      R2: data/batch_2/SWCP-18_2-2698007_S114_L001_R2_001.fastq.gz
+    SWCP-19_2-2695946_S18:
+      R1: data/batch_2/SWCP-19_2-2695946_S18_L001_R1_001.fastq.gz
+      R2: data/batch_2/SWCP-19_2-2695946_S18_L001_R2_001.fastq.gz
+    SWCP-23_2-2697939_S96:
+      R1: data/batch_2/SWCP-23_2-2697939_S96_L001_R1_001.fastq.gz
+      R2: data/batch_2/SWCP-23_2-2697939_S96_L001_R2_001.fastq.gz
+    SWCP-24_2-2696012_S34:
+      R1: data/batch_2/SWCP-24_2-2696012_S34_L001_R1_001.fastq.gz
+      R2: data/batch_2/SWCP-24_2-2696012_S34_L001_R2_001.fastq.gz
+    SWCP-25_2-2698001_S108:
+      R1: data/batch_2/SWCP-25_2-2698001_S108_L001_R1_001.fastq.gz
+      R2: data/batch_2/SWCP-25_2-2698001_S108_L001_R2_001.fastq.gz
+    SWCP-27_2-2698010_S117:
+      R1: data/batch_2/SWCP-27_2-2698010_S117_L001_R1_001.fastq.gz
+      R2: data/batch_2/SWCP-27_2-2698010_S117_L001_R2_001.fastq.gz
+    SWCP-28_2-2698111_S168:
+      R1: data/batch_2/SWCP-28_2-2698111_S168_L001_R1_001.fastq.gz
+      R2: data/batch_2/SWCP-28_2-2698111_S168_L001_R2_001.fastq.gz
+    SWCP-29_2-2698102_S159:
+      R1: data/batch_2/SWCP-29_2-2698102_S159_L001_R1_001.fastq.gz
+      R2: data/batch_2/SWCP-29_2-2698102_S159_L001_R2_001.fastq.gz
+    SWCP-2_2-2696122_S92:
+      R1: data/batch_2/SWCP-2_2-2696122_S92_L001_R1_001.fastq.gz
+      R2: data/batch_2/SWCP-2_2-2696122_S92_L001_R2_001.fastq.gz
+    SWCP-33_2-2696017_S39:
+      R1: data/batch_2/SWCP-33_2-2696017_S39_L001_R1_001.fastq.gz
+      R2: data/batch_2/SWCP-33_2-2696017_S39_L001_R2_001.fastq.gz
+    SWCP-34_2-2696048_S69:
+      R1: data/batch_2/SWCP-34_2-2696048_S69_L001_R1_001.fastq.gz
+      R2: data/batch_2/SWCP-34_2-2696048_S69_L001_R2_001.fastq.gz
+    SWCP-35_2-2698002_S109:
+      R1: data/batch_2/SWCP-35_2-2698002_S109_L001_R1_001.fastq.gz
+      R2: data/batch_2/SWCP-35_2-2698002_S109_L001_R2_001.fastq.gz
+    SWCP-36_2-2696002_S24:
+      R1: data/batch_2/SWCP-36_2-2696002_S24_L001_R1_001.fastq.gz
+      R2: data/batch_2/SWCP-36_2-2696002_S24_L001_R2_001.fastq.gz
+    SWCP-37_2-2698015_S122:
+      R1: data/batch_2/SWCP-37_2-2698015_S122_L001_R1_001.fastq.gz
+      R2: data/batch_2/SWCP-37_2-2698015_S122_L001_R2_001.fastq.gz
+    SWCP-38_2-2696014_S36:
+      R1: data/batch_2/SWCP-38_2-2696014_S36_L001_R1_001.fastq.gz
+      R2: data/batch_2/SWCP-38_2-2696014_S36_L001_R2_001.fastq.gz
+    SWCP-40_2-2698117_S174:
+      R1: data/batch_2/SWCP-40_2-2698117_S174_L001_R1_001.fastq.gz
+      R2: data/batch_2/SWCP-40_2-2698117_S174_L001_R2_001.fastq.gz
+    SWCP-43_2-2696022_S43:
+      R1: data/batch_2/SWCP-43_2-2696022_S43_L001_R1_001.fastq.gz
+      R2: data/batch_2/SWCP-43_2-2696022_S43_L001_R2_001.fastq.gz
+    SWCP-44_2-2698049_S156:
+      R1: data/batch_2/SWCP-44_2-2698049_S156_L001_R1_001.fastq.gz
+      R2: data/batch_2/SWCP-44_2-2698049_S156_L001_R2_001.fastq.gz
+    SWCP-45_2-2698103_S160:
+      R1: data/batch_2/SWCP-45_2-2698103_S160_L001_R1_001.fastq.gz
+      R2: data/batch_2/SWCP-45_2-2698103_S160_L001_R2_001.fastq.gz
+    SWCP-46_2-2696005_S27:
+      R1: data/batch_2/SWCP-46_2-2696005_S27_L001_R1_001.fastq.gz
+      R2: data/batch_2/SWCP-46_2-2696005_S27_L001_R2_001.fastq.gz
+    SWCP-49_2-2695944_S16:
+      R1: data/batch_2/SWCP-49_2-2695944_S16_L001_R1_001.fastq.gz
+      R2: data/batch_2/SWCP-49_2-2695944_S16_L001_R2_001.fastq.gz
+    SWCP-50_2-2698106_S163:
+      R1: data/batch_2/SWCP-50_2-2698106_S163_L001_R1_001.fastq.gz
+      R2: data/batch_2/SWCP-50_2-2698106_S163_L001_R2_001.fastq.gz
+    SWCP-6_2-2696043_S64:
+      R1: data/batch_2/SWCP-6_2-2696043_S64_L001_R1_001.fastq.gz
+      R2: data/batch_2/SWCP-6_2-2696043_S64_L001_R2_001.fastq.gz
+    SWCP-7_2-2695932_S4:
+      R1: data/batch_2/SWCP-7_2-2695932_S4_L001_R1_001.fastq.gz
+      R2: data/batch_2/SWCP-7_2-2695932_S4_L001_R2_001.fastq.gz
+  batch_3:
+    APB-10:
+      R1: data/batch_3/NS.X0149.002.NEBNext_dual_i7_171---NEBNext_dual_i5_171.APB-10_R1.fastq.gz
+      R2: data/batch_3/NS.X0149.002.NEBNext_dual_i7_171---NEBNext_dual_i5_171.APB-10_R2.fastq.gz
+    APB-12:
+      R1: data/batch_3/NS.X0149.003.NEBNext_dual_i7_222---NEBNext_dual_i5_270.APB-12_R1.fastq.gz
+      R2: data/batch_3/NS.X0149.003.NEBNext_dual_i7_222---NEBNext_dual_i5_270.APB-12_R2.fastq.gz
+    APB-12-rep2:
+      R1: data/batch_3/NS.X0149.003.NEBNext_dual_i7_258---NEBNext_dual_i5_210.APB-12-rep2_R1.fastq.gz
+      R2: data/batch_3/NS.X0149.003.NEBNext_dual_i7_258---NEBNext_dual_i5_210.APB-12-rep2_R2.fastq.gz
+    APB-13:
+      R1: data/batch_3/NS.X0149.002.NEBNext_dual_i7_141---NEBNext_dual_i5_141.APB-13_R1.fastq.gz
+      R2: data/batch_3/NS.X0149.002.NEBNext_dual_i7_141---NEBNext_dual_i5_141.APB-13_R2.fastq.gz
+    APB-15:
+      R1: data/batch_3/NS.X0149.001.NEBNext_dual_i7_113---NEBNext_dual_i5_113.APB-15_R1.fastq.gz
+      R2: data/batch_3/NS.X0149.001.NEBNext_dual_i7_113---NEBNext_dual_i5_113.APB-15_R2.fastq.gz
+    APB-17:
+      R1: data/batch_3/NS.X0149.003.NEBNext_dual_i7_259---NEBNext_dual_i5_211.APB-17_R1.fastq.gz
+      R2: data/batch_3/NS.X0149.003.NEBNext_dual_i7_259---NEBNext_dual_i5_211.APB-17_R2.fastq.gz
+    APB-18:
+      R1: data/batch_3/NS.X0149.001.NEBNext_dual_i7_104---NEBNext_dual_i5_104.APB-18_R1.fastq.gz
+      R2: data/batch_3/NS.X0149.001.NEBNext_dual_i7_104---NEBNext_dual_i5_104.APB-18_R2.fastq.gz
+    APB-19:
+      R1: data/batch_3/NS.X0149.002.NEBNext_dual_i7_197---NEBNext_dual_i5_245.APB-19_R1.fastq.gz
+      R2: data/batch_3/NS.X0149.002.NEBNext_dual_i7_197---NEBNext_dual_i5_245.APB-19_R2.fastq.gz
+    APB-2:
+      R1: data/batch_3/NS.X0149.001.NEBNext_dual_i7_C4---NEBNext_dual_i5_C4.APB-2_R1.fastq.gz
+      R2: data/batch_3/NS.X0149.001.NEBNext_dual_i7_C4---NEBNext_dual_i5_C4.APB-2_R2.fastq.gz
+    APB-20:
+      R1: data/batch_3/NS.X0149.001.NEBNext_dual_i7_118---NEBNext_dual_i5_118.APB-20_R1.fastq.gz
+      R2: data/batch_3/NS.X0149.001.NEBNext_dual_i7_118---NEBNext_dual_i5_118.APB-20_R2.fastq.gz
+    APB-21:
+      R1: data/batch_3/NS.X0149.001.NEBNext_dual_i7_C8---NEBNext_dual_i5_C8.APB-21_R1.fastq.gz
+      R2: data/batch_3/NS.X0149.001.NEBNext_dual_i7_C8---NEBNext_dual_i5_C8.APB-21_R2.fastq.gz
+    APB-22:
+      R1: data/batch_3/NS.X0149.002.NEBNext_dual_i7_142---NEBNext_dual_i5_142.APB-22_R1.fastq.gz
+      R2: data/batch_3/NS.X0149.002.NEBNext_dual_i7_142---NEBNext_dual_i5_142.APB-22_R2.fastq.gz
+    APB-24:
+      R1: data/batch_3/NS.X0149.002.NEBNext_dual_i7_209---NEBNext_dual_i5_257.APB-24_R1.fastq.gz
+      R2: data/batch_3/NS.X0149.002.NEBNext_dual_i7_209---NEBNext_dual_i5_257.APB-24_R2.fastq.gz
+    APB-25:
+      R1: data/batch_3/NS.X0149.003.NEBNext_dual_i7_247---NEBNext_dual_i5_199.APB-25_R1.fastq.gz
+      R2: data/batch_3/NS.X0149.003.NEBNext_dual_i7_247---NEBNext_dual_i5_199.APB-25_R2.fastq.gz
+    APB-3:
+      R1: data/batch_3/NS.X0149.002.NEBNext_dual_i7_219---NEBNext_dual_i5_267.APB-3_R1.fastq.gz
+      R2: data/batch_3/NS.X0149.002.NEBNext_dual_i7_219---NEBNext_dual_i5_267.APB-3_R2.fastq.gz
+    APB-31:
+      R1: data/batch_3/NS.X0149.001.NEBNext_dual_i7_A3---NEBNext_dual_i5_A3.APB-31_R1.fastq.gz
+      R2: data/batch_3/NS.X0149.001.NEBNext_dual_i7_A3---NEBNext_dual_i5_A3.APB-31_R2.fastq.gz
+    APB-34:
+      R1: data/batch_3/NS.X0149.002.NEBNext_dual_i7_214---NEBNext_dual_i5_262.APB-34_R1.fastq.gz
+      R2: data/batch_3/NS.X0149.002.NEBNext_dual_i7_214---NEBNext_dual_i5_262.APB-34_R2.fastq.gz
+    APB-35:
+      R1: data/batch_3/NS.X0149.002.NEBNext_dual_i7_137---NEBNext_dual_i5_137.APB-35_R1.fastq.gz
+      R2: data/batch_3/NS.X0149.002.NEBNext_dual_i7_137---NEBNext_dual_i5_137.APB-35_R2.fastq.gz
+    APB-38:
+      R1: data/batch_3/NS.X0149.002.NEBNext_dual_i7_166---NEBNext_dual_i5_166.APB-38_R1.fastq.gz
+      R2: data/batch_3/NS.X0149.002.NEBNext_dual_i7_166---NEBNext_dual_i5_166.APB-38_R2.fastq.gz
+    APB-42:
+      R1: data/batch_3/NS.X0149.001.NEBNext_dual_i7_G5---NEBNext_dual_i5_G5.APB-42_R1.fastq.gz
+      R2: data/batch_3/NS.X0149.001.NEBNext_dual_i7_G5---NEBNext_dual_i5_G5.APB-42_R2.fastq.gz
+    APB-43:
+      R1: data/batch_3/NS.X0149.001.NEBNext_dual_i7_B6---NEBNext_dual_i5_B6.APB-43_R1.fastq.gz
+      R2: data/batch_3/NS.X0149.001.NEBNext_dual_i7_B6---NEBNext_dual_i5_B6.APB-43_R2.fastq.gz
+    APB-44:
+      R1: data/batch_3/NS.X0149.003.NEBNext_dual_i7_232---NEBNext_dual_i5_280.APB-44_R1.fastq.gz
+      R2: data/batch_3/NS.X0149.003.NEBNext_dual_i7_232---NEBNext_dual_i5_280.APB-44_R2.fastq.gz
+    APB-46:
+      R1: data/batch_3/NS.X0149.002.NEBNext_dual_i7_213---NEBNext_dual_i5_261.APB-46_R1.fastq.gz
+      R2: data/batch_3/NS.X0149.002.NEBNext_dual_i7_213---NEBNext_dual_i5_261.APB-46_R2.fastq.gz
+    APB-47:
+      R1: data/batch_3/NS.X0149.001.NEBNext_dual_i7_G7---NEBNext_dual_i5_G7.APB-47_R1.fastq.gz
+      R2: data/batch_3/NS.X0149.001.NEBNext_dual_i7_G7---NEBNext_dual_i5_G7.APB-47_R2.fastq.gz
+    APB-49:
+      R1: data/batch_3/NS.X0149.001.NEBNext_dual_i7_F2---NEBNext_dual_i5_F2.APB-49_R1.fastq.gz
+      R2: data/batch_3/NS.X0149.001.NEBNext_dual_i7_F2---NEBNext_dual_i5_F2.APB-49_R2.fastq.gz
+    APB-5:
+      R1: data/batch_3/NS.X0149.001.NEBNext_dual_i7_B3---NEBNext_dual_i5_B3.APB-5_R1.fastq.gz
+      R2: data/batch_3/NS.X0149.001.NEBNext_dual_i7_B3---NEBNext_dual_i5_B3.APB-5_R2.fastq.gz
+    APB-50:
+      R1: data/batch_3/NS.X0149.002.NEBNext_dual_i7_132---NEBNext_dual_i5_132.APB-50_R1.fastq.gz
+      R2: data/batch_3/NS.X0149.002.NEBNext_dual_i7_132---NEBNext_dual_i5_132.APB-50_R2.fastq.gz
+    APB-9:
+      R1: data/batch_3/NS.X0149.001.NEBNext_dual_i7_99---NEBNext_dual_i5_99.APB-9_R1.fastq.gz
+      R2: data/batch_3/NS.X0149.001.NEBNext_dual_i7_99---NEBNext_dual_i5_99.APB-9_R2.fastq.gz
+    BSL-1:
+      R1: data/batch_3/NS.X0149.002.NEBNext_dual_i7_178---NEBNext_dual_i5_178.BSL-1_R1.fastq.gz
+      R2: data/batch_3/NS.X0149.002.NEBNext_dual_i7_178---NEBNext_dual_i5_178.BSL-1_R2.fastq.gz
+    BSL-10:
+      R1: data/batch_3/NS.X0149.003.NEBNext_dual_i7_246---NEBNext_dual_i5_198.BSL-10_R1.fastq.gz
+      R2: data/batch_3/NS.X0149.003.NEBNext_dual_i7_246---NEBNext_dual_i5_198.BSL-10_R2.fastq.gz
+    BSL-2:
+      R1: data/batch_3/NS.X0149.002.NEBNext_dual_i7_184---NEBNext_dual_i5_184.BSL-2_R1.fastq.gz
+      R2: data/batch_3/NS.X0149.002.NEBNext_dual_i7_184---NEBNext_dual_i5_184.BSL-2_R2.fastq.gz
+    BSL-3:
+      R1: data/batch_3/NS.X0149.002.NEBNext_dual_i7_201---NEBNext_dual_i5_249.BSL-3_R1.fastq.gz
+      R2: data/batch_3/NS.X0149.002.NEBNext_dual_i7_201---NEBNext_dual_i5_249.BSL-3_R2.fastq.gz
+    BSL-4:
+      R1: data/batch_3/NS.X0149.002.NEBNext_dual_i7_208---NEBNext_dual_i5_256.BSL-4_R1.fastq.gz
+      R2: data/batch_3/NS.X0149.002.NEBNext_dual_i7_208---NEBNext_dual_i5_256.BSL-4_R2.fastq.gz
+    BSL-5:
+      R1: data/batch_3/NS.X0149.003.NEBNext_dual_i7_226---NEBNext_dual_i5_274.BSL-5_R1.fastq.gz
+      R2: data/batch_3/NS.X0149.003.NEBNext_dual_i7_226---NEBNext_dual_i5_274.BSL-5_R2.fastq.gz
+    BSL-6:
+      R1: data/batch_3/NS.X0149.003.NEBNext_dual_i7_285---NEBNext_dual_i5_237.BSL-6_R1.fastq.gz
+      R2: data/batch_3/NS.X0149.003.NEBNext_dual_i7_285---NEBNext_dual_i5_237.BSL-6_R2.fastq.gz
+    BSL-7:
+      R1: data/batch_3/NS.X0149.003.NEBNext_dual_i7_233---NEBNext_dual_i5_281.BSL-7_R1.fastq.gz
+      R2: data/batch_3/NS.X0149.003.NEBNext_dual_i7_233---NEBNext_dual_i5_281.BSL-7_R2.fastq.gz
+    BSL-8:
+      R1: data/batch_3/NS.X0149.003.NEBNext_dual_i7_239---NEBNext_dual_i5_287.BSL-8_R1.fastq.gz
+      R2: data/batch_3/NS.X0149.003.NEBNext_dual_i7_239---NEBNext_dual_i5_287.BSL-8_R2.fastq.gz
+    BSL-9:
+      R1: data/batch_3/NS.X0149.003.NEBNext_dual_i7_242---NEBNext_dual_i5_290.BSL-9_R1.fastq.gz
+      R2: data/batch_3/NS.X0149.003.NEBNext_dual_i7_242---NEBNext_dual_i5_290.BSL-9_R2.fastq.gz
+    BSNA-10:
+      R1: data/batch_3/NS.X0149.002.NEBNext_dual_i7_218---NEBNext_dual_i5_266.BSNA-10_R1.fastq.gz
+      R2: data/batch_3/NS.X0149.002.NEBNext_dual_i7_218---NEBNext_dual_i5_266.BSNA-10_R2.fastq.gz
+    BSNA-11:
+      R1: data/batch_3/NS.X0149.002.NEBNext_dual_i7_128---NEBNext_dual_i5_128.BSNA-11_R1.fastq.gz
+      R2: data/batch_3/NS.X0149.002.NEBNext_dual_i7_128---NEBNext_dual_i5_128.BSNA-11_R2.fastq.gz
+    BSNA-12:
+      R1: data/batch_3/NS.X0149.002.NEBNext_dual_i7_176---NEBNext_dual_i5_176.BSNA-12_R1.fastq.gz
+      R2: data/batch_3/NS.X0149.002.NEBNext_dual_i7_176---NEBNext_dual_i5_176.BSNA-12_R2.fastq.gz
+    BSNA-13:
+      R1: data/batch_3/NS.X0149.001.NEBNext_dual_i7_D2---NEBNext_dual_i5_D2.BSNA-13_R1.fastq.gz
+      R2: data/batch_3/NS.X0149.001.NEBNext_dual_i7_D2---NEBNext_dual_i5_D2.BSNA-13_R2.fastq.gz
+    BSNA-14:
+      R1: data/batch_3/NS.X0149.001.NEBNext_dual_i7_H4---NEBNext_dual_i5_H4.BSNA-14_R1.fastq.gz
+      R2: data/batch_3/NS.X0149.001.NEBNext_dual_i7_H4---NEBNext_dual_i5_H4.BSNA-14_R2.fastq.gz
+    BSNA-15:
+      R1: data/batch_3/NS.X0149.003.NEBNext_dual_i7_220---NEBNext_dual_i5_268.BSNA-15_R1.fastq.gz
+      R2: data/batch_3/NS.X0149.003.NEBNext_dual_i7_220---NEBNext_dual_i5_268.BSNA-15_R2.fastq.gz
+    BSNA-17:
+      R1: data/batch_3/NS.X0149.002.NEBNext_dual_i7_135---NEBNext_dual_i5_135.BSNA-17_R1.fastq.gz
+      R2: data/batch_3/NS.X0149.002.NEBNext_dual_i7_135---NEBNext_dual_i5_135.BSNA-17_R2.fastq.gz
+    BSNA-2:
+      R1: data/batch_3/NS.X0149.003.NEBNext_dual_i7_283---NEBNext_dual_i5_235.BSNA-2_R1.fastq.gz
+      R2: data/batch_3/NS.X0149.003.NEBNext_dual_i7_283---NEBNext_dual_i5_235.BSNA-2_R2.fastq.gz
+    BSNA-21:
+      R1: data/batch_3/NS.X0149.002.NEBNext_dual_i7_175---NEBNext_dual_i5_175.BSNA-21_R1.fastq.gz
+      R2: data/batch_3/NS.X0149.002.NEBNext_dual_i7_175---NEBNext_dual_i5_175.BSNA-21_R2.fastq.gz
+    BSNA-23:
+      R1: data/batch_3/NS.X0149.002.NEBNext_dual_i7_170---NEBNext_dual_i5_170.BSNA-23_R1.fastq.gz
+      R2: data/batch_3/NS.X0149.002.NEBNext_dual_i7_170---NEBNext_dual_i5_170.BSNA-23_R2.fastq.gz
+    BSNA-24:
+      R1: data/batch_3/NS.X0149.002.NEBNext_dual_i7_133---NEBNext_dual_i5_133.BSNA-24_R1.fastq.gz
+      R2: data/batch_3/NS.X0149.002.NEBNext_dual_i7_133---NEBNext_dual_i5_133.BSNA-24_R2.fastq.gz
+    BSNA-24-rep2:
+      R1: data/batch_3/NS.X0149.003.NEBNext_dual_i7_231---NEBNext_dual_i5_279.BSNA-24-rep2_R1.fastq.gz
+      R2: data/batch_3/NS.X0149.003.NEBNext_dual_i7_231---NEBNext_dual_i5_279.BSNA-24-rep2_R2.fastq.gz
+    BSNA-27:
+      R1: data/batch_3/NS.X0149.002.NEBNext_dual_i7_189---NEBNext_dual_i5_189.BSNA-27_R1.fastq.gz
+      R2: data/batch_3/NS.X0149.002.NEBNext_dual_i7_189---NEBNext_dual_i5_189.BSNA-27_R2.fastq.gz
+    BSNA-29:
+      R1: data/batch_3/NS.X0149.002.NEBNext_dual_i7_147---NEBNext_dual_i5_147.BSNA-29_R1.fastq.gz
+      R2: data/batch_3/NS.X0149.002.NEBNext_dual_i7_147---NEBNext_dual_i5_147.BSNA-29_R2.fastq.gz
+    BSNA-3:
+      R1: data/batch_3/NS.X0149.002.NEBNext_dual_i7_216---NEBNext_dual_i5_264.BSNA-3_R1.fastq.gz
+      R2: data/batch_3/NS.X0149.002.NEBNext_dual_i7_216---NEBNext_dual_i5_264.BSNA-3_R2.fastq.gz
+    BSNA-30:
+      R1: data/batch_3/NS.X0149.001.NEBNext_dual_i7_E1---NEBNext_dual_i5_E1.BSNA-30_R1.fastq.gz
+      R2: data/batch_3/NS.X0149.001.NEBNext_dual_i7_E1---NEBNext_dual_i5_E1.BSNA-30_R2.fastq.gz
+    BSNA-33:
+      R1: data/batch_3/NS.X0149.001.NEBNext_dual_i7_124---NEBNext_dual_i5_124.BSNA-33_R1.fastq.gz
+      R2: data/batch_3/NS.X0149.001.NEBNext_dual_i7_124---NEBNext_dual_i5_124.BSNA-33_R2.fastq.gz
+    BSNA-34:
+      R1: data/batch_3/NS.X0149.001.NEBNext_dual_i7_106---NEBNext_dual_i5_106.BSNA-34_R1.fastq.gz
+      R2: data/batch_3/NS.X0149.001.NEBNext_dual_i7_106---NEBNext_dual_i5_106.BSNA-34_R2.fastq.gz
+    BSNA-35:
+      R1: data/batch_3/NS.X0149.002.NEBNext_dual_i7_127---NEBNext_dual_i5_127.BSNA-35_R1.fastq.gz
+      R2: data/batch_3/NS.X0149.002.NEBNext_dual_i7_127---NEBNext_dual_i5_127.BSNA-35_R2.fastq.gz
+    BSNA-39:
+      R1: data/batch_3/NS.X0149.003.NEBNext_dual_i7_261---NEBNext_dual_i5_213.BSNA-39_R1.fastq.gz
+      R2: data/batch_3/NS.X0149.003.NEBNext_dual_i7_261---NEBNext_dual_i5_213.BSNA-39_R2.fastq.gz
+    BSNA-40:
+      R1: data/batch_3/NS.X0149.002.NEBNext_dual_i7_154---NEBNext_dual_i5_154.BSNA-40_R1.fastq.gz
+      R2: data/batch_3/NS.X0149.002.NEBNext_dual_i7_154---NEBNext_dual_i5_154.BSNA-40_R2.fastq.gz
+    BSNA-43:
+      R1: data/batch_3/NS.X0149.003.NEBNext_dual_i7_229---NEBNext_dual_i5_277.BSNA-43_R1.fastq.gz
+      R2: data/batch_3/NS.X0149.003.NEBNext_dual_i7_229---NEBNext_dual_i5_277.BSNA-43_R2.fastq.gz
+    BSNA-45:
+      R1: data/batch_3/NS.X0149.002.NEBNext_dual_i7_174---NEBNext_dual_i5_174.BSNA-45_R1.fastq.gz
+      R2: data/batch_3/NS.X0149.002.NEBNext_dual_i7_174---NEBNext_dual_i5_174.BSNA-45_R2.fastq.gz
+    BSNA-46:
+      R1: data/batch_3/NS.X0149.002.NEBNext_dual_i7_G12---NEBNext_dual_i5_G12.BSNA-46_R1.fastq.gz
+      R2: data/batch_3/NS.X0149.002.NEBNext_dual_i7_G12---NEBNext_dual_i5_G12.BSNA-46_R2.fastq.gz
+    BSNA-48:
+      R1: data/batch_3/NS.X0149.001.NEBNext_dual_i7_123---NEBNext_dual_i5_123.BSNA-48_R1.fastq.gz
+      R2: data/batch_3/NS.X0149.001.NEBNext_dual_i7_123---NEBNext_dual_i5_123.BSNA-48_R2.fastq.gz
+    BSNA-6:
+      R1: data/batch_3/NS.X0149.002.NEBNext_dual_i7_167---NEBNext_dual_i5_167.BSNA-6_R1.fastq.gz
+      R2: data/batch_3/NS.X0149.002.NEBNext_dual_i7_167---NEBNext_dual_i5_167.BSNA-6_R2.fastq.gz
+    BSNA-7:
+      R1: data/batch_3/NS.X0149.001.NEBNext_dual_i7_F3---NEBNext_dual_i5_F3.BSNA-7_R1.fastq.gz
+      R2: data/batch_3/NS.X0149.001.NEBNext_dual_i7_F3---NEBNext_dual_i5_F3.BSNA-7_R2.fastq.gz
+    BSNA-9:
+      R1: data/batch_3/NS.X0149.001.NEBNext_dual_i7_C5---NEBNext_dual_i5_C5.BSNA-9_R1.fastq.gz
+      R2: data/batch_3/NS.X0149.001.NEBNext_dual_i7_C5---NEBNext_dual_i5_C5.BSNA-9_R2.fastq.gz
+    CPB-13:
+      R1: data/batch_3/NS.X0149.003.NEBNext_dual_i7_308---NEBNext_dual_i5_356.CPB-13_R1.fastq.gz
+      R2: data/batch_3/NS.X0149.003.NEBNext_dual_i7_308---NEBNext_dual_i5_356.CPB-13_R2.fastq.gz
+    CPB-15:
+      R1: data/batch_3/NS.X0149.003.NEBNext_dual_i7_257---NEBNext_dual_i5_209.CPB-15_R1.fastq.gz
+      R2: data/batch_3/NS.X0149.003.NEBNext_dual_i7_257---NEBNext_dual_i5_209.CPB-15_R2.fastq.gz
+    CPB-16:
+      R1: data/batch_3/NS.X0149.003.NEBNext_dual_i7_298---NEBNext_dual_i5_346.CPB-16_R1.fastq.gz
+      R2: data/batch_3/NS.X0149.003.NEBNext_dual_i7_298---NEBNext_dual_i5_346.CPB-16_R2.fastq.gz
+    CPB-17:
+      R1: data/batch_3/NS.X0149.003.NEBNext_dual_i7_302---NEBNext_dual_i5_350.CPB-17_R1.fastq.gz
+      R2: data/batch_3/NS.X0149.003.NEBNext_dual_i7_302---NEBNext_dual_i5_350.CPB-17_R2.fastq.gz
+    CPB-18:
+      R1: data/batch_3/NS.X0149.002.NEBNext_dual_i7_211---NEBNext_dual_i5_259.CPB-18_R1.fastq.gz
+      R2: data/batch_3/NS.X0149.002.NEBNext_dual_i7_211---NEBNext_dual_i5_259.CPB-18_R2.fastq.gz
+    CPB-19:
+      R1: data/batch_3/NS.X0149.003.NEBNext_dual_i7_314---NEBNext_dual_i5_362.CPB-19_R1.fastq.gz
+      R2: data/batch_3/NS.X0149.003.NEBNext_dual_i7_314---NEBNext_dual_i5_362.CPB-19_R2.fastq.gz
+    CPB-20:
+      R1: data/batch_3/NS.X0149.003.NEBNext_dual_i7_280---NEBNext_dual_i5_232.CPB-20_R1.fastq.gz
+      R2: data/batch_3/NS.X0149.003.NEBNext_dual_i7_280---NEBNext_dual_i5_232.CPB-20_R2.fastq.gz
+    CPB-23:
+      R1: data/batch_3/NS.X0149.003.NEBNext_dual_i7_274---NEBNext_dual_i5_226.CPB-23_R1.fastq.gz
+      R2: data/batch_3/NS.X0149.003.NEBNext_dual_i7_274---NEBNext_dual_i5_226.CPB-23_R2.fastq.gz
+    CPB-24:
+      R1: data/batch_3/NS.X0149.003.NEBNext_dual_i7_284---NEBNext_dual_i5_236.CPB-24_R1.fastq.gz
+      R2: data/batch_3/NS.X0149.003.NEBNext_dual_i7_284---NEBNext_dual_i5_236.CPB-24_R2.fastq.gz
+    CPB-25:
+      R1: data/batch_3/NS.X0149.003.NEBNext_dual_i7_279---NEBNext_dual_i5_231.CPB-25_R1.fastq.gz
+      R2: data/batch_3/NS.X0149.003.NEBNext_dual_i7_279---NEBNext_dual_i5_231.CPB-25_R2.fastq.gz
+    CPB-26:
+      R1: data/batch_3/NS.X0149.003.NEBNext_dual_i7_282---NEBNext_dual_i5_234.CPB-26_R1.fastq.gz
+      R2: data/batch_3/NS.X0149.003.NEBNext_dual_i7_282---NEBNext_dual_i5_234.CPB-26_R2.fastq.gz
+    CPB-27:
+      R1: data/batch_3/NS.X0149.003.NEBNext_dual_i7_277---NEBNext_dual_i5_229.CPB-27_R1.fastq.gz
+      R2: data/batch_3/NS.X0149.003.NEBNext_dual_i7_277---NEBNext_dual_i5_229.CPB-27_R2.fastq.gz
+    CPB-29:
+      R1: data/batch_3/NS.X0149.003.NEBNext_dual_i7_224---NEBNext_dual_i5_272.CPB-29_R1.fastq.gz
+      R2: data/batch_3/NS.X0149.003.NEBNext_dual_i7_224---NEBNext_dual_i5_272.CPB-29_R2.fastq.gz
+    CPB-30:
+      R1: data/batch_3/NS.X0149.002.NEBNext_dual_i7_206---NEBNext_dual_i5_254.CPB-30_R1.fastq.gz
+      R2: data/batch_3/NS.X0149.002.NEBNext_dual_i7_206---NEBNext_dual_i5_254.CPB-30_R2.fastq.gz
+    CPB-32:
+      R1: data/batch_3/NS.X0149.003.NEBNext_dual_i7_318---NEBNext_dual_i5_366.CPB-32_R1.fastq.gz
+      R2: data/batch_3/NS.X0149.003.NEBNext_dual_i7_318---NEBNext_dual_i5_366.CPB-32_R2.fastq.gz
+    CPB-33:
+      R1: data/batch_3/NS.X0149.002.NEBNext_dual_i7_129---NEBNext_dual_i5_129.CPB-33_R1.fastq.gz
+      R2: data/batch_3/NS.X0149.002.NEBNext_dual_i7_129---NEBNext_dual_i5_129.CPB-33_R2.fastq.gz
+    CPB-34:
+      R1: data/batch_3/NS.X0149.003.NEBNext_dual_i7_317---NEBNext_dual_i5_365.CPB-34_R1.fastq.gz
+      R2: data/batch_3/NS.X0149.003.NEBNext_dual_i7_317---NEBNext_dual_i5_365.CPB-34_R2.fastq.gz
+    CPB-35:
+      R1: data/batch_3/NS.X0149.001.NEBNext_dual_i7_F7---NEBNext_dual_i5_F7.CPB-35_R1.fastq.gz
+      R2: data/batch_3/NS.X0149.001.NEBNext_dual_i7_F7---NEBNext_dual_i5_F7.CPB-35_R2.fastq.gz
+    CPB-36:
+      R1: data/batch_3/NS.X0149.003.NEBNext_dual_i7_286---NEBNext_dual_i5_238.CPB-36_R1.fastq.gz
+      R2: data/batch_3/NS.X0149.003.NEBNext_dual_i7_286---NEBNext_dual_i5_238.CPB-36_R2.fastq.gz
+    CPB-37:
+      R1: data/batch_3/NS.X0149.003.NEBNext_dual_i7_297---NEBNext_dual_i5_345.CPB-37_R1.fastq.gz
+      R2: data/batch_3/NS.X0149.003.NEBNext_dual_i7_297---NEBNext_dual_i5_345.CPB-37_R2.fastq.gz
+    CPB-38:
+      R1: data/batch_3/NS.X0149.003.NEBNext_dual_i7_305---NEBNext_dual_i5_353.CPB-38_R1.fastq.gz
+      R2: data/batch_3/NS.X0149.003.NEBNext_dual_i7_305---NEBNext_dual_i5_353.CPB-38_R2.fastq.gz
+    CPB-39:
+      R1: data/batch_3/NS.X0149.003.NEBNext_dual_i7_309---NEBNext_dual_i5_357.CPB-39_R1.fastq.gz
+      R2: data/batch_3/NS.X0149.003.NEBNext_dual_i7_309---NEBNext_dual_i5_357.CPB-39_R2.fastq.gz
+    CPB-40:
+      R1: data/batch_3/NS.X0149.003.NEBNext_dual_i7_275---NEBNext_dual_i5_227.CPB-40_R1.fastq.gz
+      R2: data/batch_3/NS.X0149.003.NEBNext_dual_i7_275---NEBNext_dual_i5_227.CPB-40_R2.fastq.gz
+    CPB-42:
+      R1: data/batch_3/NS.X0149.003.NEBNext_dual_i7_281---NEBNext_dual_i5_233.CPB-42_R1.fastq.gz
+      R2: data/batch_3/NS.X0149.003.NEBNext_dual_i7_281---NEBNext_dual_i5_233.CPB-42_R2.fastq.gz
+    CPB-43:
+      R1: data/batch_3/NS.X0149.003.NEBNext_dual_i7_310---NEBNext_dual_i5_358.CPB-43_R1.fastq.gz
+      R2: data/batch_3/NS.X0149.003.NEBNext_dual_i7_310---NEBNext_dual_i5_358.CPB-43_R2.fastq.gz
+    CPB-44:
+      R1: data/batch_3/NS.X0149.003.NEBNext_dual_i7_303---NEBNext_dual_i5_351.CPB-44_R1.fastq.gz
+      R2: data/batch_3/NS.X0149.003.NEBNext_dual_i7_303---NEBNext_dual_i5_351.CPB-44_R2.fastq.gz
+    FMB-26:
+      R1: data/batch_3/NS.X0149.002.NEBNext_dual_i7_155---NEBNext_dual_i5_155.FMB-26_R1.fastq.gz
+      R2: data/batch_3/NS.X0149.002.NEBNext_dual_i7_155---NEBNext_dual_i5_155.FMB-26_R2.fastq.gz
+    FMB-27:
+      R1: data/batch_3/NS.X0149.002.NEBNext_dual_i7_136---NEBNext_dual_i5_136.FMB-27_R1.fastq.gz
+      R2: data/batch_3/NS.X0149.002.NEBNext_dual_i7_136---NEBNext_dual_i5_136.FMB-27_R2.fastq.gz
+    FMB-28:
+      R1: data/batch_3/NS.X0149.003.NEBNext_dual_i7_255---NEBNext_dual_i5_207.FMB-28_R1.fastq.gz
+      R2: data/batch_3/NS.X0149.003.NEBNext_dual_i7_255---NEBNext_dual_i5_207.FMB-28_R2.fastq.gz
+    FMB-29:
+      R1: data/batch_3/NS.X0149.001.NEBNext_dual_i7_97---NEBNext_dual_i5_97.FMB-29_R1.fastq.gz
+      R2: data/batch_3/NS.X0149.001.NEBNext_dual_i7_97---NEBNext_dual_i5_97.FMB-29_R2.fastq.gz
+    FMB-30:
+      R1: data/batch_3/NS.X0149.002.NEBNext_dual_i7_204---NEBNext_dual_i5_252.FMB-30_R1.fastq.gz
+      R2: data/batch_3/NS.X0149.002.NEBNext_dual_i7_204---NEBNext_dual_i5_252.FMB-30_R2.fastq.gz
+    FMB-32:
+      R1: data/batch_3/NS.X0149.001.NEBNext_dual_i7_H7---NEBNext_dual_i5_H7.FMB-32_R1.fastq.gz
+      R2: data/batch_3/NS.X0149.001.NEBNext_dual_i7_H7---NEBNext_dual_i5_H7.FMB-32_R2.fastq.gz
+    FMB-33:
+      R1: data/batch_3/NS.X0149.002.NEBNext_dual_i7_186---NEBNext_dual_i5_186.FMB-33_R1.fastq.gz
+      R2: data/batch_3/NS.X0149.002.NEBNext_dual_i7_186---NEBNext_dual_i5_186.FMB-33_R2.fastq.gz
+    FMB-34:
+      R1: data/batch_3/NS.X0149.001.NEBNext_dual_i7_101---NEBNext_dual_i5_101.FMB-34_R1.fastq.gz
+      R2: data/batch_3/NS.X0149.001.NEBNext_dual_i7_101---NEBNext_dual_i5_101.FMB-34_R2.fastq.gz
+    FMB-35:
+      R1: data/batch_3/NS.X0149.002.NEBNext_dual_i7_168---NEBNext_dual_i5_168.FMB-35_R1.fastq.gz
+      R2: data/batch_3/NS.X0149.002.NEBNext_dual_i7_168---NEBNext_dual_i5_168.FMB-35_R2.fastq.gz
+    FMB-36:
+      R1: data/batch_3/NS.X0149.003.NEBNext_dual_i7_251---NEBNext_dual_i5_203.FMB-36_R1.fastq.gz
+      R2: data/batch_3/NS.X0149.003.NEBNext_dual_i7_251---NEBNext_dual_i5_203.FMB-36_R2.fastq.gz
+    FMB-37:
+      R1: data/batch_3/NS.X0149.002.NEBNext_dual_i7_160---NEBNext_dual_i5_160.FMB-37_R1.fastq.gz
+      R2: data/batch_3/NS.X0149.002.NEBNext_dual_i7_160---NEBNext_dual_i5_160.FMB-37_R2.fastq.gz
+    FMB-38:
+      R1: data/batch_3/NS.X0149.001.NEBNext_dual_i7_F4---NEBNext_dual_i5_F4.FMB-38_R1.fastq.gz
+      R2: data/batch_3/NS.X0149.001.NEBNext_dual_i7_F4---NEBNext_dual_i5_F4.FMB-38_R2.fastq.gz
+    FMB-39:
+      R1: data/batch_3/NS.X0149.001.NEBNext_dual_i7_G1---NEBNext_dual_i5_G1.FMB-39_R1.fastq.gz
+      R2: data/batch_3/NS.X0149.001.NEBNext_dual_i7_G1---NEBNext_dual_i5_G1.FMB-39_R2.fastq.gz
+    FMB-40:
+      R1: data/batch_3/NS.X0149.002.NEBNext_dual_i7_212---NEBNext_dual_i5_260.FMB-40_R1.fastq.gz
+      R2: data/batch_3/NS.X0149.002.NEBNext_dual_i7_212---NEBNext_dual_i5_260.FMB-40_R2.fastq.gz
+    FMB-41:
+      R1: data/batch_3/NS.X0149.002.NEBNext_dual_i7_182---NEBNext_dual_i5_182.FMB-41_R1.fastq.gz
+      R2: data/batch_3/NS.X0149.002.NEBNext_dual_i7_182---NEBNext_dual_i5_182.FMB-41_R2.fastq.gz
+    FMB-42:
+      R1: data/batch_3/NS.X0149.003.NEBNext_dual_i7_278---NEBNext_dual_i5_230.FMB-42_R1.fastq.gz
+      R2: data/batch_3/NS.X0149.003.NEBNext_dual_i7_278---NEBNext_dual_i5_230.FMB-42_R2.fastq.gz
+    FMB-43:
+      R1: data/batch_3/NS.X0149.001.NEBNext_dual_i7_D3---NEBNext_dual_i5_D3.FMB-43_R1.fastq.gz
+      R2: data/batch_3/NS.X0149.001.NEBNext_dual_i7_D3---NEBNext_dual_i5_D3.FMB-43_R2.fastq.gz
+    FMB-44:
+      R1: data/batch_3/NS.X0149.002.NEBNext_dual_i7_187---NEBNext_dual_i5_187.FMB-44_R1.fastq.gz
+      R2: data/batch_3/NS.X0149.002.NEBNext_dual_i7_187---NEBNext_dual_i5_187.FMB-44_R2.fastq.gz
+    FMB-45:
+      R1: data/batch_3/NS.X0149.001.NEBNext_dual_i7_D5---NEBNext_dual_i5_D5.FMB-45_R1.fastq.gz
+      R2: data/batch_3/NS.X0149.001.NEBNext_dual_i7_D5---NEBNext_dual_i5_D5.FMB-45_R2.fastq.gz
+    FMB-46:
+      R1: data/batch_3/NS.X0149.001.NEBNext_dual_i7_G2---NEBNext_dual_i5_G2.FMB-46_R1.fastq.gz
+      R2: data/batch_3/NS.X0149.001.NEBNext_dual_i7_G2---NEBNext_dual_i5_G2.FMB-46_R2.fastq.gz
+    FMB-47:
+      R1: data/batch_3/NS.X0149.002.NEBNext_dual_i7_126---NEBNext_dual_i5_126.FMB-47_R1.fastq.gz
+      R2: data/batch_3/NS.X0149.002.NEBNext_dual_i7_126---NEBNext_dual_i5_126.FMB-47_R2.fastq.gz
+    FMB-48:
+      R1: data/batch_3/NS.X0149.002.NEBNext_dual_i7_151---NEBNext_dual_i5_151.FMB-48_R1.fastq.gz
+      R2: data/batch_3/NS.X0149.002.NEBNext_dual_i7_151---NEBNext_dual_i5_151.FMB-48_R2.fastq.gz
+    FMB-49:
+      R1: data/batch_3/NS.X0149.001.NEBNext_dual_i7_C3---NEBNext_dual_i5_C3.FMB-49_R1.fastq.gz
+      R2: data/batch_3/NS.X0149.001.NEBNext_dual_i7_C3---NEBNext_dual_i5_C3.FMB-49_R2.fastq.gz
+    FMB-50:
+      R1: data/batch_3/NS.X0149.001.NEBNext_dual_i7_116---NEBNext_dual_i5_116.FMB-50_R1.fastq.gz
+      R2: data/batch_3/NS.X0149.001.NEBNext_dual_i7_116---NEBNext_dual_i5_116.FMB-50_R2.fastq.gz
+    GRAY-1:
+      R1: data/batch_3/NS.X0149.001.NEBNext_dual_i7_H2---NEBNext_dual_i5_H2.GRAY-1_R1.fastq.gz
+      R2: data/batch_3/NS.X0149.001.NEBNext_dual_i7_H2---NEBNext_dual_i5_H2.GRAY-1_R2.fastq.gz
+    GRAY-10:
+      R1: data/batch_3/NS.X0149.002.NEBNext_dual_i7_163---NEBNext_dual_i5_163.GRAY-10_R1.fastq.gz
+      R2: data/batch_3/NS.X0149.002.NEBNext_dual_i7_163---NEBNext_dual_i5_163.GRAY-10_R2.fastq.gz
+    GRAY-11:
+      R1: data/batch_3/NS.X0149.003.NEBNext_dual_i7_312---NEBNext_dual_i5_360.GRAY-11_R1.fastq.gz
+      R2: data/batch_3/NS.X0149.003.NEBNext_dual_i7_312---NEBNext_dual_i5_360.GRAY-11_R2.fastq.gz
+    GRAY-12:
+      R1: data/batch_3/NS.X0149.003.NEBNext_dual_i7_299---NEBNext_dual_i5_347.GRAY-12_R1.fastq.gz
+      R2: data/batch_3/NS.X0149.003.NEBNext_dual_i7_299---NEBNext_dual_i5_347.GRAY-12_R2.fastq.gz
+    GRAY-13:
+      R1: data/batch_3/NS.X0149.003.NEBNext_dual_i7_300---NEBNext_dual_i5_348.GRAY-13_R1.fastq.gz
+      R2: data/batch_3/NS.X0149.003.NEBNext_dual_i7_300---NEBNext_dual_i5_348.GRAY-13_R2.fastq.gz
+    GRAY-14:
+      R1: data/batch_3/NS.X0149.003.NEBNext_dual_i7_265---NEBNext_dual_i5_217.GRAY-14_R1.fastq.gz
+      R2: data/batch_3/NS.X0149.003.NEBNext_dual_i7_265---NEBNext_dual_i5_217.GRAY-14_R2.fastq.gz
+    GRAY-15:
+      R1: data/batch_3/NS.X0149.003.NEBNext_dual_i7_267---NEBNext_dual_i5_219.GRAY-15_R1.fastq.gz
+      R2: data/batch_3/NS.X0149.003.NEBNext_dual_i7_267---NEBNext_dual_i5_219.GRAY-15_R2.fastq.gz
+    GRAY-16:
+      R1: data/batch_3/NS.X0149.003.NEBNext_dual_i7_313---NEBNext_dual_i5_361.GRAY-16_R1.fastq.gz
+      R2: data/batch_3/NS.X0149.003.NEBNext_dual_i7_313---NEBNext_dual_i5_361.GRAY-16_R2.fastq.gz
+    GRAY-17:
+      R1: data/batch_3/NS.X0149.003.NEBNext_dual_i7_315---NEBNext_dual_i5_363.GRAY-17_R1.fastq.gz
+      R2: data/batch_3/NS.X0149.003.NEBNext_dual_i7_315---NEBNext_dual_i5_363.GRAY-17_R2.fastq.gz
+    GRAY-18:
+      R1: data/batch_3/NS.X0149.003.NEBNext_dual_i7_316---NEBNext_dual_i5_364.GRAY-18_R1.fastq.gz
+      R2: data/batch_3/NS.X0149.003.NEBNext_dual_i7_316---NEBNext_dual_i5_364.GRAY-18_R2.fastq.gz
+    GRAY-19:
+      R1: data/batch_3/NS.X0149.003.NEBNext_dual_i7_307---NEBNext_dual_i5_355.GRAY-19_R1.fastq.gz
+      R2: data/batch_3/NS.X0149.003.NEBNext_dual_i7_307---NEBNext_dual_i5_355.GRAY-19_R2.fastq.gz
+    GRAY-2:
+      R1: data/batch_3/NS.X0149.003.NEBNext_dual_i7_276---NEBNext_dual_i5_228.GRAY-2_R1.fastq.gz
+      R2: data/batch_3/NS.X0149.003.NEBNext_dual_i7_276---NEBNext_dual_i5_228.GRAY-2_R2.fastq.gz
+    GRAY-20:
+      R1: data/batch_3/NS.X0149.003.NEBNext_dual_i7_301---NEBNext_dual_i5_349.GRAY-20_R1.fastq.gz
+      R2: data/batch_3/NS.X0149.003.NEBNext_dual_i7_301---NEBNext_dual_i5_349.GRAY-20_R2.fastq.gz
+    GRAY-3:
+      R1: data/batch_3/NS.X0149.003.NEBNext_dual_i7_304---NEBNext_dual_i5_352.GRAY-3_R1.fastq.gz
+      R2: data/batch_3/NS.X0149.003.NEBNext_dual_i7_304---NEBNext_dual_i5_352.GRAY-3_R2.fastq.gz
+    GRAY-4:
+      R1: data/batch_3/NS.X0149.001.NEBNext_dual_i7_120---NEBNext_dual_i5_120.GRAY-4_R1.fastq.gz
+      R2: data/batch_3/NS.X0149.001.NEBNext_dual_i7_120---NEBNext_dual_i5_120.GRAY-4_R2.fastq.gz
+    GRAY-5:
+      R1: data/batch_3/NS.X0149.002.NEBNext_dual_i7_140---NEBNext_dual_i5_140.GRAY-5_R1.fastq.gz
+      R2: data/batch_3/NS.X0149.002.NEBNext_dual_i7_140---NEBNext_dual_i5_140.GRAY-5_R2.fastq.gz
+    GRAY-6:
+      R1: data/batch_3/NS.X0149.003.NEBNext_dual_i7_311---NEBNext_dual_i5_359.GRAY-6_R1.fastq.gz
+      R2: data/batch_3/NS.X0149.003.NEBNext_dual_i7_311---NEBNext_dual_i5_359.GRAY-6_R2.fastq.gz
+    GRAY-7:
+      R1: data/batch_3/NS.X0149.002.NEBNext_dual_i7_150---NEBNext_dual_i5_150.GRAY-7_R1.fastq.gz
+      R2: data/batch_3/NS.X0149.002.NEBNext_dual_i7_150---NEBNext_dual_i5_150.GRAY-7_R2.fastq.gz
+    GRAY-8:
+      R1: data/batch_3/NS.X0149.003.NEBNext_dual_i7_306---NEBNext_dual_i5_354.GRAY-8_R1.fastq.gz
+      R2: data/batch_3/NS.X0149.003.NEBNext_dual_i7_306---NEBNext_dual_i5_354.GRAY-8_R2.fastq.gz
+    GRAY-9:
+      R1: data/batch_3/NS.X0149.002.NEBNext_dual_i7_162---NEBNext_dual_i5_162.GRAY-9_R1.fastq.gz
+      R2: data/batch_3/NS.X0149.002.NEBNext_dual_i7_162---NEBNext_dual_i5_162.GRAY-9_R2.fastq.gz
+    NBWA-1:
+      R1: data/batch_3/NS.X0149.001.NEBNext_dual_i7_A1---NEBNext_dual_i5_A1.NBWA-1_R1.fastq.gz
+      R2: data/batch_3/NS.X0149.001.NEBNext_dual_i7_A1---NEBNext_dual_i5_A1.NBWA-1_R2.fastq.gz
+    NBWA-10:
+      R1: data/batch_3/NS.X0149.002.NEBNext_dual_i7_161---NEBNext_dual_i5_161.NBWA-10_R1.fastq.gz
+      R2: data/batch_3/NS.X0149.002.NEBNext_dual_i7_161---NEBNext_dual_i5_161.NBWA-10_R2.fastq.gz
+    NBWA-11:
+      R1: data/batch_3/NS.X0149.002.NEBNext_dual_i7_183---NEBNext_dual_i5_183.NBWA-11_R1.fastq.gz
+      R2: data/batch_3/NS.X0149.002.NEBNext_dual_i7_183---NEBNext_dual_i5_183.NBWA-11_R2.fastq.gz
+    NBWA-12:
+      R1: data/batch_3/NS.X0149.002.NEBNext_dual_i7_199---NEBNext_dual_i5_247.NBWA-12_R1.fastq.gz
+      R2: data/batch_3/NS.X0149.002.NEBNext_dual_i7_199---NEBNext_dual_i5_247.NBWA-12_R2.fastq.gz
+    NBWA-13:
+      R1: data/batch_3/NS.X0149.002.NEBNext_dual_i7_202---NEBNext_dual_i5_250.NBWA-13_R1.fastq.gz
+      R2: data/batch_3/NS.X0149.002.NEBNext_dual_i7_202---NEBNext_dual_i5_250.NBWA-13_R2.fastq.gz
+    NBWA-14:
+      R1: data/batch_3/NS.X0149.002.NEBNext_dual_i7_217---NEBNext_dual_i5_265.NBWA-14_R1.fastq.gz
+      R2: data/batch_3/NS.X0149.002.NEBNext_dual_i7_217---NEBNext_dual_i5_265.NBWA-14_R2.fastq.gz
+    NBWA-15:
+      R1: data/batch_3/NS.X0149.003.NEBNext_dual_i7_221---NEBNext_dual_i5_269.NBWA-15_R1.fastq.gz
+      R2: data/batch_3/NS.X0149.003.NEBNext_dual_i7_221---NEBNext_dual_i5_269.NBWA-15_R2.fastq.gz
+    NBWA-16:
+      R1: data/batch_3/NS.X0149.003.NEBNext_dual_i7_230---NEBNext_dual_i5_278.NBWA-16_R1.fastq.gz
+      R2: data/batch_3/NS.X0149.003.NEBNext_dual_i7_230---NEBNext_dual_i5_278.NBWA-16_R2.fastq.gz
+    NBWA-17:
+      R1: data/batch_3/NS.X0149.003.NEBNext_dual_i7_248---NEBNext_dual_i5_200.NBWA-17_R1.fastq.gz
+      R2: data/batch_3/NS.X0149.003.NEBNext_dual_i7_248---NEBNext_dual_i5_200.NBWA-17_R2.fastq.gz
+    NBWA-18:
+      R1: data/batch_3/NS.X0149.003.NEBNext_dual_i7_250---NEBNext_dual_i5_202.NBWA-18_R1.fastq.gz
+      R2: data/batch_3/NS.X0149.003.NEBNext_dual_i7_250---NEBNext_dual_i5_202.NBWA-18_R2.fastq.gz
+    NBWA-19:
+      R1: data/batch_3/NS.X0149.003.NEBNext_dual_i7_260---NEBNext_dual_i5_212.NBWA-19_R1.fastq.gz
+      R2: data/batch_3/NS.X0149.003.NEBNext_dual_i7_260---NEBNext_dual_i5_212.NBWA-19_R2.fastq.gz
+    NBWA-2:
+      R1: data/batch_3/NS.X0149.001.NEBNext_dual_i7_B2---NEBNext_dual_i5_B2.NBWA-2_R1.fastq.gz
+      R2: data/batch_3/NS.X0149.001.NEBNext_dual_i7_B2---NEBNext_dual_i5_B2.NBWA-2_R2.fastq.gz
+    NBWA-20:
+      R1: data/batch_3/NS.X0149.003.NEBNext_dual_i7_262---NEBNext_dual_i5_214.NBWA-20_R1.fastq.gz
+      R2: data/batch_3/NS.X0149.003.NEBNext_dual_i7_262---NEBNext_dual_i5_214.NBWA-20_R2.fastq.gz
+    NBWA-3:
+      R1: data/batch_3/NS.X0149.001.NEBNext_dual_i7_C1---NEBNext_dual_i5_C1.NBWA-3_R1.fastq.gz
+      R2: data/batch_3/NS.X0149.001.NEBNext_dual_i7_C1---NEBNext_dual_i5_C1.NBWA-3_R2.fastq.gz
+    NBWA-4:
+      R1: data/batch_3/NS.X0149.001.NEBNext_dual_i7_B5---NEBNext_dual_i5_B5.NBWA-4_R1.fastq.gz
+      R2: data/batch_3/NS.X0149.001.NEBNext_dual_i7_B5---NEBNext_dual_i5_B5.NBWA-4_R2.fastq.gz
+    NBWA-5:
+      R1: data/batch_3/NS.X0149.001.NEBNext_dual_i7_B7---NEBNext_dual_i5_B7.NBWA-5_R1.fastq.gz
+      R2: data/batch_3/NS.X0149.001.NEBNext_dual_i7_B7---NEBNext_dual_i5_B7.NBWA-5_R2.fastq.gz
+    NBWA-6:
+      R1: data/batch_3/NS.X0149.001.NEBNext_dual_i7_C7---NEBNext_dual_i5_C7.NBWA-6_R1.fastq.gz
+      R2: data/batch_3/NS.X0149.001.NEBNext_dual_i7_C7---NEBNext_dual_i5_C7.NBWA-6_R2.fastq.gz
+    NBWA-6-rep2:
+      R1: data/batch_3/NS.X0149.002.NEBNext_dual_i7_152---NEBNext_dual_i5_152.NBWA-6-rep2_R1.fastq.gz
+      R2: data/batch_3/NS.X0149.002.NEBNext_dual_i7_152---NEBNext_dual_i5_152.NBWA-6-rep2_R2.fastq.gz
+    NBWA-7:
+      R1: data/batch_3/NS.X0149.001.NEBNext_dual_i7_F6---NEBNext_dual_i5_F6.NBWA-7_R1.fastq.gz
+      R2: data/batch_3/NS.X0149.001.NEBNext_dual_i7_F6---NEBNext_dual_i5_F6.NBWA-7_R2.fastq.gz
+    NBWA-8:
+      R1: data/batch_3/NS.X0149.002.NEBNext_dual_i7_146---NEBNext_dual_i5_146.NBWA-8_R1.fastq.gz
+      R2: data/batch_3/NS.X0149.002.NEBNext_dual_i7_146---NEBNext_dual_i5_146.NBWA-8_R2.fastq.gz
+    NBWA-9:
+      R1: data/batch_3/NS.X0149.002.NEBNext_dual_i7_157---NEBNext_dual_i5_157.NBWA-9_R1.fastq.gz
+      R2: data/batch_3/NS.X0149.002.NEBNext_dual_i7_157---NEBNext_dual_i5_157.NBWA-9_R2.fastq.gz
+    NGP-26:
+      R1: data/batch_3/NS.X0149.003.NEBNext_dual_i7_256---NEBNext_dual_i5_208.NGP-26_R1.fastq.gz
+      R2: data/batch_3/NS.X0149.003.NEBNext_dual_i7_256---NEBNext_dual_i5_208.NGP-26_R2.fastq.gz
+    NGP-28:
+      R1: data/batch_3/NS.X0149.003.NEBNext_dual_i7_245---NEBNext_dual_i5_197.NGP-28_R1.fastq.gz
+      R2: data/batch_3/NS.X0149.003.NEBNext_dual_i7_245---NEBNext_dual_i5_197.NGP-28_R2.fastq.gz
+    NGP-30:
+      R1: data/batch_3/NS.X0149.001.NEBNext_dual_i7_115---NEBNext_dual_i5_115.NGP-30_R1.fastq.gz
+      R2: data/batch_3/NS.X0149.001.NEBNext_dual_i7_115---NEBNext_dual_i5_115.NGP-30_R2.fastq.gz
+    NGP-31:
+      R1: data/batch_3/NS.X0149.001.NEBNext_dual_i7_D4---NEBNext_dual_i5_D4.NGP-31_R1.fastq.gz
+      R2: data/batch_3/NS.X0149.001.NEBNext_dual_i7_D4---NEBNext_dual_i5_D4.NGP-31_R2.fastq.gz
+    NGP-32:
+      R1: data/batch_3/NS.X0149.001.NEBNext_dual_i7_A8---NEBNext_dual_i5_A8.NGP-32_R1.fastq.gz
+      R2: data/batch_3/NS.X0149.001.NEBNext_dual_i7_A8---NEBNext_dual_i5_A8.NGP-32_R2.fastq.gz
+    NGP-33:
+      R1: data/batch_3/NS.X0149.001.NEBNext_dual_i7_112---NEBNext_dual_i5_112.NGP-33_R1.fastq.gz
+      R2: data/batch_3/NS.X0149.001.NEBNext_dual_i7_112---NEBNext_dual_i5_112.NGP-33_R2.fastq.gz
+    NGP-34:
+      R1: data/batch_3/NS.X0149.001.NEBNext_dual_i7_E8---NEBNext_dual_i5_E8.NGP-34_R1.fastq.gz
+      R2: data/batch_3/NS.X0149.001.NEBNext_dual_i7_E8---NEBNext_dual_i5_E8.NGP-34_R2.fastq.gz
+    NGP-36:
+      R1: data/batch_3/NS.X0149.001.NEBNext_dual_i7_H5---NEBNext_dual_i5_H5.NGP-36_R1.fastq.gz
+      R2: data/batch_3/NS.X0149.001.NEBNext_dual_i7_H5---NEBNext_dual_i5_H5.NGP-36_R2.fastq.gz
+    NGP-37:
+      R1: data/batch_3/NS.X0149.003.NEBNext_dual_i7_253---NEBNext_dual_i5_205.NGP-37_R1.fastq.gz
+      R2: data/batch_3/NS.X0149.003.NEBNext_dual_i7_253---NEBNext_dual_i5_205.NGP-37_R2.fastq.gz
+    NGP-38:
+      R1: data/batch_3/NS.X0149.002.NEBNext_dual_i7_148---NEBNext_dual_i5_148.NGP-38_R1.fastq.gz
+      R2: data/batch_3/NS.X0149.002.NEBNext_dual_i7_148---NEBNext_dual_i5_148.NGP-38_R2.fastq.gz
+    NGP-39:
+      R1: data/batch_3/NS.X0149.003.NEBNext_dual_i7_227---NEBNext_dual_i5_275.NGP-39_R1.fastq.gz
+      R2: data/batch_3/NS.X0149.003.NEBNext_dual_i7_227---NEBNext_dual_i5_275.NGP-39_R2.fastq.gz
+    NGP-41:
+      R1: data/batch_3/NS.X0149.001.NEBNext_dual_i7_D8---NEBNext_dual_i5_D8.NGP-41_R1.fastq.gz
+      R2: data/batch_3/NS.X0149.001.NEBNext_dual_i7_D8---NEBNext_dual_i5_D8.NGP-41_R2.fastq.gz
+    NGP-44:
+      R1: data/batch_3/NS.X0149.002.NEBNext_dual_i7_177---NEBNext_dual_i5_177.NGP-44_R1.fastq.gz
+      R2: data/batch_3/NS.X0149.002.NEBNext_dual_i7_177---NEBNext_dual_i5_177.NGP-44_R2.fastq.gz
+    NGP-45:
+      R1: data/batch_3/NS.X0149.002.NEBNext_dual_i7_205---NEBNext_dual_i5_253.NGP-45_R1.fastq.gz
+      R2: data/batch_3/NS.X0149.002.NEBNext_dual_i7_205---NEBNext_dual_i5_253.NGP-45_R2.fastq.gz
+    NGP-46:
+      R1: data/batch_3/NS.X0149.001.NEBNext_dual_i7_C2---NEBNext_dual_i5_C2.NGP-46_R1.fastq.gz
+      R2: data/batch_3/NS.X0149.001.NEBNext_dual_i7_C2---NEBNext_dual_i5_C2.NGP-46_R2.fastq.gz
+    NGP-50:
+      R1: data/batch_3/NS.X0149.001.NEBNext_dual_i7_H6---NEBNext_dual_i5_H6.NGP-50_R1.fastq.gz
+      R2: data/batch_3/NS.X0149.001.NEBNext_dual_i7_H6---NEBNext_dual_i5_H6.NGP-50_R2.fastq.gz
+    NGP-52:
+      R1: data/batch_3/NS.X0149.001.NEBNext_dual_i7_E3---NEBNext_dual_i5_E3.NGP-52_R1.fastq.gz
+      R2: data/batch_3/NS.X0149.001.NEBNext_dual_i7_E3---NEBNext_dual_i5_E3.NGP-52_R2.fastq.gz
+    NGP-54:
+      R1: data/batch_3/NS.X0149.003.NEBNext_dual_i7_236---NEBNext_dual_i5_284.NGP-54_R1.fastq.gz
+      R2: data/batch_3/NS.X0149.003.NEBNext_dual_i7_236---NEBNext_dual_i5_284.NGP-54_R2.fastq.gz
+    NGP-55:
+      R1: data/batch_3/NS.X0149.003.NEBNext_dual_i7_244---NEBNext_dual_i5_292.NGP-55_R1.fastq.gz
+      R2: data/batch_3/NS.X0149.003.NEBNext_dual_i7_244---NEBNext_dual_i5_292.NGP-55_R2.fastq.gz
+    NGP-56:
+      R1: data/batch_3/NS.X0149.001.NEBNext_dual_i7_F1---NEBNext_dual_i5_F1.NGP-56_R1.fastq.gz
+      R2: data/batch_3/NS.X0149.001.NEBNext_dual_i7_F1---NEBNext_dual_i5_F1.NGP-56_R2.fastq.gz
+    NGP-60:
+      R1: data/batch_3/NS.X0149.001.NEBNext_dual_i7_122---NEBNext_dual_i5_122.NGP-60_R1.fastq.gz
+      R2: data/batch_3/NS.X0149.001.NEBNext_dual_i7_122---NEBNext_dual_i5_122.NGP-60_R2.fastq.gz
+    NGP-62:
+      R1: data/batch_3/NS.X0149.002.NEBNext_dual_i7_200---NEBNext_dual_i5_248.NGP-62_R1.fastq.gz
+      R2: data/batch_3/NS.X0149.002.NEBNext_dual_i7_200---NEBNext_dual_i5_248.NGP-62_R2.fastq.gz
+    NGP-70:
+      R1: data/batch_3/NS.X0149.002.NEBNext_dual_i7_156---NEBNext_dual_i5_156.NGP-70_R1.fastq.gz
+      R2: data/batch_3/NS.X0149.002.NEBNext_dual_i7_156---NEBNext_dual_i5_156.NGP-70_R2.fastq.gz
+    NGP-72:
+      R1: data/batch_3/NS.X0149.001.NEBNext_dual_i7_A7---NEBNext_dual_i5_A7.NGP-72_R1.fastq.gz
+      R2: data/batch_3/NS.X0149.001.NEBNext_dual_i7_A7---NEBNext_dual_i5_A7.NGP-72_R2.fastq.gz
+    NGP-73:
+      R1: data/batch_3/NS.X0149.003.NEBNext_dual_i7_223---NEBNext_dual_i5_271.NGP-73_R1.fastq.gz
+      R2: data/batch_3/NS.X0149.003.NEBNext_dual_i7_223---NEBNext_dual_i5_271.NGP-73_R2.fastq.gz
+    NGP-74:
+      R1: data/batch_3/NS.X0149.003.NEBNext_dual_i7_237---NEBNext_dual_i5_285.NGP-74_R1.fastq.gz
+      R2: data/batch_3/NS.X0149.003.NEBNext_dual_i7_237---NEBNext_dual_i5_285.NGP-74_R2.fastq.gz
+    NGP-75:
+      R1: data/batch_3/NS.X0149.002.NEBNext_dual_i7_172---NEBNext_dual_i5_172.NGP-75_R1.fastq.gz
+      R2: data/batch_3/NS.X0149.002.NEBNext_dual_i7_172---NEBNext_dual_i5_172.NGP-75_R2.fastq.gz
+    NGP-76:
+      R1: data/batch_3/NS.X0149.002.NEBNext_dual_i7_203---NEBNext_dual_i5_251.NGP-76_R1.fastq.gz
+      R2: data/batch_3/NS.X0149.002.NEBNext_dual_i7_203---NEBNext_dual_i5_251.NGP-76_R2.fastq.gz
+    PBBT-1:
+      R1: data/batch_3/NS.X0149.001.NEBNext_dual_i7_A4---NEBNext_dual_i5_A4.PBBT-1_R1.fastq.gz
+      R2: data/batch_3/NS.X0149.001.NEBNext_dual_i7_A4---NEBNext_dual_i5_A4.PBBT-1_R2.fastq.gz
+    PBBT-10:
+      R1: data/batch_3/NS.X0149.001.NEBNext_dual_i7_110---NEBNext_dual_i5_110.PBBT-10_R1.fastq.gz
+      R2: data/batch_3/NS.X0149.001.NEBNext_dual_i7_110---NEBNext_dual_i5_110.PBBT-10_R2.fastq.gz
+    PBBT-11:
+      R1: data/batch_3/NS.X0149.001.NEBNext_dual_i7_121---NEBNext_dual_i5_121.PBBT-11_R1.fastq.gz
+      R2: data/batch_3/NS.X0149.001.NEBNext_dual_i7_121---NEBNext_dual_i5_121.PBBT-11_R2.fastq.gz
+    PBBT-12:
+      R1: data/batch_3/NS.X0149.002.NEBNext_dual_i7_130---NEBNext_dual_i5_130.PBBT-12_R1.fastq.gz
+      R2: data/batch_3/NS.X0149.002.NEBNext_dual_i7_130---NEBNext_dual_i5_130.PBBT-12_R2.fastq.gz
+    PBBT-13:
+      R1: data/batch_3/NS.X0149.002.NEBNext_dual_i7_139---NEBNext_dual_i5_139.PBBT-13_R1.fastq.gz
+      R2: data/batch_3/NS.X0149.002.NEBNext_dual_i7_139---NEBNext_dual_i5_139.PBBT-13_R2.fastq.gz
+    PBBT-14:
+      R1: data/batch_3/NS.X0149.002.NEBNext_dual_i7_144---NEBNext_dual_i5_144.PBBT-14_R1.fastq.gz
+      R2: data/batch_3/NS.X0149.002.NEBNext_dual_i7_144---NEBNext_dual_i5_144.PBBT-14_R2.fastq.gz
+    PBBT-15:
+      R1: data/batch_3/NS.X0149.002.NEBNext_dual_i7_149---NEBNext_dual_i5_149.PBBT-15_R1.fastq.gz
+      R2: data/batch_3/NS.X0149.002.NEBNext_dual_i7_149---NEBNext_dual_i5_149.PBBT-15_R2.fastq.gz
+    PBBT-17:
+      R1: data/batch_3/NS.X0149.002.NEBNext_dual_i7_159---NEBNext_dual_i5_159.PBBT-17_R1.fastq.gz
+      R2: data/batch_3/NS.X0149.002.NEBNext_dual_i7_159---NEBNext_dual_i5_159.PBBT-17_R2.fastq.gz
+    PBBT-18:
+      R1: data/batch_3/NS.X0149.002.NEBNext_dual_i7_164---NEBNext_dual_i5_164.PBBT-18_R1.fastq.gz
+      R2: data/batch_3/NS.X0149.002.NEBNext_dual_i7_164---NEBNext_dual_i5_164.PBBT-18_R2.fastq.gz
+    PBBT-19:
+      R1: data/batch_3/NS.X0149.002.NEBNext_dual_i7_185---NEBNext_dual_i5_185.PBBT-19_R1.fastq.gz
+      R2: data/batch_3/NS.X0149.002.NEBNext_dual_i7_185---NEBNext_dual_i5_185.PBBT-19_R2.fastq.gz
+    PBBT-2:
+      R1: data/batch_3/NS.X0149.001.NEBNext_dual_i7_B1---NEBNext_dual_i5_B1.PBBT-2_R1.fastq.gz
+      R2: data/batch_3/NS.X0149.001.NEBNext_dual_i7_B1---NEBNext_dual_i5_B1.PBBT-2_R2.fastq.gz
+    PBBT-20:
+      R1: data/batch_3/NS.X0149.002.NEBNext_dual_i7_215---NEBNext_dual_i5_263.PBBT-20_R1.fastq.gz
+      R2: data/batch_3/NS.X0149.002.NEBNext_dual_i7_215---NEBNext_dual_i5_263.PBBT-20_R2.fastq.gz
+    PBBT-21:
+      R1: data/batch_3/NS.X0149.003.NEBNext_dual_i7_225---NEBNext_dual_i5_273.PBBT-21_R1.fastq.gz
+      R2: data/batch_3/NS.X0149.003.NEBNext_dual_i7_225---NEBNext_dual_i5_273.PBBT-21_R2.fastq.gz
+    PBBT-22:
+      R1: data/batch_3/NS.X0149.003.NEBNext_dual_i7_234---NEBNext_dual_i5_282.PBBT-22_R1.fastq.gz
+      R2: data/batch_3/NS.X0149.003.NEBNext_dual_i7_234---NEBNext_dual_i5_282.PBBT-22_R2.fastq.gz
+    PBBT-23:
+      R1: data/batch_3/NS.X0149.003.NEBNext_dual_i7_235---NEBNext_dual_i5_283.PBBT-23_R1.fastq.gz
+      R2: data/batch_3/NS.X0149.003.NEBNext_dual_i7_235---NEBNext_dual_i5_283.PBBT-23_R2.fastq.gz
+    PBBT-24:
+      R1: data/batch_3/NS.X0149.003.NEBNext_dual_i7_241---NEBNext_dual_i5_289.PBBT-24_R1.fastq.gz
+      R2: data/batch_3/NS.X0149.003.NEBNext_dual_i7_241---NEBNext_dual_i5_289.PBBT-24_R2.fastq.gz
+    PBBT-25:
+      R1: data/batch_3/NS.X0149.003.NEBNext_dual_i7_249---NEBNext_dual_i5_201.PBBT-25_R1.fastq.gz
+      R2: data/batch_3/NS.X0149.003.NEBNext_dual_i7_249---NEBNext_dual_i5_201.PBBT-25_R2.fastq.gz
+    PBBT-26:
+      R1: data/batch_3/NS.X0149.003.NEBNext_dual_i7_254---NEBNext_dual_i5_206.PBBT-26_R1.fastq.gz
+      R2: data/batch_3/NS.X0149.003.NEBNext_dual_i7_254---NEBNext_dual_i5_206.PBBT-26_R2.fastq.gz
+    PBBT-3:
+      R1: data/batch_3/NS.X0149.001.NEBNext_dual_i7_A6---NEBNext_dual_i5_A6.PBBT-3_R1.fastq.gz
+      R2: data/batch_3/NS.X0149.001.NEBNext_dual_i7_A6---NEBNext_dual_i5_A6.PBBT-3_R2.fastq.gz
+    PBBT-30:
+      R1: data/batch_3/NS.X0149.001.NEBNext_dual_i7_D6---NEBNext_dual_i5_D6.PBBT-30_R1.fastq.gz
+      R2: data/batch_3/NS.X0149.001.NEBNext_dual_i7_D6---NEBNext_dual_i5_D6.PBBT-30_R2.fastq.gz
+    PBBT-4:
+      R1: data/batch_3/NS.X0149.001.NEBNext_dual_i7_C6---NEBNext_dual_i5_C6.PBBT-4_R1.fastq.gz
+      R2: data/batch_3/NS.X0149.001.NEBNext_dual_i7_C6---NEBNext_dual_i5_C6.PBBT-4_R2.fastq.gz
+    PBBT-5:
+      R1: data/batch_3/NS.X0149.001.NEBNext_dual_i7_E4---NEBNext_dual_i5_E4.PBBT-5_R1.fastq.gz
+      R2: data/batch_3/NS.X0149.001.NEBNext_dual_i7_E4---NEBNext_dual_i5_E4.PBBT-5_R2.fastq.gz
+    PBBT-6:
+      R1: data/batch_3/NS.X0149.001.NEBNext_dual_i7_B4---NEBNext_dual_i5_B4.PBBT-6_R1.fastq.gz
+      R2: data/batch_3/NS.X0149.001.NEBNext_dual_i7_B4---NEBNext_dual_i5_B4.PBBT-6_R2.fastq.gz
+    PBBT-6-rep2:
+      R1: data/batch_3/NS.X0149.001.NEBNext_dual_i7_E6---NEBNext_dual_i5_E6.PBBT-6-rep2_R1.fastq.gz
+      R2: data/batch_3/NS.X0149.001.NEBNext_dual_i7_E6---NEBNext_dual_i5_E6.PBBT-6-rep2_R2.fastq.gz
+    PBBT-7:
+      R1: data/batch_3/NS.X0149.001.NEBNext_dual_i7_98---NEBNext_dual_i5_98.PBBT-7_R1.fastq.gz
+      R2: data/batch_3/NS.X0149.001.NEBNext_dual_i7_98---NEBNext_dual_i5_98.PBBT-7_R2.fastq.gz
+    PBBT-8:
+      R1: data/batch_3/NS.X0149.001.NEBNext_dual_i7_105---NEBNext_dual_i5_105.PBBT-8_R1.fastq.gz
+      R2: data/batch_3/NS.X0149.001.NEBNext_dual_i7_105---NEBNext_dual_i5_105.PBBT-8_R2.fastq.gz
+    PBBT-9:
+      R1: data/batch_3/NS.X0149.001.NEBNext_dual_i7_107---NEBNext_dual_i5_107.PBBT-9_R1.fastq.gz
+      R2: data/batch_3/NS.X0149.001.NEBNext_dual_i7_107---NEBNext_dual_i5_107.PBBT-9_R2.fastq.gz
+    RSB-1:
+      R1: data/batch_3/NS.X0149.001.NEBNext_dual_i7_H1---NEBNext_dual_i5_H1.RSB-1_R1.fastq.gz
+      R2: data/batch_3/NS.X0149.001.NEBNext_dual_i7_H1---NEBNext_dual_i5_H1.RSB-1_R2.fastq.gz
+    RSB-10:
+      R1: data/batch_3/NS.X0149.001.NEBNext_dual_i7_109---NEBNext_dual_i5_109.RSB-10_R1.fastq.gz
+      R2: data/batch_3/NS.X0149.001.NEBNext_dual_i7_109---NEBNext_dual_i5_109.RSB-10_R2.fastq.gz
+    RSB-11:
+      R1: data/batch_3/NS.X0149.001.NEBNext_dual_i7_111---NEBNext_dual_i5_111.RSB-11_R1.fastq.gz
+      R2: data/batch_3/NS.X0149.001.NEBNext_dual_i7_111---NEBNext_dual_i5_111.RSB-11_R2.fastq.gz
+    RSB-12:
+      R1: data/batch_3/NS.X0149.001.NEBNext_dual_i7_114---NEBNext_dual_i5_114.RSB-12_R1.fastq.gz
+      R2: data/batch_3/NS.X0149.001.NEBNext_dual_i7_114---NEBNext_dual_i5_114.RSB-12_R2.fastq.gz
+    RSB-13:
+      R1: data/batch_3/NS.X0149.001.NEBNext_dual_i7_117---NEBNext_dual_i5_117.RSB-13_R1.fastq.gz
+      R2: data/batch_3/NS.X0149.001.NEBNext_dual_i7_117---NEBNext_dual_i5_117.RSB-13_R2.fastq.gz
+    RSB-14:
+      R1: data/batch_3/NS.X0149.001.NEBNext_dual_i7_119---NEBNext_dual_i5_119.RSB-14_R1.fastq.gz
+      R2: data/batch_3/NS.X0149.001.NEBNext_dual_i7_119---NEBNext_dual_i5_119.RSB-14_R2.fastq.gz
+    RSB-15:
+      R1: data/batch_3/NS.X0149.002.NEBNext_dual_i7_131---NEBNext_dual_i5_131.RSB-15_R1.fastq.gz
+      R2: data/batch_3/NS.X0149.002.NEBNext_dual_i7_131---NEBNext_dual_i5_131.RSB-15_R2.fastq.gz
+    RSB-16:
+      R1: data/batch_3/NS.X0149.002.NEBNext_dual_i7_134---NEBNext_dual_i5_134.RSB-16_R1.fastq.gz
+      R2: data/batch_3/NS.X0149.002.NEBNext_dual_i7_134---NEBNext_dual_i5_134.RSB-16_R2.fastq.gz
+    RSB-17:
+      R1: data/batch_3/NS.X0149.002.NEBNext_dual_i7_143---NEBNext_dual_i5_143.RSB-17_R1.fastq.gz
+      R2: data/batch_3/NS.X0149.002.NEBNext_dual_i7_143---NEBNext_dual_i5_143.RSB-17_R2.fastq.gz
+    RSB-18:
+      R1: data/batch_3/NS.X0149.003.NEBNext_dual_i7_228---NEBNext_dual_i5_276.RSB-18_R1.fastq.gz
+      R2: data/batch_3/NS.X0149.003.NEBNext_dual_i7_228---NEBNext_dual_i5_276.RSB-18_R2.fastq.gz
+    RSB-19:
+      R1: data/batch_3/NS.X0149.003.NEBNext_dual_i7_263---NEBNext_dual_i5_215.RSB-19_R1.fastq.gz
+      R2: data/batch_3/NS.X0149.003.NEBNext_dual_i7_263---NEBNext_dual_i5_215.RSB-19_R2.fastq.gz
+    RSB-2:
+      R1: data/batch_3/NS.X0149.002.NEBNext_dual_i7_198---NEBNext_dual_i5_246.RSB-2_R1.fastq.gz
+      R2: data/batch_3/NS.X0149.002.NEBNext_dual_i7_198---NEBNext_dual_i5_246.RSB-2_R2.fastq.gz
+    RSB-20:
+      R1: data/batch_3/NS.X0149.003.NEBNext_dual_i7_264---NEBNext_dual_i5_216.RSB-20_R1.fastq.gz
+      R2: data/batch_3/NS.X0149.003.NEBNext_dual_i7_264---NEBNext_dual_i5_216.RSB-20_R2.fastq.gz
+    RSB-21:
+      R1: data/batch_3/NS.X0149.003.NEBNext_dual_i7_266---NEBNext_dual_i5_218.RSB-21_R1.fastq.gz
+      R2: data/batch_3/NS.X0149.003.NEBNext_dual_i7_266---NEBNext_dual_i5_218.RSB-21_R2.fastq.gz
+    RSB-22:
+      R1: data/batch_3/NS.X0149.003.NEBNext_dual_i7_268---NEBNext_dual_i5_220.RSB-22_R1.fastq.gz
+      R2: data/batch_3/NS.X0149.003.NEBNext_dual_i7_268---NEBNext_dual_i5_220.RSB-22_R2.fastq.gz
+    RSB-23:
+      R1: data/batch_3/NS.X0149.003.NEBNext_dual_i7_269---NEBNext_dual_i5_221.RSB-23_R1.fastq.gz
+      R2: data/batch_3/NS.X0149.003.NEBNext_dual_i7_269---NEBNext_dual_i5_221.RSB-23_R2.fastq.gz
+    RSB-24:
+      R1: data/batch_3/NS.X0149.003.NEBNext_dual_i7_270---NEBNext_dual_i5_222.RSB-24_R1.fastq.gz
+      R2: data/batch_3/NS.X0149.003.NEBNext_dual_i7_270---NEBNext_dual_i5_222.RSB-24_R2.fastq.gz
+    RSB-25:
+      R1: data/batch_3/NS.X0149.003.NEBNext_dual_i7_271---NEBNext_dual_i5_223.RSB-25_R1.fastq.gz
+      R2: data/batch_3/NS.X0149.003.NEBNext_dual_i7_271---NEBNext_dual_i5_223.RSB-25_R2.fastq.gz
+    RSB-26:
+      R1: data/batch_3/NS.X0149.003.NEBNext_dual_i7_272---NEBNext_dual_i5_224.RSB-26_R1.fastq.gz
+      R2: data/batch_3/NS.X0149.003.NEBNext_dual_i7_272---NEBNext_dual_i5_224.RSB-26_R2.fastq.gz
+    RSB-27:
+      R1: data/batch_3/NS.X0149.003.NEBNext_dual_i7_273---NEBNext_dual_i5_225.RSB-27_R1.fastq.gz
+      R2: data/batch_3/NS.X0149.003.NEBNext_dual_i7_273---NEBNext_dual_i5_225.RSB-27_R2.fastq.gz
+    RSB-3:
+      R1: data/batch_3/NS.X0149.001.NEBNext_dual_i7_A2---NEBNext_dual_i5_A2.RSB-3_R1.fastq.gz
+      R2: data/batch_3/NS.X0149.001.NEBNext_dual_i7_A2---NEBNext_dual_i5_A2.RSB-3_R2.fastq.gz
+    RSB-4:
+      R1: data/batch_3/NS.X0149.001.NEBNext_dual_i7_A5---NEBNext_dual_i5_A5.RSB-4_R1.fastq.gz
+      R2: data/batch_3/NS.X0149.001.NEBNext_dual_i7_A5---NEBNext_dual_i5_A5.RSB-4_R2.fastq.gz
+    RSB-5:
+      R1: data/batch_3/NS.X0149.001.NEBNext_dual_i7_D1---NEBNext_dual_i5_D1.RSB-5_R1.fastq.gz
+      R2: data/batch_3/NS.X0149.001.NEBNext_dual_i7_D1---NEBNext_dual_i5_D1.RSB-5_R2.fastq.gz
+    RSB-6:
+      R1: data/batch_3/NS.X0149.001.NEBNext_dual_i7_E5---NEBNext_dual_i5_E5.RSB-6_R1.fastq.gz
+      R2: data/batch_3/NS.X0149.001.NEBNext_dual_i7_E5---NEBNext_dual_i5_E5.RSB-6_R2.fastq.gz
+    RSB-7:
+      R1: data/batch_3/NS.X0149.001.NEBNext_dual_i7_E7---NEBNext_dual_i5_E7.RSB-7_R1.fastq.gz
+      R2: data/batch_3/NS.X0149.001.NEBNext_dual_i7_E7---NEBNext_dual_i5_E7.RSB-7_R2.fastq.gz
+    RSB-8:
+      R1: data/batch_3/NS.X0149.001.NEBNext_dual_i7_103---NEBNext_dual_i5_103.RSB-8_R1.fastq.gz
+      R2: data/batch_3/NS.X0149.001.NEBNext_dual_i7_103---NEBNext_dual_i5_103.RSB-8_R2.fastq.gz
+    RSB-9:
+      R1: data/batch_3/NS.X0149.001.NEBNext_dual_i7_108---NEBNext_dual_i5_108.RSB-9_R1.fastq.gz
+      R2: data/batch_3/NS.X0149.001.NEBNext_dual_i7_108---NEBNext_dual_i5_108.RSB-9_R2.fastq.gz
+    UWA-16:
+      R1: data/batch_3/NS.X0149.002.NEBNext_dual_i7_158---NEBNext_dual_i5_158.UWA-16_R1.fastq.gz
+      R2: data/batch_3/NS.X0149.002.NEBNext_dual_i7_158---NEBNext_dual_i5_158.UWA-16_R2.fastq.gz
+    UWA-21:
+      R1: data/batch_3/NS.X0149.002.NEBNext_dual_i7_125---NEBNext_dual_i5_125.UWA-21_R1.fastq.gz
+      R2: data/batch_3/NS.X0149.002.NEBNext_dual_i7_125---NEBNext_dual_i5_125.UWA-21_R2.fastq.gz
+    UWA-21-rep2:
+      R1: data/batch_3/NS.X0149.002.NEBNext_dual_i7_180---NEBNext_dual_i5_180.UWA-21-rep2_R1.fastq.gz
+      R2: data/batch_3/NS.X0149.002.NEBNext_dual_i7_180---NEBNext_dual_i5_180.UWA-21-rep2_R2.fastq.gz
+    UWA-26:
+      R1: data/batch_3/NS.X0149.002.NEBNext_dual_i7_169---NEBNext_dual_i5_169.UWA-26_R1.fastq.gz
+      R2: data/batch_3/NS.X0149.002.NEBNext_dual_i7_169---NEBNext_dual_i5_169.UWA-26_R2.fastq.gz
+    UWA-27:
+      R1: data/batch_3/NS.X0149.003.NEBNext_dual_i7_243---NEBNext_dual_i5_291.UWA-27_R1.fastq.gz
+      R2: data/batch_3/NS.X0149.003.NEBNext_dual_i7_243---NEBNext_dual_i5_291.UWA-27_R2.fastq.gz
+    UWA-28:
+      R1: data/batch_3/NS.X0149.003.NEBNext_dual_i7_240---NEBNext_dual_i5_288.UWA-28_R1.fastq.gz
+      R2: data/batch_3/NS.X0149.003.NEBNext_dual_i7_240---NEBNext_dual_i5_288.UWA-28_R2.fastq.gz
+    UWA-29:
+      R1: data/batch_3/NS.X0149.001.NEBNext_dual_i7_B8---NEBNext_dual_i5_B8.UWA-29_R1.fastq.gz
+      R2: data/batch_3/NS.X0149.001.NEBNext_dual_i7_B8---NEBNext_dual_i5_B8.UWA-29_R2.fastq.gz
+    UWA-30:
+      R1: data/batch_3/NS.X0149.001.NEBNext_dual_i7_102---NEBNext_dual_i5_102.UWA-30_R1.fastq.gz
+      R2: data/batch_3/NS.X0149.001.NEBNext_dual_i7_102---NEBNext_dual_i5_102.UWA-30_R2.fastq.gz
+    UWA-31:
+      R1: data/batch_3/NS.X0149.001.NEBNext_dual_i7_H3---NEBNext_dual_i5_H3.UWA-31_R1.fastq.gz
+      R2: data/batch_3/NS.X0149.001.NEBNext_dual_i7_H3---NEBNext_dual_i5_H3.UWA-31_R2.fastq.gz
+    UWA-32:
+      R1: data/batch_3/NS.X0149.002.NEBNext_dual_i7_165---NEBNext_dual_i5_165.UWA-32_R1.fastq.gz
+      R2: data/batch_3/NS.X0149.002.NEBNext_dual_i7_165---NEBNext_dual_i5_165.UWA-32_R2.fastq.gz
+    UWA-33:
+      R1: data/batch_3/NS.X0149.001.NEBNext_dual_i7_E2---NEBNext_dual_i5_E2.UWA-33_R1.fastq.gz
+      R2: data/batch_3/NS.X0149.001.NEBNext_dual_i7_E2---NEBNext_dual_i5_E2.UWA-33_R2.fastq.gz
+    UWA-34:
+      R1: data/batch_3/NS.X0149.003.NEBNext_dual_i7_252---NEBNext_dual_i5_204.UWA-34_R1.fastq.gz
+      R2: data/batch_3/NS.X0149.003.NEBNext_dual_i7_252---NEBNext_dual_i5_204.UWA-34_R2.fastq.gz
+    UWA-35:
+      R1: data/batch_3/NS.X0149.001.NEBNext_dual_i7_F5---NEBNext_dual_i5_F5.UWA-35_R1.fastq.gz
+      R2: data/batch_3/NS.X0149.001.NEBNext_dual_i7_F5---NEBNext_dual_i5_F5.UWA-35_R2.fastq.gz
+    UWA-36:
+      R1: data/batch_3/NS.X0149.002.NEBNext_dual_i7_179---NEBNext_dual_i5_179.UWA-36_R1.fastq.gz
+      R2: data/batch_3/NS.X0149.002.NEBNext_dual_i7_179---NEBNext_dual_i5_179.UWA-36_R2.fastq.gz
+    UWA-37:
+      R1: data/batch_3/NS.X0149.002.NEBNext_dual_i7_138---NEBNext_dual_i5_138.UWA-37_R1.fastq.gz
+      R2: data/batch_3/NS.X0149.002.NEBNext_dual_i7_138---NEBNext_dual_i5_138.UWA-37_R2.fastq.gz
+    UWA-38:
+      R1: data/batch_3/NS.X0149.002.NEBNext_dual_i7_207---NEBNext_dual_i5_255.UWA-38_R1.fastq.gz
+      R2: data/batch_3/NS.X0149.002.NEBNext_dual_i7_207---NEBNext_dual_i5_255.UWA-38_R2.fastq.gz
+    UWA-39:
+      R1: data/batch_3/NS.X0149.002.NEBNext_dual_i7_145---NEBNext_dual_i5_145.UWA-39_R1.fastq.gz
+      R2: data/batch_3/NS.X0149.002.NEBNext_dual_i7_145---NEBNext_dual_i5_145.UWA-39_R2.fastq.gz
+    UWA-40:
+      R1: data/batch_3/NS.X0149.001.NEBNext_dual_i7_G3---NEBNext_dual_i5_G3.UWA-40_R1.fastq.gz
+      R2: data/batch_3/NS.X0149.001.NEBNext_dual_i7_G3---NEBNext_dual_i5_G3.UWA-40_R2.fastq.gz
+    UWA-41:
+      R1: data/batch_3/NS.X0149.003.NEBNext_dual_i7_238---NEBNext_dual_i5_286.UWA-41_R1.fastq.gz
+      R2: data/batch_3/NS.X0149.003.NEBNext_dual_i7_238---NEBNext_dual_i5_286.UWA-41_R2.fastq.gz
+    UWA-42:
+      R1: data/batch_3/NS.X0149.001.NEBNext_dual_i7_D7---NEBNext_dual_i5_D7.UWA-42_R1.fastq.gz
+      R2: data/batch_3/NS.X0149.001.NEBNext_dual_i7_D7---NEBNext_dual_i5_D7.UWA-42_R2.fastq.gz
+    UWA-43:
+      R1: data/batch_3/NS.X0149.002.NEBNext_dual_i7_188---NEBNext_dual_i5_188.UWA-43_R1.fastq.gz
+      R2: data/batch_3/NS.X0149.002.NEBNext_dual_i7_188---NEBNext_dual_i5_188.UWA-43_R2.fastq.gz
+    UWA-44:
+      R1: data/batch_3/NS.X0149.002.NEBNext_dual_i7_173---NEBNext_dual_i5_173.UWA-44_R1.fastq.gz
+      R2: data/batch_3/NS.X0149.002.NEBNext_dual_i7_173---NEBNext_dual_i5_173.UWA-44_R2.fastq.gz
+    UWA-45:
+      R1: data/batch_3/NS.X0149.001.NEBNext_dual_i7_G4---NEBNext_dual_i5_G4.UWA-45_R1.fastq.gz
+      R2: data/batch_3/NS.X0149.001.NEBNext_dual_i7_G4---NEBNext_dual_i5_G4.UWA-45_R2.fastq.gz
+    UWA-46:
+      R1: data/batch_3/NS.X0149.002.NEBNext_dual_i7_153---NEBNext_dual_i5_153.UWA-46_R1.fastq.gz
+      R2: data/batch_3/NS.X0149.002.NEBNext_dual_i7_153---NEBNext_dual_i5_153.UWA-46_R2.fastq.gz
+    UWA-47:
+      R1: data/batch_3/NS.X0149.002.NEBNext_dual_i7_181---NEBNext_dual_i5_181.UWA-47_R1.fastq.gz
+      R2: data/batch_3/NS.X0149.002.NEBNext_dual_i7_181---NEBNext_dual_i5_181.UWA-47_R2.fastq.gz
+    UWA-48:
+      R1: data/batch_3/NS.X0149.002.NEBNext_dual_i7_210---NEBNext_dual_i5_258.UWA-48_R1.fastq.gz
+      R2: data/batch_3/NS.X0149.002.NEBNext_dual_i7_210---NEBNext_dual_i5_258.UWA-48_R2.fastq.gz
+    UWA-49:
+      R1: data/batch_3/NS.X0149.001.NEBNext_dual_i7_100---NEBNext_dual_i5_100.UWA-49_R1.fastq.gz
+      R2: data/batch_3/NS.X0149.001.NEBNext_dual_i7_100---NEBNext_dual_i5_100.UWA-49_R2.fastq.gz
+    UWA-50:
+      R1: data/batch_3/NS.X0149.001.NEBNext_dual_i7_G6---NEBNext_dual_i5_G6.UWA-50_R1.fastq.gz
+      R2: data/batch_3/NS.X0149.001.NEBNext_dual_i7_G6---NEBNext_dual_i5_G6.UWA-50_R2.fastq.gz
+cluster-generic-cancel-nargs: 4000
+cluster-generic-status-cmd: status-sacct-robust.sh
+cluster-generic-submit-cmd: mkdir -p results/slurm_logs/{rule} && sbatch --cpus-per-task={threads}
+  --mem={resources.mem_mb} --time={resources.time} --job-name=smk-{rule}-{wildcards}
+  --output=results/slurm_logs/{rule}/{rule}-{wildcards}-%j.out --error=results/slurm_logs/{rule}/{rule}-{wildcards}-%j.err
+  --parsable
+cores: 960
 default-resources:
-  - time="02:00:00"
-  - mem_mb=4600
-restart-times: 0
+- time= 120
+- mem_mb= 4600
+- slurm_account= "def-schoen_cpu"
+- user= "socamero"
+executor: slurm
+jobs: 750
+keep-going: true
+latency-wait: 360
+local-cores: 1
 max-jobs-per-second: 10
 max-status-checks-per-second: 50
-local-cores: 1
-latency-wait: 120
-cores: 960
-jobs: 750
-keep-going: True
-rerun-incomplete: True
-printshellcmds: True
-use-envmodules: True
+printshellcmds: true
+rerun-incomplete: true
 rerun-trigger: mtime
-cluster-status: status-sacct-robust.sh
-cluster-cancel: scancel
-cluster-cancel-nargs: 4000
-
-
-
-
-
-
-set-threads:
-  map_reads: 8
-  multiqc_raw: 2
-  mark_remove_duplicates: 2
-  clip_overlapping_reads: 2
-  indel_list: 4
-  realign_indels: 8
-  estimate_depth: 4
-  plot_aggregate_depths: 4
-  angsd_raw_SNP: 8
-  ngsParalog_manhattan: 2
-  angsd_SFS_canonical_sites: 12
-  calculate_coverage_per_population_and_scaffold_hap1: 2
-  calculate_coverage_per_population_and_scaffold_hap2: 2
-  dupHMM_run_hap1: 2
-  dupHMM_run_hap2: 2
-  angsd_SFS_by_population_on_all_sites: 8
-  angsd_SFS_control_by_population_on_all_sites: 8
-  angsd_HWE_by_population_on_SNPs: 8
-  angsd_SFS_by_population_on_CDS_sites: 8
-  angsd_HWE_by_population_on_CDS_SNPs: 8
-  global_SFS_by_population: 40
-  fold_global_SFS_by_population: 40
-  global_SFS_control_by_population: 40
-  global_SFS_with_inbreeding_by_population: 40
-  extract_all_sites: 8
-  extract_all_sites_all_populations: 8
-  filter_all_sites_by_popln_calcLR: 2
-  filter_all_sites_by_popln_dupHMM: 2
-  filter_all_sites_all_populations_calcLR: 2
-  filter_all_sites_all_populations_dupHMM: 2
-  angsd_SNP_on_all_populations: 16
-  angsd_ngsF_by_population_on_SNPs: 8
-  PCAngsd_all_populations: 8
-
-
+restart-times: 0
 set-resources:
-  trim_reads:
-    time: "03:00:00"
-  multiqc_raw:
-    mem_mb: 6900
-    time: "04:00:00"
-  map_reads:
-    mem_mb: 23000
-    time: "143:59:00"
+  GONE_contemporary_Ne_analysis:
+    mem_mb: 13800
     threads: 8
-  mark_remove_duplicates:
-    mem_mb: 13800
-    time: "47:59:00"
-  clip_overlapping_reads: 
-    mem_mb: 13800
-    time: "2:00:00"
-  indel_list:
-    mem_mb: 13800
-    time: "23:59:00"
-  realign_indels:
-    mem_mb: 13800
-    time: "47:59:00"
-  estimate_depth:
-    mem_mb: 23000
-    threads: 4
-    time: "96:00:00"
-  plot_aggregate_depths:
-    mem_mb: 23000
-    threads: 4
-    time: "12:00:00"
-  ngsPara_hap1_scaffold_1:
-    mem_mb: 6900
-    time: "47:59:00"
-  ngsPara_hap2_scaffold_1:
-    mem_mb: 6900
-    time: "47:59:00"
-  angsd_raw_SNP:
-    mem_mb: 34400
-    time: "47:59:00"
-    threads: 8
-  ngsParalog_hap1:
-    mem_mb: 6900
-    time: "6:00:00"
-  ngsParalog_hap2:
-    mem_mb: 6900
-    time: "6:00:00"
-  ngsParalog_manhattan:
-    mem_mb: 13800
-    time: "2:00:00"
-    threads: 2
-  calculate_average_coverage_per_population:
-    mem_mb: 6900
-    time: "3:00:00"
-    threads: 2
-  calculate_coverage_per_population_and_scaffold_hap1:
-    mem_mb: 6900
-    time: "3:00:00"
-    threads: 2
-  calculate_coverage_per_population_and_scaffold_hap2:
-    mem_mb: 6900
-    time: "3:00:00"
-    threads: 2
-  filter_scaffold_lr_by_coverage_hap1:
-    time: "3:00:00"
-  filter_scaffold_lr_by_coverage_hap2:
-    time: "3:00:00"
-  dupHMM_run_hap1:
-    mem_mb: 13800
-    time: "23:59:00"
-    threads: 2
-  dupHMM_run_hap2:
-    mem_mb: 13800
-    time: "23:59:00"
-    threads: 2
-  aggregate_excess_heterozygotes_histograms_canonical:
-    mem_mb: 6900
-  angsd_SFS_by_population_on_all_sites:
-    mem_mb: 34400
-    time: "23:59:00"
-    threads: 8
-  angsd_SFS_control_by_population_on_all_sites:
-    mem_mb: 34400
-    time: "23:59:00"
-    threads: 8
-  angsd_HWE_by_population_on_SNPs:
-    mem_mb: 34400
-    time: "23:59:00"
-    threads: 8
-  angsd_HWE_by_population_on_CDS_SNPs:
-    mem_mb: 34400
-    time: "23:59:00"
-    threads: 8
-  angsd_SFS_by_population_on_CDS_sites:
-    mem_mb: 34400
-    time: "23:59:00"
-    threads: 8
-  global_SFS_by_population:
-    mem_mb: 149500
-    time: "47:59:00"
-    threads: 40
-  fold_global_SFS_by_population:
-    mem_mb: 149500
-    time: "47:59:00"
-    threads: 40
-  global_SFS_control_by_population:
-    mem_mb: 149500
-    time: "47:59:00"
-    threads: 40
-  fold_global_SFS_control_by_population:
-    mem_mb: 149500
-    time: "47:59:00"
-    threads: 40
-  global_SFS_by_population_CDS_sites:
-    mem_mb: 149500
-    time: "47:59:00"
-    threads: 40
-  fold_global_SFS_by_population_CDS_sites:
-    mem_mb: 149500
-    time: "47:59:00"
-    threads: 40
-  global_SFS_with_inbreeding_by_population:
-    mem_mb: 149500
-    time: "47:59:00"
-    threads: 40
-  extract_all_sites_by_popln:
-    mem_mb: 13800
-    time: "4:00:00"
-    threads: 8
-  filter_all_sites_by_popln_calcLR:
-    mem_mb: 13800
-    time: "3:00:00"
-    threads: 2
-  filter_all_sites_by_popln_dupHMM:
-    mem_mb: 13800
-    time: "3:00:00"
-    threads: 2
-  extract_all_sites_all_populations:
-    mem_mb: 34400
-    time: "71:59:00"
-    threads: 8
-  preprocess_bed_files_all_populations:
-    mem_mb: 6900
-    time: "2:00:00"
-  filter_all_sites_all_populations_calcLR:
-    mem_mb: 13800
-    time: "3:00:00"
-  filter_all_sites_all_populations_dupHMM:
-    mem_mb: 13800
-    time: "3:00:00"
-  angsd_SNP_on_all_populations:
-    mem_mb: 153000
-    time: "168:00:00"
-    threads: 16
-  angsd_ngsF_by_population_on_SNPs:
-    mem_mb: 34400
-    time: "23:59:00"
-    threads: 8
+    time: 360
   PCAngsd_all_populations:
     mem_mb: 34400
-    time: "28:00:00"
     threads: 8
-  hwe_histogram_dupHMM:
+    time: 420
+  aggregate_excess_heterozygotes_histograms_canonical:
+    mem_mb: 6900
+  angsd_HWE_by_population_on_CDS_SNPs:
+    mem_mb: 34400
+    threads: 8
+    time: 1440
+  angsd_HWE_by_population_on_control_SNPs:
+    mem_mb: 34400
+    threads: 8
+    time: 1440
+  angsd_HWE_by_population_on_dupHMM_SNPs:
+    mem_mb: 34400
+    threads: 8
+    time: 1440
+  angsd_SFS_by_population_on_CDS_sites:
+    mem_mb: 34400
+    threads: 8
+    time: 1440
+  angsd_SFS_by_population_on_all_sites:
+    mem_mb: 34400
+    threads: 8
+    time: 1920
+  angsd_SFS_control_by_population_on_all_sites:
+    mem_mb: 34400
+    threads: 8
+    time: 1920
+  angsd_for_EMU:
+    mem_mb: 153000
+    threads: 16
+    time: 10000
+  angsd_for_GONE:
+    mem_mb: 34400
+    threads: 8
+    time: 1440
+  angsd_for_PCAngsd:
+    mem_mb: 153000
+    threads: 16
+    time: 10000
+  angsd_for_bcftools_roh:
+    mem_mb: 6900
+    threads: 4
+    time: 240
+  angsd_for_ngsF:
+    mem_mb: 34400
+    threads: 8
+    time: 1440
+  angsd_for_ngsLD:
+    mem_mb: 34400
+    threads: 8
+    time: 1920
+  angsd_for_ngsRelate:
+    mem_mb: 34400
+    threads: 8
+    time: 1440
+  angsd_for_thetas:
+    mem_mb: 34400
+    threads: 8
+    time: 1920
+  angsd_raw_SNP:
+    mem_mb: 34400
+    threads: 8
+    time: 15000
+  angsd_raw_sites_all_poplns:
+    mem_mb: 86600
+    threads: 8
+    time: 4300
+  angsd_raw_sites_by_popln:
     mem_mb: 13800
-    time: "2:00:00"
+    threads: 8
+    time: 540
+  bcftools_annotate_vcf:
+    mem_mb: 6900
+    threads: 4
+    time: 240
+  bcftools_roh_across_samples:
+    mem_mb: 34400
+    threads: 24
+    time: 240
+  bcftools_roh_single_sample:
+    mem_mb: 34400
+    threads: 24
+    time: 240
+  clip_overlapping_reads:
+    mem_mb: 13800
+    threads: 4
+    time: 420
+  convert_raw_sites_all_poplns:
+    mem_mb: 68800
+    threads: 4
+    time: 420
+  dupHMM_run_hap1:
+    mem_mb: 13800
     threads: 2
+    time: 1440
+  dupHMM_run_hap2:
+    mem_mb: 13800
+    threads: 2
+    time: 1440
+  estimate_average_coverage_per_population:
+    mem_mb: 9200
+    threads: 4
+    time: 540
+  estimate_coverage_per_population_and_scaffold_hap1:
+    mem_mb: 9200
+    threads: 4
+    time: 540
+  estimate_coverage_per_population_and_scaffold_hap2:
+    mem_mb: 9200
+    threads: 4
+    time: 540
+  estimate_depth_hap1:
+    mem_mb: 23000
+    threads: 4
+    time: 2880
+  estimate_depth_hap2:
+    mem_mb: 23000
+    threads: 4
+    time: 2880
+  estimate_depth_per_round_per_scaffold:
+    mem_mb: 23000
+    threads: 4
+    time: 2880
+  estimate_fst_stats:
+    mem_mb: 13800
+    threads: 4
+    time: 120
+  estimate_theta_by_site:
+    mem_mb: 13800
+    threads: 4
+    time: 360
+  estimate_theta_sliding_window:
+    mem_mb: 13800
+    threads: 4
+    time: 360
+  fastqc:
+    mem_mb: 6900
+    threads: 2
+    time: 180
+  fastqc_raw:
+    mem_mb: 6900
+    threads: 2
+    time: 180
+  filter_all_sites_all_populations_calcLR:
+    mem_mb: 13800
+    time: 180
+  filter_all_sites_all_populations_dupHMM:
+    mem_mb: 13800
+    time: 180
+  filter_all_sites_by_popln_calcLR:
+    mem_mb: 13800
+    threads: 2
+    time: 180
+  filter_all_sites_by_popln_dupHMM:
+    mem_mb: 13800
+    threads: 2
+    time: 180
+  filter_scaffold_lr_by_coverage_hap1:
+    time: 180
+  filter_scaffold_lr_by_coverage_hap2:
+    time: 180
+  fold_global_SFS_by_population:
+    mem_mb: 149500
+    threads: 40
+    time: 240
+  fold_global_SFS_by_population_CDS_sites:
+    mem_mb: 149500
+    threads: 40
+    time: 240
+  fold_global_SFS_control_by_population:
+    mem_mb: 149500
+    threads: 40
+    time: 240
+  fold_global_SFS_theta_by_population:
+    mem_mb: 149500
+    threads: 40
+    time: 240
+  fst_analysis:
+    mem_mb: 149500
+    threads: 40
+    time: 1080
+  fst_prep_by_population:
+    mem_mb: 149500
+    threads: 40
+    time: 1080
+  global_SFS_by_population:
+    mem_mb: 149500
+    threads: 40
+    time: 240
+  global_SFS_by_population_CDS_sites:
+    mem_mb: 149500
+    threads: 40
+    time: 240
+  global_SFS_control_by_population:
+    mem_mb: 149500
+    threads: 40
+    time: 240
+  global_SFS_theta_by_population:
+    mem_mb: 149500
+    threads: 40
+    time: 240
+  global_SFS_with_inbreeding_by_population:
+    mem_mb: 149500
+    threads: 40
+    time: 240
+  hwe_histogram_control:
+    mem_mb: 13800
+    threads: 2
+    time: 120
+  indel_list:
+    mem_mb: 13800
+    time: 1440
+  index_bams:
+    mem_mb: 13800
+    time: 1440
+  index_bams_per_round:
+    mem_mb: 13800
+    time: 1440
+  map_reads:
+    mem_mb: 23000
+    threads: 8
+    time: 1800
+  mark_remove_duplicates:
+    mem_mb: 69000
+    time: 2880
+  merge_replicates:
+    mem_mb: 4600
+    time: 360
+  merge_bams:
+    mem_mb: 13800
+    threads: 4
+    time: 3360
+  merge_bams_per_round:
+    mem_mb: 13800
+    threads: 4
+    time: 2800
+  multiqc_raw:
+    mem_mb: 6900
+    time: 240
+  multiqc_trimmed:
+    mem_mb: 6900
+    time: 240
+  ngsF_HMM_analysis:
+    mem_mb: 13800
+    threads: 4
+    time: 360
+  ngsF_analysis:
+    mem_mb: 13800
+    threads: 4
+    time: 360
+  ngsPara_hap1_scaffold_1:
+    mem_mb: 6900
+    time: 2880
+  ngsPara_hap2_scaffold_1:
+    mem_mb: 6900
+    time: 2880
+  ngsParalog_hap1:
+    mem_mb: 6900
+    time: 360
+  ngsParalog_hap2:
+    mem_mb: 6900
+    time: 360
+  ngsParalog_manhattan:
+    mem_mb: 13800
+    threads: 2
+    time: 120
+  ngsRelate_analysis:
+    mem_mb: 34400
+    threads: 8
+    time: 120
+  ngsRelate_analysis_inbreeding:
+    mem_mb: 34400
+    threads: 4
+    time: 60
+  ngsRelate_prep:
+    mem_mb: 9200
+    threads: 4
+    time: 60
+  plot_aggregate_depths_hap1:
+    mem_mb: 149500
+    threads: 4
+    time: 720
+  plot_aggregate_depths_hap2:
+    mem_mb: 149500
+    threads: 4
+    time: 720
+  plot_depth_per_scaffold_hap1:
+    mem_mb: 149500
+    threads: 4
+    time: 720
+  plot_depth_per_scaffold_hap2:
+    mem_mb: 149500
+    threads: 4
+    time: 720
+  plot_ld:
+    mem_mb: 46000
+    time: 720
+  preprocess_bed_files_all_populations:
+    mem_mb: 6900
+    time: 120
+  realign_indels:
+    mem_mb: 13800
+    time: 1440
+  rohan_analysis:
+    mem_mb: 13800
+    threads: 4
+    time: 240
+  theta_prep_by_population:
+    mem_mb: 13800
+    threads: 8
+    time: 360
+  trim_reads:
+    time: 360
+set-threads:
+  GONE_contemporary_Ne_analysis: 8
+  PCAngsd_all_populations: 8
+  angsd_HWE_by_population_on_CDS_SNPs: 8
+  angsd_HWE_by_population_on_control_SNPs: 8
+  angsd_HWE_by_population_on_dupHMM_SNPs: 8
+  angsd_SFS_by_population_on_CDS_sites: 8
+  angsd_SFS_by_population_on_all_sites: 8
+  angsd_SFS_canonical_sites: 12
+  angsd_SFS_control_by_population_on_all_sites: 8
+  angsd_for_EMU: 16
+  angsd_for_GONE: 8
+  angsd_for_PCAngsd: 16
+  angsd_for_bcftools_roh: 4
+  angsd_for_ngsF: 8
+  angsd_for_ngsLD: 8
+  angsd_for_ngsRelate: 8
+  angsd_for_thetas: 8
+  angsd_raw_SNP: 8
+  bcftools_annotate_vcf: 4
+  bcftools_roh_across_samples: 24
+  bcftools_roh_single_sample: 24
+  clip_overlapping_reads: 4
+  convert_raw_sites_all_poplns: 4
+  dupHMM_run_hap1: 2
+  dupHMM_run_hap2: 2
+  estimate_coverage_per_population_and_scaffold_hap1: 2
+  estimate_coverage_per_population_and_scaffold_hap2: 2
+  estimate_depth_hap1: 4
+  estimate_depth_hap2: 4
+  estimate_depth_per_round_per_scaffold: 4
+  estimate_fst_stats: 4
+  estimate_theta_by_site: 4
+  estimate_theta_sliding_window: 4
+  extract_all_sites: 8
+  extract_all_sites_all_populations: 8
+  fastqc: 2
+  fastqc_raw: 2
+  filter_all_sites_all_populations_calcLR: 2
+  filter_all_sites_all_populations_dupHMM: 2
+  filter_all_sites_by_popln_calcLR: 2
+  filter_all_sites_by_popln_dupHMM: 2
+  fold_global_SFS_by_population: 40
+  fst_analysis: 40
+  fst_prep_by_population: 40
+  global_SFS_by_population: 40
+  global_SFS_control_by_population: 40
+  global_SFS_theta_by_population: 40
+  global_SFS_with_inbreeding_by_population: 40
+  indel_list: 4
+  map_reads: 8
+  mark_remove_duplicates: 2
+  merge_bams: 4
+  merge_bams_per_round: 4
+  multiqc_raw: 2
+  multiqc_trimmed: 2
+  ngsF_HMM_analysis: 4
+  ngsF_analysis: 4
+  ngsParalog_manhattan: 2
+  ngsRelate_analysis: 4
+  ngsRelate_analysis_inbreeding: 4
+  ngsRelate_prep: 4
+  plot_aggregate_depths_hap1: 4
+  plot_aggregate_depths_hap2: 4
+  plot_depth_per_scaffold_hap1: 4
+  plot_depth_per_scaffold_hap2: 4
+  plot_ld: 4
+  realign_indels: 8
+  rohan_analysis: 4
+  theta_prep_by_population: 4
+use-envmodules: true

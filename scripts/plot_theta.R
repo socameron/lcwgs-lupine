@@ -24,11 +24,19 @@ read_theta_data <- function(file_path) {
   theta_data <- theta_data %>% 
     select(window_position = WinCenter, tajimasD = TajimaD, nucleotide_diversity = tP, sites = nSites)
   
+  # Calculate the 15th percentile cutoff for nSites within this population
+  nSites_threshold <- quantile(theta_data$sites, 0.15, na.rm = TRUE)
+  
+  # Filter out the lowest 15% of nSites values
+  theta_data <- theta_data %>% filter(sites > nSites_threshold)
+
   return(theta_data)
 }
 
+
 # Initialize an empty data frame to combine data for all populations
 combined_theta_data <- data.frame()
+
 
 # Loop through populations and read their respective theta files
 for (pop in populations) {
@@ -97,10 +105,19 @@ custom_theme <- theme(panel.border = element_blank(),
                       legend.text = element_text(size=12), 
                       legend.title = element_text(size=10))
 
+mean_values <- combined_theta_data %>%
+  group_by(population) %>%
+  summarise(mean_diversity = mean(nucleotide_diversity/sites, na.rm = TRUE))
+
+median_values <- combined_theta_data %>%
+  group_by(population) %>%
+  summarise(median_diversity = median(nucleotide_diversity/sites, na.rm = TRUE))
+
+
 # Plotting boxplot for both Tajima's D and Nucleotide Diversity
 p_tajimasD <- combined_theta_data %>%
   filter(!sites == 0) %>%
-  ggplot(aes(x = population, y = tajimasD, fill = population)) +
+  ggplot(aes(x = population, y = tajimasD/sites, fill = population)) +
   geom_boxplot() +
   scale_fill_manual(values = population_colors) +
   labs(title = "Tajima's D across Populations", x = "Population", y = "Tajima's D") +
@@ -110,8 +127,10 @@ p_nucleotide_div <- combined_theta_data %>%
   filter(!sites == 0) %>% 
   ggplot(aes(x = population, y = nucleotide_diversity/sites, fill = population)) +
   geom_boxplot() +
+  geom_hline(data = mean_values, aes(yintercept = mean_diversity), color = "blue", linetype = "dashed", size = 0.5) +
+  geom_hline(data = median_values, aes(yintercept = median_diversity), color = "red", linetype = "solid", size = 0.5) +
   scale_fill_manual(values = population_colors) +
-  labs(title = "Nucleotide Diversity (π) across Populations", x = "Population", y = "Nucleotide Diversity (π)") +
+  labs(title = "Nucleotide Diversity (π) across Populations", x = "Population", y = "Nucleotide Diversity (θπ)") +
   custom_theme
 
 # Save the plots
@@ -124,8 +143,8 @@ threshold <- quantile(combined_theta_data$nucleotide_diversity, 0.90, na.rm = TR
 # Plotting violin plot for both Tajima's D and Nucleotide Diversity
 p_tajimasD_violin <- combined_theta_data %>%
   filter(!sites == 0) %>%
-  ggplot(aes(x = population, y = tajimasD, fill = population)) +
-  geom_violin() + # Create violin plot without trimming the tails
+  ggplot(aes(x = population, y = tajimasD/sites, fill = population)) +
+  geom_violin() + 
   stat_summary(fun = median, geom = "crossbar", width = 0.5, color = "black") +
   scale_fill_manual(values = population_colors) +
   labs(title = "Tajima's D across Populations", x = "Population", y = "Tajima's D") +
@@ -134,13 +153,15 @@ p_tajimasD_violin <- combined_theta_data %>%
 p_nucleotide_div_violin <- combined_theta_data %>%
   filter(!sites == 0) %>%
   ggplot(aes(x = population, y = log10(nucleotide_diversity/sites), fill = population)) +
-  geom_violin(width=1) + # Create violin plot without trimming the tails
+  geom_violin(width=1) + 
+  geom_hline(data = mean_values, aes(yintercept = mean_diversity), color = "blue", linetype = "dashed", size = 0.5) +
+  geom_hline(data = median_values, aes(yintercept = median_diversity), color = "red", linetype = "solid", size = 0.5) +
   stat_summary(fun = median, geom = "crossbar", width = 0.5, color = "black") +
   scale_fill_manual(values = population_colors) +
   #scale_y_continuous(breaks = seq(floor(min(combined_theta_data$nucleotide_diversity)), 
                               #ceiling(max(combined_theta_data$nucleotide_diversity)), 
                               #by = 10)) +  # Set y-axis breaks every 10 units
-  labs(title = "Nucleotide Diversity (π) across Populations", x = "Population", y = expression("log[10](π)")) +
+  labs(title = "Nucleotide Diversity (π) across Populations", x = "Population", y = expression("log[10](θπ)")) +
   custom_theme
 
 # Save the plots

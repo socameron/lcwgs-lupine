@@ -1,45 +1,192 @@
+###########################
+##    WILDCARDS SET-UP   ##
+###########################
+
 import os
 import glob
 import subprocess
 import pandas as pd
+import yaml
+import re
+import itertools
+from pathlib import Path
 
-# Define a function to extract the sample name from a fastq.gz filename
-def extract_sample_name(filename):
-    # Get the base filename without the directory
-    base_filename = os.path.basename(filename)
-    
-    # Split the filename by underscores
-    parts = base_filename.split('_')
-    
-    # Find the part that contains 'L001' and get the sample name before it
-    for i, part in enumerate(parts):
-        if 'L001' in part:
-            return '_'.join(parts[:i])
 
-# Defining wildcard for haplotype and sequence batch #
-wildcard_constraints:
-    hap = r'1|2',
-    batch = r'1|2'
 
-# Directory containing the fastq.gz files 
-# Change 1 to {batch}
-directory = "data/batch_1"
 
-# Get a list of all fastq.gz files in the directory
-fastq_files = glob.glob(os.path.join(directory, "*.fastq.gz"))
 
-# Initialize a set to store unique sample names
-SAMPLES = set()
 
-# Iterate over the fastq.gz files and extract sample names
-for filename in fastq_files:
-    sample_name = extract_sample_name(filename)
-    SAMPLES.add(sample_name)
+#### Functions to set up samples list in config from different sequencing batches
 
-# Convert the set to a sorted list for consistent order
-SAMPLES = sorted(list(SAMPLES))
-POPULATIONS = ("HPW", "IDNP-MW", "LCTGP", "MFNP", "PPP", "RLPLV", "SWCP")
-POPULATIONS2 = ("CSS", "FMB", "")
+# Rule to update the configuration file
+# The python script creates a list of sample names and their corresponding .fastq files for both reads R1 and R2
+rule update_config:
+  output:
+    "snakeprofile/config.yaml"
+  shell:
+    "python scripts/extract_lcWGS_samples.py"
+
+# Function to get samples from the config file
+def get_samples(batch):
+    with open("snakeprofile/config.yaml", 'r') as file:
+        config = yaml.safe_load(file)
+    return config['batches'][batch]
+
+# Function to get batches from the config file
+def get_batches():
+    with open("snakeprofile/config.yaml", 'r') as file:
+        config = yaml.safe_load(file)
+    return list(config['batches'].keys())
+
+# Function to get .fastq filenames from all 3 batches from the config file
+def get_fastq_paths(batch, sample, read):
+    with open("snakeprofile/config.yaml", 'r') as file:
+        config = yaml.safe_load(file)
+    if batch in config['batches'] and sample in config['batches'][batch]:
+        return config['batches'][batch][sample].get(read, f"data/{batch}/{sample}_L001_{read}_001.fastq.gz")
+    # Fallback for batch_1 and batch_2:
+    return f"data/{batch}/{sample}_L001_{read}_001.fastq.gz"
+
+# Ensure that the config is updated before any other rule runs
+# Get all batches from the config
+batches = get_batches()
+
+# Get samples for each batch
+samples_batch_1 = get_samples('batch_1')
+samples_batch_2 = get_samples('batch_2')
+samples_batch_3 = get_samples('batch_3')
+
+# Try using this for expand in rule all: 
+  #  [f"results/bam_raw/hap2/{batch}/{sample}_hap2.bam"
+  #   for batch in get_batches()
+  #   for sample in list(get_samples(batch).keys())],
+
+# Get basename of the fastq files
+def get_basename(batch, sample, read):
+    fastq_path = get_fastq_paths(batch, sample, read)
+    if fastq_path:
+        return os.path.basename(fastq_path).replace(".fastq.gz", "")
+    return f"{sample}_{read}"  # Fallback in case of missing file
+
+
+# Create list for fastqc outputs
+expected_fastqc_outputs = []
+
+for batch in get_batches():
+    for sample in get_samples(batch).keys():
+        # Compute the basenames from the full FASTQ paths.
+        # This should always return a non-None string.
+        r1_base = get_basename(batch, sample, "R1")
+        r2_base = get_basename(batch, sample, "R2")
+
+        expected_fastqc_outputs.extend([
+            f"results/fastqc_raw/{batch}/{r1_base}_fastqc.html",
+            f"results/fastqc_raw/{batch}/{r1_base}_fastqc.zip",
+            f"results/fastqc_raw/{batch}/{r2_base}_fastqc.html",
+            f"results/fastqc_raw/{batch}/{r2_base}_fastqc.zip"
+        ])
+
+
+
+#### Functions to set up lists of sample prefixes for merging .BAM files from different sequencing batches
+
+# List of haplotypes
+haps = ["1", "2"]
+
+# List of populations
+POPULATIONS = ["HPW", "IDNP-MW", "LCTGP", "MFNP", "PPP", "RLPLV", "SWCP", "APB", "BSL", "BSNA", "CPB", "FMB", "GRAY", "NBWA", "NGP", "PBBT", "RSB", "UWA"]
+
+# Extract the prefix of a sample name (e.g LCTGP-2)
+def extract_sample_prefix(sample_name):
+    for pop in POPULATIONS:
+        if sample_name.startswith(pop + "-"):
+            return sample_name.split("_")[0]
+    return sample_name
+
+
+# Find replicates across BAM files as inputs into merge_replicates rule
+def find_replicates(sample_prefix, hap):
+    """
+    Finds all BAM files for a given sample across batches.
+    Works for both batch_1/batch_2 (replicates) and batch_3 (single samples).
+    """
+    # Look for BAM files in batch_1, batch_2, batch_3
+    pattern = f"results/bam_raw/hap{hap}/batch*/{sample_prefix}*_hap{hap}.bam"
+    files = glob.glob(pattern, recursive=True)
+
+    # Debugging log
+    debug_path = f"debug/debug_find_replicates_{sample_prefix}_hap{hap}.txt"
+    with open(debug_path, "w") as f:
+        f.write(f"Pattern: {pattern}\n")
+        if files:
+            f.write("Found files:\n")
+            for file in files:
+                f.write(f"{file}\n")
+        else:
+            f.write("No files found.\n")
+
+    return files if files else []  # Return empty list instead of None
+
+# Get all unique sample prefixes by extracting from samples listed in config file
+def list_sample_prefixes():
+    samples_batch_1 = get_samples('batch_1')  # returns a dict of {sample_name: {...}}
+    samples_batch_2 = get_samples('batch_2')
+    samples_batch_3 = get_samples('batch_3')
+    # Combine sample names from all batches
+    all_samples = set(
+        list(samples_batch_1.keys()) +
+        list(samples_batch_2.keys()) +
+        list(samples_batch_3.keys())
+    )
+    # Now extract the prefix from each sample name using your extract_sample_prefix function.
+    sample_prefixes = {extract_sample_prefix(sample) for sample in all_samples}
+    return list(sample_prefixes)
+
+
+# List of sample prefixes
+sample_prefixes = list_sample_prefixes()
+   
+
+
+
+# Debugging: Write sample_prefixes and haps to files
+#with open("debug_sample_prefixes.txt", "w") as f:
+    #f.write("Sample Prefixes:\n")
+    #for sp in sample_prefixes:
+        #f.write(f"{sp}\n")
+
+#with open("debug_haps.txt", "w") as f:
+    #f.write("Haplotypes:\n")
+    #for hap in haps:
+        #f.write(f"{hap}\n")
+
+# Use sample prefixes and designate to a particular population
+def get_population_sample_prefixes(population):
+    # Get all sample prefixes from the existing list_sample_prefixes function
+    all_sample_prefixes = list_sample_prefixes()
+    # Filter the sample prefixes based on the population
+    population_sample_prefixes = [prefix for prefix in all_sample_prefixes if prefix.startswith(population)]
+    return population_sample_prefixes
+
+
+
+
+
+#### Functions to create scaffold names list per scaffold
+# Get first 24 scaffold names to later estimate LD per scaffold
+# Not using other scaffolds as they don't quite align to the expected 24 chromosomes
+
+rule get_scaffold_names:
+  input:
+    "data/reference/lupinehap1.fasta",
+    "data/reference/lupinehap2.fasta"
+  output:
+    "results/scaffolds/hap1_scaffolds.txt",
+    "results/scaffolds/hap2_scaffolds.txt"
+  shell:
+    """
+    python scripts/extract_24_scaffold_names_by_hap.py
+    """
 
 with open("results/scaffolds/hap1_scaffolds.txt", "r") as file:
     HAP1SCAFFOLDS = [line.strip() for line in file.readlines()]
@@ -59,45 +206,79 @@ def map_prefix_to_full_scaffold(prefix, hap_type):
     for scaffold in scaffold_list:
         if scaffold.startswith(prefix):
             return scaffold
-    return None  # Return None or an appropriate default if not found
+    return None  
+# Return None or an appropriate default if not found
 
+#### Bunch of parameters for using ngsParalog, Fst, ANGSD, etc
+
+
+# Varying levels of Bonferroni-Hotchberg correction for ngsParalog
 BH_VARS=[50,40,30,20,10,5]
 
+# Varying levels of site depth to check filter levels
+depth_params = [(50, 1500), (50, 2000), (50, 2500), (50, 3000), (100, 1500), (100, 2000), (100, 2500), (100, 3000)]
 
-# Update the SAMPLES list with merged sample names 
-# ONLY INCLUDE AFTER rule merge_replicates IS RUN. MUST RUN WORKFLOW AT 2 POINTS. !!!
-merged_samples = ["MFNP-48_2_269001_S193", "IDNP-MW-6_2_269002_S194", "RLPLV-13_2_269003_S195"]
-samples_to_remove = ["MFNP-48_2-2695929_S1", "MFNP-48_2-2697940_S99", "IDNP-MW-6_2-2698020_S129", "IDNP-MW-6_2-2698118_S177", "RLPLV-13_2-2696026_S48", "RLPLV-13_2-2696110_S82"]
-SAMPLES = set([sample for sample in SAMPLES if sample not in samples_to_remove])
-SAMPLES.update(merged_samples)
-SAMPLES = sorted(list(SAMPLES))
+# Varying levels of minor allele frequency cutoffs
+minMAF_params = [0.01, 0.001, 0.0001, 0.00001]
+
+# For identifying populatio pairs for Fst analysis
+POP_COMBINATIONS = list(itertools.combinations(POPULATIONS, 2))
+
+# These functions are necessary for bcftools/roh because it calls for specific .vcf files pertaining to each population. 
+# Function to expand VCF file paths
+def generate_vcf_files():
+    vcf_files = []
+    for population in POPULATIONS:
+        sample_prefixes = get_population_sample_prefixes(population)
+        vcf_files.extend(
+            [f"results/angsd/hap2/canonical/bcfROH_input/{population}/{prefix}_canonical_SNPs.vcf.gz" for prefix in sample_prefixes]
+        )
+    return vcf_files
+
+# Function to generate annotated BCF file paths
+def generate_annotated_vcfs():
+    annotated_vcfs = []
+    for population in POPULATIONS:
+        sample_prefixes = get_population_sample_prefixes(population)
+        annotated_vcfs.extend(
+            [f"results/bcftools/hap2/roh_analysis/{population}/{prefix}_annotated.vcf.gz" for prefix in sample_prefixes]
+        )
+    return annotated_vcfs
+
+# Use *generate_vcf_files() or *generate_annotated_vcfs()
+
 
 ###########################
 ## BEGINNING OF WORKFLOW ##
 ###########################
 
 
-# final files desired (can change)
+# Expand the final files using the updated configuration
 rule all:
   input:
-    expand("results/bam_realign/hap{hap}/{sample}_hap{hap}_realign.bam", hap=(1,2), sample=SAMPLES)
+    expand("results/bam_realign/hap2/{sample_prefix}_hap2_realign.bam", sample_prefix=sample_prefixes),
+    expand("results/depths/hap2/{hap2scaffold_prefix}_depth_est.txt.gz", hap2scaffold_prefix = HAP2SCAFFOLD_PREFIXES),
+    "results/bam_merge/hap2/first_round_hap2.bam.bai",
+    expand("results/depths/hap2/first_round/scaffold/{hap2scaffold_prefix}_depth_est.txt.gz", hap2scaffold_prefix = HAP2SCAFFOLD_PREFIXES)
 
+    
 
+##########################
 #### DATA PREPARATION ####
+##########################
 
-# Trim adapter ends off each sequence file using Trimmomatic 
-# When batch 2 is available, use wildcard {batch}
+# Trim adapter ends off each sequence file using Trimmomatic
 rule trim_reads:
   input:
-    r1="data/batch_1/{sample}_L001_R1_001.fastq.gz",
-    r2="data/batch_1/{sample}_L001_R2_001.fastq.gz",
+    r1=lambda wildcards: get_fastq_paths(wildcards.batch, wildcards.sample, "R1"),
+    r2=lambda wildcards: get_fastq_paths(wildcards.batch, wildcards.sample, "R2")
   output:
-    r1="results/fastq_trimmed/batch_1/{sample}_R1.fastq.gz",
-    r1_unp="results/fastq_trimmed/batch_1/{sample}_R1_unpaired.fastq.gz",
-    r2="results/fastq_trimmed/batch_1/{sample}_R2.fastq.gz",
-    r2_unp="results/fastq_trimmed/batch_1/{sample}_R2_unpaired.fastq.gz"
+    r1="results/fastq_trimmed/{batch}/{sample}_R1.fastq.gz",
+    r1_unp="results/fastq_trimmed/{batch}/{sample}_R1_unpaired.fastq.gz",
+    r2="results/fastq_trimmed/{batch}/{sample}_R2.fastq.gz",
+    r2_unp="results/fastq_trimmed/{batch}/{sample}_R2_unpaired.fastq.gz"
   log:
-    "results/logs/trim_reads/{sample}.log"
+    "results/logs/trim_reads/{batch}/{sample}.log"
   envmodules:
     "trimmomatic/0.39"
   params:
@@ -105,81 +286,127 @@ rule trim_reads:
   shell:
     "java -jar $EBROOTTRIMMOMATIC/trimmomatic-0.39.jar PE {input.r1} {input.r2} "
     "{output.r1} {output.r1_unp} {output.r2} {output.r2_unp} "
-    "ILLUMINACLIP:{params.adapters}:2:30:10 "
+    "ILLUMINACLIP:{params.adapters}:2:30:10:1 " #previously had ':True' but this failed even though there's documentation of this online
     "LEADING:3 "
     "TRAILING:3 "
-    "SLIDINGWINDOW:4:15 "
+    "SLIDINGWINDOW:4:15 " # removes low quality bases
     "MINLEN:36 2> {log}"
 
 
-# Unzip trimmed files as fastqc 0.12.0 cannot properly read compressed files
+# Unzip trimmed files as fastqc 0.12.0 cannot properly read compressed files. 
+# Tried with 0.12.1 and it works!
 rule unzip_files:
   input:
-    zipped_r1="results/fastq_trimmed/batch_1/{sample}_R1.fastq.gz",
-    zipped_r2="results/fastq_trimmed/batch_1/{sample}_R2.fastq.gz"
+    zipped_r1="results/fastq_trimmed/{batch}/{sample}_R1.fastq.gz",
+    zipped_r2="results/fastq_trimmed/{batch}/{sample}_R2.fastq.gz"
   output: 
-    unzipped_r1="results/fastq_trimmed_unzip/batch_1/{sample}_R1.fastq",
-    unzipped_r2="results/fastq_trimmed_unzip/batch_1/{sample}_R2.fastq"
+    unzipped_r1="results/fastq_trimmed_unzip/{batch}/{sample}_R1.fastq",
+    unzipped_r2="results/fastq_trimmed_unzip/{batch}/{sample}_R2.fastq"
   shell:
     "gunzip -c {input.zipped_r1} > {output.unzipped_r1} && gunzip -c {input.zipped_r2} > {output.unzipped_r2}"
 
-
 # Run FastQC per each trimmed sequence file
+# Attempting zipped files since using fastqc/0.12.1
 rule fastqc:
   input:
-    fastq_r1="results/fastq_trimmed_unzip/batch_1/{sample}_R1.fastq",
-    fastq_r2="results/fastq_trimmed_unzip/batch_1/{sample}_R2.fastq"
+    fastq_r1="results/fastq_trimmed/{batch}/{sample}_R1.fastq.gz",
+    fastq_r2="results/fastq_trimmed/{batch}/{sample}_R2.fastq.gz"
   output:
-    html_report_r1="results/fastqc/batch_1/{sample}_R1_fastqc.html",
-    zip_report_r1="results/fastqc/batch_1/{sample}_R1_fastqc.zip",
-    html_report_r2="results/fastqc/batch_1/{sample}_R2_fastqc.html",
-    zip_report_r2="results/fastqc/batch_1/{sample}_R2_fastqc.zip"
+    html_report_r1="results/fastqc/{batch}/{sample}_R1_fastqc.html",
+    zip_report_r1="results/fastqc/{batch}/{sample}_R1_fastqc.zip",
+    html_report_r2="results/fastqc/{batch}/{sample}_R2_fastqc.html",
+    zip_report_r2="results/fastqc/{batch}/{sample}_R2_fastqc.zip"
+  log:
+    path="results/logs/fastQC/{batch}/{sample}.log"
   envmodules:
-    "fastqc/0.12.0"
+    "fastqc/0.12.1"
   shell:
-    "fastqc {input.fastq_r1} {input.fastq_r2} --outdir results/fastqc"
+    "fastqc {input.fastq_r1} {input.fastq_r2} --outdir results/fastqc/{wildcards.batch} 2> {log.path}"
 
+# A little different from above because using the raw fastq paths as well as deriving the filenames to get expected fastqc outputs
+# Call in rule all with: expected_fastqc_outputs (this is a predetermined list from above)
+rule fastqc_raw:
+  input:
+    fastq_r1=lambda wildcards: get_fastq_paths(wildcards.batch, wildcards.sample, "R1"),
+    fastq_r2=lambda wildcards: get_fastq_paths(wildcards.batch, wildcards.sample, "R2")
+  output:
+    html_report_r1="results/fastqc_raw/{batch}/{sample}_R1_fastqc.html",
+    zip_report_r1="results/fastqc_raw/{batch}/{sample}_R1_fastqc.zip",
+    html_report_r2="results/fastqc_raw/{batch}/{sample}_R2_fastqc.html",
+    zip_report_r2="results/fastqc_raw/{batch}/{sample}_R2_fastqc.zip"
+  params:
+    # Compute the default names produced by fastqc from the full input filenames.
+    r1_default=lambda wildcards: os.path.basename(get_fastq_paths(wc.batch, wc.sample, "R1")).replace(".fastq.gz", ""),
+    r2_default=lambda wildcards: os.path.basename(get_fastq_paths(wc.batch, wc.sample, "R2")).replace(".fastq.gz", "")
+  log:
+    path="results/logs/fastQC_raw/{batch}/{sample}.log"
+  envmodules:
+    "fastqc/0.12.1"
+  shell:
+    """
+    # Run FastQC: it will produce files named like:
+    #   {params.r1_default}_fastqc.html and {params.r1_default}_fastqc.zip
+    #   for read 1, and similarly for read 2.
+    fastqc {input.fastq_r1} {input.fastq_r2} --outdir results/fastqc_raw/{wildcards.batch} 2> {log.path}
+    
+    # Rename the outputs to use your config sample name (the shortened version)
+    mv results/fastqc_raw/{wildcards.batch}/{params.r1_default}_fastqc.html {output.html_report_r1}
+    mv results/fastqc_raw/{wildcards.batch}/{params.r1_default}_fastqc.zip  {output.zip_report_r1}
+    mv results/fastqc_raw/{wildcards.batch}/{params.r2_default}_fastqc.html {output.html_report_r2}
+    mv results/fastqc_raw/{wildcards.batch}/{params.r2_default}_fastqc.zip  {output.zip_report_r2}
+    """
 
 # Create an aggregated FastQC report using MultiQC.
-# Note that we create separate MultiQC reports for both batch 1 and 2
+# Note that we create separate MultiQC reports for batch 1 to 3; and .fastqc files must exist prior to calling it on snakemake
+rule multiqc_trimmed:
+  input:
+    fastqc_dir="results/fastqc/{batch}"
+  output:
+    html_report="results/multiqc/multiqc_report_trimmed_{batch}.html"
+  log:
+    path="results/logs/multiqc/{batch}.log"
+  params:
+    fastqc_dir="results/fastqc/{batch}"
+  shell:
+    "multiqc -n {output.html_report} {input.fastqc_dir} 2> {log.path}"
+
 rule multiqc_raw:
   input:
-    fastqc_dir="results/fastqc/batch_1"
+    fastqc_dir="results/fastqc_raw/{batch}"
   output:
-    html_report="results/multiqc/multiqc_raw/multiqc_report_batch_1.html"
+    html_report="results/multiqc_raw/multiqc_report_raw_{batch}.html"
+  log:
+    path="results/logs/multiqc_raw/{batch}.log"
   params:
-    output_dir="results/multiqc/multiqc_raw"
+    fastqc_dir="results/fastqc_raw/{batch}"
   shell:
-    "multiqc -o {params.output_dir} {input.fastqc_dir} "
-
+    "multiqc -n {output.html_report} {input.fastqc_dir} 2> {log.path}"
 
 # Creating faidx index for reference genome
 rule faidx_reference:
   input:
-    "data/reference/hap{hap}/lupinehap{hap}.fasta",
+    "data/reference/hap{hap}/lupinehap{hap}.fasta"
   output:
-    "data/reference/hap{hap}/lupinehap{hap}.fasta.fai",
+    "data/reference/hap{hap}/lupinehap{hap}.fasta.fai"
   log:
-    "results/logs/refgen/lupinehap{hap}_faidx.log",
+    "results/logs/refgen/lupinehap{hap}_faidx.log"
   envmodules:
-    "samtools/1.17"
+    "samtools/1.20"
   shell:
-    "samtools faidx {input} 2> {log} "
-
+    "samtools faidx {input} 2> {log}"
 
 # Rules for indexing reference genomes (haplotypes 1 and 2)
 rule index_reference:
   input:
     "data/reference/hap{hap}/lupinehap{hap}.fasta"
   output:
-    multiext("data/reference/hap{hap}/lupinehap{hap}.fasta", ".amb", ".ann", ".bwt", ".pac", ".sa"),
+    multiext("data/reference/hap{hap}/lupinehap{hap}.fasta", ".amb", ".ann", ".bwt", ".pac", ".sa")
   log:
     "results/logs/refgen/lupinehap{hap}_bwa_index.log"
   envmodules:
-    "bwa/0.7.17"
+    "bwa/0.7.18"
   shell:
     "bwa index {input} 2> {log}"
-
 
 # Rules for creating dictionary files
 rule create_dict:
@@ -190,126 +417,160 @@ rule create_dict:
   log:
     "results/logs/refgen/hap{hap}_dict.log"
   envmodules:
-    "samtools/1.17"
+    "samtools/1.20"
   shell:
     "samtools dict {input} > {output} 2> {log}"
 
-
 # Removing reads smaller than 70bp so 'bwa mem' works better
-rule remove_short_reads_fastq:
+# Note for a read to be kept, it must be greater than 70bp in BOTH read 1 and 2.
+# There are some tools available in envmodules 'seqkit', but I found none that were compatible
+rule filter_short_reads_with_seqkit:
   input:
-    r1="results/fastq_trimmed/batch_1/{sample}_R1.fastq.gz",
-    r2="results/fastq_trimmed/batch_1/{sample}_R2.fastq.gz"
-    output:
-    r1_filtered="results/fastq_filtered/batch_1/{sample}_R1_filtered.fastq.gz",
-    r2_filtered="results/fastq_filtered/batch_1/{sample}_R2_filtered.fastq.gz"
-  log:
-    "results/logs/fastq_filter/batch_1/{sample}_filter_fastq.log"
+    r1="results/fastq_trimmed/{batch}/{sample}_R1.fastq.gz",
+    r2="results/fastq_trimmed/{batch}/{sample}_R2.fastq.gz"
+  output:
+    r1_filtered="results/fastq_filtered/{batch}/{sample}_R1_filtered.fastq.gz",
+    r2_filtered="results/fastq_filtered/{batch}/{sample}_R2_filtered.fastq.gz"
   envmodules:
+    "StdEnv/2020",
     "seqkit/2.3.1"
+  log:
+    "results/logs/filter_fastq_70bp/{batch}/{sample}_filter_fastq.log"
   shell:
     """
     seqkit seq -m 70 {input.r1} | gzip > {output.r1_filtered}
     seqkit seq -m 70 {input.r2} | gzip > {output.r2_filtered}
     """
 
+# Pair filtered reads back together
+# Note: naming convention stays the same! Just different folder
+rule pair_filtered_reads:
+  input:
+    r1_filtered="results/fastq_filtered/{batch}/{sample}_R1_filtered.fastq.gz",
+    r2_filtered="results/fastq_filtered/{batch}/{sample}_R2_filtered.fastq.gz"
+  output:
+    r1_paired="results/fastq_paired/{batch}/{sample}_R1_filtered.fastq.gz",
+    r2_paired="results/fastq_paired/{batch}/{sample}_R2_filtered.fastq.gz"
+  envmodules:
+    "StdEnv/2020",
+    "seqkit/2.3.1"
+  log:
+    "results/logs/pair_fastq_70bp/{batch}/{sample}_pair_fastq.log"
+  shell:
+    """
+    seqkit pair \
+    -1 {input.r1_filtered} \
+    -2 {input.r2_filtered} \
+    -O results/fastq_paired/{wildcards.batch}
+    """
 
-# Mapping/Aligning reads to haplotypes
+# NOTE: Prior to mapping, some people like to merge fastqs from the same individual/library and remove PCR duplicates prior to mapping using SuperDeduper from HTStream (last used 2020)
+# This might be helpful in reducing heterozygote excess
+# I have opted not to do this yet as it may be outdated.
+
+# Mapping/Aligning reads to reference haplotypes
 rule map_reads:
   input:
-    r1="results/fastq_filtered/batch_1/{sample}_R1.fastq.gz",
-    r2="results/fastq_filtered/batch_1/{sample}_R2.fastq.gz",
+    r1="results/fastq_paired/{batch}/{sample}_R1_filtered.fastq.gz",
+    r2="results/fastq_paired/{batch}/{sample}_R2_filtered.fastq.gz",
     genome="data/reference/hap{hap}/lupinehap{hap}.fasta",
     idx=multiext("data/reference/hap{hap}/lupinehap{hap}.fasta", ".amb", ".ann", ".bwt", ".pac", ".sa")
   output:
-    "results/bam_raw/hap{hap}/{sample}_hap{hap}.bam"
+    "results/bam_raw/hap{hap}/{batch}/{sample}_hap{hap}.bam"
   log:
-    "results/logs/map_reads/hap{hap}/{sample}_hap{hap}.log"
+    "results/logs/map_reads/hap{hap}/{batch}/{sample}_hap{hap}.log"
   envmodules:
-    "bwa/0.7.17",
-    "samtools/1.17"
+    "bwa/0.7.18",
+    "samtools/1.20"
   threads: 8 
   params:
     RG="-R '@RG\\tID:{sample}\\tSM:{sample}\\tPL:ILLUMINA' "
-    # Excluded information on flowcell, lane, and barcode index b/c not thought necessary
   shell:
-    " (bwa mem {params.RG} -t {threads} {input.genome} {input.r1} {input.r2} | "
-    " samtools view -u | "
-    " samtools sort - > {output}) 2> {log}"
+    """
+    (bwa mem {params.RG} -t {threads} {input.genome} {input.r1} {input.r2} |\
+    samtools view -u |\
+    samtools sort - > {output}) 2> {log}
+    """
+
+# To call 'raw' .bam files, we use the get_fastq_paths function in previous rules because the naming conventions are different between batch_1/batch_2 and batch_3. 
+# In rule all, you can call:
+    #[f"results/bam_raw/hap2/{batch}/{sample}_hap2.bam"
+     #for batch in get_batches()
+     #for sample in list(get_samples(batch).keys())],
 
 
-
-
-
-
-
-
-
-
-
-
+##############################
+#### DATA QUALITY CONTROL ####
+##############################
 
 #### DATA QUALITY CONTROL ####
 
 # Steps in QC :
   # 1. Mark PCR and optical duplicates
-  # 2. Identify paralogous regions due to duplication events
+  # 2. Produce HWE and SFS plots to evaluate mapping problems
+  # 3. Identify paralogous regions causing mapping problems
       # - Requires ngsParalog and 1st run of ANGSD
       # - ANGSD: SNP call and input SNPs (aka polymorphic sites) into ngsParalog
       # - ngsParalog: probablistic call of paralogous regions
       # - After ngsParalog, calculate p-values based on chi-sq df = 1 with Benjamini-Hochberg correction
-  # 3. Verify heterozygote excess is reduced
+  # 4. Verify heterozygote excess is reduced
       # - Re-run ANGSD excluding paralogous regions and PCR duplicates
-      #   - Visualize SFS
+      # - Visualize SFS
 
 ## STEP 1: MERGE REPLICATES & MARK PCR & OPTICAL DUPLICATES 
 
-# Merge replicates
+
+# merge replicates if found, otherwise rename and move to hap{hap}/merged/
 rule merge_replicates:
   input:
-    MFNP_48A="results/bam_raw/hap{hap}/MFNP-48_2-2695929_S1_hap{hap}.bam",
-    MFNP_48B="results/bam_raw/hap{hap}/MFNP-48_2-2697940_S99_hap{hap}.bam",
-    IDNP_6A="results/bam_raw/hap{hap}/IDNP-MW-6_2-2698020_S129_hap{hap}.bam",
-    IDNP_6B="results/bam_raw/hap{hap}/IDNP-MW-6_2-2698118_S177_hap{hap}.bam",
-    RLPLV_13A="results/bam_raw/hap{hap}/RLPLV-13_2-2696026_S48_hap{hap}.bam",
-    RLPLV_13B="results/bam_raw/hap{hap}/RLPLV-13_2-2696110_S82_hap{hap}.bam"
+    lambda wildcards: find_replicates(wildcards.sample_prefix, wildcards.hap)
   output:
-    MFNP_48="results/bam_raw/hap{hap}/MFNP-48_2_269001_S193_hap{hap}.bam",
-    IDNP_6="results/bam_raw/hap{hap}/IDNP-MW-6_2_269002_S194_hap{hap}.bam",
-    RLPLV_13="results/bam_raw/hap{hap}/RLPLV-13_2_269003_S195_hap{hap}.bam"
-  params:
-    archive="results/bam_raw/archive/hap{hap}"
+    "results/bam_raw/hap{hap}/merged/{sample_prefix}_hap{hap}.bam"
+  log:
+    "results/logs/merge_replicates/hap{hap}/{sample_prefix}_hap{hap}.log"
   envmodules:
     "samtools/1.17"
   shell:
     """
-    samtools merge -o {output.MFNP_48} {input.MFNP_48A} {input.MFNP_48B}
-    samtools merge -o {output.IDNP_6} {input.IDNP_6A} {input.IDNP_6B}
-    samtools merge -o {output.RLPLV_13} {input.RLPLV_13A} {input.RLPLV_13B}
-    mkdir -p {params.archive}
-    mv {input.MFNP_48A} {input.MFNP_48B} {input.IDNP_6A} {input.IDNP_6B} {input.RLPLV_13A} {input.RLPLV_13B} {params.archive}
+    module load StdEnv/2020
+    module load samtools/1.17
+    echo "Input files: {input}" >> {log}
+    echo "Output file: {output}" >> {log}
+    
+    if [ -z "{input}" ]; then
+      echo "No files found for {wildcards.sample_prefix} in hap{wildcards.hap}" >> {log}
+      exit 1
+    elif [ $(echo {input} | wc -w) -eq 1 ]; then
+      echo "Single file found for {wildcards.sample_prefix}, {wildcards.hap}, copying it to 'merged' folder." >> {log}
+      cp {input} {output}
+    else
+      echo "Multiple files found for {wildcards.sample_prefix}, {wildcards.hap}. Merging..." >> {log}
+      samtools merge -f -o {output} {input} 2>> {log}
+    fi
+    sync
     """
 
 
 
 # Marking and removing PCR duplicates + index
 # Note that: /bam_mkdup/ is where marked duplicates are marked but not removed. This is backed up in the projects folder.
+# marked duplicates will be removed downstream in ANGSD
 rule mark_remove_duplicates:
   input:
-    "results/bam_raw/hap{hap}/{sample}_hap{hap}.bam"
+    raw_bam="results/bam_raw/hap{hap}/merged/{sample_prefix}_hap{hap}.bam"
   output:
-    bam="results/bam_mkdup/hap{hap}/{sample}_hap{hap}_mkdup.bam",
-    bai="results/bam_mkdup/hap{hap}/{sample}_hap{hap}_mkdup.bai",
-    metrics="results/qc/mkdup_metrics/{sample}_hap{hap}.metrics"
+    bam="results/bam_mkdup/hap{hap}/{sample_prefix}_hap{hap}_mkdup.bam",
+    bai="results/bam_mkdup/hap{hap}/{sample_prefix}_hap{hap}_mkdup.bai",
+    metrics="results/qc/mkdup_metrics/{sample_prefix}_hap{hap}.metrics"
   log:
-    "results/logs/mark_remove_duplicates/hap{hap}/{sample}_hap{hap}.log"
+    "results/logs/mark_remove_duplicates/hap{hap}/{sample_prefix}_hap{hap}.log"
   envmodules:
-    "gatk/4.2.5.0"
+    "gatk/4.4.0.0"
   shell:
     """
     gatk MarkDuplicates \
     --CREATE_INDEX \
-    -I {input} \
+    -I {input.raw_bam} \
     -O {output.bam} \
     -M {output.metrics} \
     --REMOVE_DUPLICATES true \
@@ -318,44 +579,86 @@ rule mark_remove_duplicates:
 
 
 # Clip overlapping reads
+# Previous we loaded packages nixpkgs/16.09 intel/2018.3 to run bamutil/1.0.14 but these might be depreciated with new changes to the Supercomputer
+# We use samtools/1.18 because it is compatible with the output of bamutil/1.0.14
 rule clip_overlapping_reads:
   input:
-    bam="results/bam_mkdup/hap{hap}/{sample}_hap{hap}_mkdup.bam"
+    bam="results/bam_mkdup/hap{hap}/{sample_prefix}_hap{hap}_mkdup.bam"
   output:
-    clipped_bam="results/bam_clipped/hap{hap}/{sample}_hap{hap}_clipped.bam",
-    clipped_index="results/bam_clipped/hap{hap}/{sample}_hap{hap}_clipped.bai"
+    clipped_bam="results/bam_clipped/hap{hap}/{sample_prefix}_hap{hap}_clipped.bam",
+    clipped_index="results/bam_clipped/hap{hap}/{sample_prefix}_hap{hap}_clipped.bai"
   log:
-    "results/logs/clip_overlap/hap{hap}/{sample}_clip_overlapping_reads.log"
+    "results/logs/clip_overlap/hap{hap}/{sample_prefix}_clip_overlapping_reads.log"
   shell:
     """
     module --force purge
-    module load nixpkgs/16.09 intel/2018.3
+    module load StdEnv/2020
     module load bamutil/1.0.14
-    bam clipOverlap --in {input.bam} --out {output.clipped_bam} 2> {log}
+    bam clipOverlap --in {input.bam} --out {output.clipped_bam} 2> {log} || true
     module --force purge
     module load StdEnv/2023 samtools/1.18
-    samtools index -b {output.clipped_bam} -o {output.clipped_index} --threads 2
+    samtools index -b {output.clipped_bam} -o {output.clipped_index} --threads 4
     module --force purge
     """
 
+# After downstream analyses (admixture), it appears that LCTGP-19 and SWCP-19 are mislabeled and need to swap names.
+# The first and second raw reads (fastq files) for both SWCP-19 and LCTGP-19 still match. It was just mislabelled at the sequencing step!
+rule rename_specific_bam_files:
+  input:
+    lctgp_bam="results/bam_clipped/hap{hap}/LCTGP-19_hap{hap}_clipped.bam",
+    lctgp_bai="results/bam_clipped/hap{hap}/LCTGP-19_hap{hap}_clipped.bai",
+    swcp_bam="results/bam_clipped/hap{hap}/SWCP-19_hap{hap}_clipped.bam",
+    swcp_bai="results/bam_clipped/hap{hap}/SWCP-19_hap{hap}_clipped.bai"
+  output:
+    checkpoint="results/checkpoints/hap{hap}/rename_specific_files_checkpoint.txt"
+  log:
+    "results/logs/rename_specific_files/hap{hap}/rename_specific_files.log"
+  shell:
+    """
+    # Temporary files to avoid overwriting
+    tmp_lctgp_bam="results/bam_clipped/hap{wildcards.hap}/LCTGP-19_temp.bam"
+    tmp_lctgp_bai="results/bam_clipped/hap{wildcards.hap}/LCTGP-19_temp.bai"
+    tmp_swcp_bam="results/bam_clipped/hap{wildcards.hap}/SWCP-19_temp.bam"
+    tmp_swcp_bai="results/bam_clipped/hap{wildcards.hap}/SWCP-19_temp.bai"
 
-# Create bam list per population for entry into realign indels
+    # Copy the files to temporary locations
+    cp {input.lctgp_bam} $tmp_lctgp_bam
+    cp {input.lctgp_bai} $tmp_lctgp_bai
+    cp {input.swcp_bam} $tmp_swcp_bam
+    cp {input.swcp_bai} $tmp_swcp_bai
+
+    # Rename LCTGP-19 to SWCP-19 and vice versa using the temporary files
+    mv $tmp_lctgp_bam results/bam_clipped/hap{wildcards.hap}/SWCP-19_hap{wildcards.hap}_clipped.bam
+    mv $tmp_lctgp_bai results/bam_clipped/hap{wildcards.hap}/SWCP-19_hap{wildcards.hap}_clipped.bai
+    mv $tmp_swcp_bam results/bam_clipped/hap{wildcards.hap}/LCTGP-19_hap{wildcards.hap}_clipped.bam
+    mv $tmp_swcp_bai results/bam_clipped/hap{wildcards.hap}/LCTGP-19_hap{wildcards.hap}_clipped.bai
+
+    # Remove the temporary files
+    rm -f $tmp_lctgp_bam $tmp_lctgp_bai $tmp_swcp_bam $tmp_swcp_bai
+
+    # Create a checkpoint file to indicate renaming is complete
+    echo "LCTGP-19 and SWCP-19 file names successfully swapped and renamed!" > {output.checkpoint}
+    """
+
+
+# Create bam list per population for entry into realign indels 
+# Set for haplotype 2
 rule generate_clipped_bam_list_per_population:
   input:
-    expand("results/bam_clipped/hap{hap}/{sample}_hap{hap}_clipped.bam", sample=SAMPLES, hap=(1,2)),
+    expand("results/bam_clipped/hap2/{sample_prefix}_hap2_clipped.bam", sample_prefix=sample_prefixes),
+    checkpoint="results/checkpoints/hap2/rename_specific_files_checkpoint.txt"
   output:
-    "data/lists/hap{hap}/{population}_clipped_hap{hap}.list"
+    "data/lists/hap2/{population}_clipped_hap2.list"
   wildcard_constraints:
     population="|".join(POPULATIONS)
   run:
     bam_files = input
     output_file = output[0]
     population = wildcards.population
-    hap = wildcards.hap
 
     with open(output_file, "w") as output:
         for bam_file in bam_files:
-            if population in bam_file and f"_hap{hap}_" in bam_file:
+            if population in bam_file and f"_hap2_" in bam_file:
                 output.write(f"{bam_file}\n")
 
 
@@ -384,16 +687,16 @@ rule indel_list:
     """
 
 
-# Realign reads around indels - necessary if using ANGSD
+# Realign reads around indels - not entirely necessary if using ANGSD
 rule realign_indels:
   input:
-    bam="results/bam_clipped/hap{hap}/{sample}_hap{hap}_clipped.bam",
+    bam="results/bam_clipped/hap{hap}/{sample_prefix}_hap{hap}_clipped.bam",
     ref="data/reference/hap{hap}/lupinehap{hap}.fasta",
-    intervals=lambda wildcards: "data/lists/hap" + wildcards.hap + "/" + next(pop for pop in POPULATIONS if pop in wildcards.sample) + f"_hap{wildcards.hap}_indels.intervals"
+    intervals=lambda wildcards: "data/lists/hap" + wildcards.hap + "/" + next(pop for pop in POPULATIONS if pop in wildcards.sample_prefix) + f"_hap{wildcards.hap}_indels.intervals"
   output:
-    realigned_bam="results/bam_realign/hap{hap}/{sample}_hap{hap}_realign.bam"
+    realigned_bam="results/bam_realign/hap{hap}/{sample_prefix}_hap{hap}_realign.bam"
   log:
-    "results/logs/realign_indels/hap{hap}/{sample}_hap{hap}_realign_indels.log"
+    "results/logs/realign_indels/hap{hap}/{sample_prefix}_hap{hap}_realign_indels.log"
   shell:
     """
     module --force purge
@@ -410,43 +713,1301 @@ rule realign_indels:
     """
 
 
-# Remove reads below ~70bp length
-rule remove_small_reads:
-  input: 
-    bam="results/bam_realign/hap{hap}/{sample}_hap{hap}_realign.bam"
-  output:
-    bam_qc1="results/bam_qc1/hap{hap}/{sample}_hap{hap}_qc1.bam"
-  log:
-    "results/logs/remove_small/hap{hap}/{sample}_hap{hap}_qc1.log"
-  envmodules:
-    "samtools/1.17"
-  shell:
-    """
-    samtools view -h -b -e 'length(seq) >= 70' {input.bam} > {output.bam_qc1} 2> {log}
-    """
-  
-
-# Estimate depth per bp per samplen
-rule estimate_depth:
+# Rule to create .txt file of BAM files for each haplotype
+# Only applies to hap2
+rule generate_bam_list_per_haplotype:
   input:
-    bam="results/bam_qc1/hap{hap}/{sample}_hap{hap}_qc1.bam"
+    expand("results/bam_realign/hap2/{sample_prefix}_hap2_realign.bam", sample_prefix=sample_prefixes)
   output:
-    depth="results/depths/hap{hap}/{sample}_hap{hap}_depth.txt"
+    "data/lists/hap2/all_realign_hap2.txt"
+  run:
+    bam_files = input
+    output_file = output[0]
+
+    with open(output_file, "w") as output:
+        for bam_file in bam_files:
+            if f"_hap2_" in bam_file:
+                output.write(f"{bam_file}\n")
+
+
+# Merge bams into batches 1+2 and 3 because of different sequencing platforms
+# Only applies to hap2
+rule generate_bam_list_per_round:
+  input:
+    expand("results/bam_realign/hap2/{sample_prefix}_hap2_realign.bam", sample_prefix=sample_prefixes)
+  output:
+    first_round="data/lists/hap2/first_round_hap2.txt",
+    second_round="data/lists/hap2/second_round_hap2.txt"
+  run:
+    first_round_bams = []
+    second_round_bams = []
+
+    # Define sequencing rounds
+    first_round_populations = {"HPW", "IDNP-MW", "LCTGP", "MFNP", "PPP", "RLPLV", "SWCP"}
+    
+    # Extract population name dynamically
+    def extract_population(sample_prefix):
+        for pop in POPULATIONS:
+            if sample_prefix.startswith(pop):
+                return pop  # Return the correct population name
+        return None  # If no match is found, which should not happen
+
+    for bam_file in input:
+        sample_prefix = bam_file.split("/")[-1].split("_hap")[0]  # Extract sample prefix
+        population = extract_population(sample_prefix)  # Get correct population
+
+        if population in first_round_populations:
+            first_round_bams.append(bam_file)
+        else:
+            second_round_bams.append(bam_file)
+
+    # Write BAM lists for each sequencing round
+    with open(output.first_round, "w") as f:
+        for bam in first_round_bams:
+            f.write(f"{bam}\n")
+
+    with open(output.second_round, "w") as f:
+        for bam in second_round_bams:
+            f.write(f"{bam}\n")
+
+
+# Merge all bams to estimate per sample depth
+rule merge_bams:
+  input:
+    bam_list="data/lists/hap{hap}/all_realign_hap{hap}.txt"
+  output:
+    merged_bam="results/bam_merge/hap{hap}/merged_hap{hap}.bam"
+  log:
+    "results/logs/merge_bams/merge_bam_{hap}.log"
   envmodules:
-    "samtools/1.17"
+    "samtools/1.20"
   shell:
     """
-    samtools depth -a {input.bam} > {output.depth}
+    samtools merge -b {input.bam_list} {output.merged_bam} 2> {log}
+    """
+
+rule index_bams:
+  input:
+    merged_bam="results/bam_merge/hap{hap}/merged_hap{hap}.bam"
+  output:
+    merged_bai="results/bam_merge/hap{hap}/merged_hap{hap}.bam.bai"
+  log:
+    "results/logs/merged_bams/index_bai_{hap}.log"
+  envmodules:
+    "samtools/1.20"
+  shell:
+    """
+    samtools index {input.merged_bam} {output.merged_bai} 2> {log}
+    """
+
+ruleorder: estimate_depth_per_round_per_scaffold > estimate_depth_hap2
+
+# Estimate depth per bp per sample
+# -d flag : set max-depth to infinity
+# -A flag : don't skip anamalous read pairs marked w/ FLAG but missing properly paired flag set
+# -q flag : minimum mapping quality
+# -Q flag : minimum base quality
+# -r flag : specify regions for pileup; needs indexed BAM files
+# -a flag : all positions including unused reference sequences
+# -f flag : faidx-indexed reference fasta file
+# -ff flag : exclude SECONDARY, QCFAIL, DUP
+# Note: previously used mpileup with all 189 .bam files, but now merged them as one file because the positions are different across samples with flag -s
+# Using ngsQC tools 'bamstats', created by Dr. Tyler Linderoth
+
+# Estimating depth per scaffold!
+rule estimate_depth_hap1:
+  input:
+    bam="results/bam_merge/hap1/merged_hap1.bam",
+    bai="results/bam_merge/hap1/merged_hap1.bam.bai",
+    ref="data/reference/hap1/lupinehap1.fasta"
+  output:
+    depth="results/depths/hap1/{hap1scaffold_prefix}_depth_est.txt.gz"
+  params:
+    hap1scaffold=lambda wildcards: map_prefix_to_full_scaffold(wildcards.hap1scaffold_prefix, 1)
+  envmodules:
+    "samtools/1.20"
+  shell:
+    """
+    bamstats {input.bam} -r {params.hap1scaffold}\
+    -A -d 77000000 -q 0 -Q 0 --ff UNMAP,SECONDARY,QCFAIL,DUP\
+    -s -aa -f {input.ref} | gzip > {output.depth}
+    """
+
+rule estimate_depth_hap2:
+  input:
+    bam="results/bam_merge/hap2/merged_hap2.bam",
+    bai="results/bam_merge/hap2/merged_hap2.bam.bai",
+    ref="data/reference/hap2/lupinehap2.fasta"
+  output:
+    depth="results/depths/hap2/{hap2scaffold_prefix}_depth_est.txt.gz"
+  params:
+    hap2scaffold=lambda wildcards: map_prefix_to_full_scaffold(wildcards.hap2scaffold_prefix, 2)
+  envmodules:
+    "samtools/1.20"
+  shell:
+    """
+    bamstats {input.bam} -r {params.hap2scaffold} \
+    -A -d 77000000 -q 0 -Q 0 --ff UNMAP,SECONDARY,QCFAIL,DUP \
+    -s -aa -f {input.ref} | gzip > {output.depth}
     """
 
 
-# Aggregate depth per population 
-rule aggregate_depths:
-    input:
-        depths=lambda wildcards: expand("results/depths/hap{{hap}}/{{sample}}_hap{{hap}}_depth.txt", sample=populations[wildcards.pop])
-    output:
-        aggregated_depth="results/depths/hap{hap}/{pop}_hap{hap}_aggregated_depth.txt"
-    shell:
-        """
-        python sum_depths.py {input.depths} > {output.aggregated_depth}
-        """
+# Merge bams per sequencing round (and platform)
+rule merge_bams_per_round:
+  input:
+    first_round_bams="data/lists/hap{hap}/first_round_hap{hap}.txt",
+    second_round_bams="data/lists/hap{hap}/second_round_hap{hap}.txt"
+  output:
+    first_round_merged="results/bam_merge/hap{hap}/first_round_hap{hap}.bam",
+    second_round_merged="results/bam_merge/hap{hap}/second_round_hap{hap}.bam"
+  log:
+    first_round_log="results/logs/merge_bams/first_round_hap{hap}.log",
+    second_round_log="results/logs/merge_bams/second_round_hap{hap}.log"
+  envmodules:
+    "samtools/1.20"
+  shell:
+    """
+    # Merge first round BAMs
+    if [ -s {input.first_round_bams} ]; then
+        samtools merge -b {input.first_round_bams} {output.first_round_merged} 2> {log.first_round_log}
+    fi
+
+    # Merge second round BAMs
+    if [ -s {input.second_round_bams} ]; then
+        samtools merge -b {input.second_round_bams} {output.second_round_merged} 2> {log.second_round_log}
+    fi
+    """
+
+
+rule index_bams_per_round:
+  input:
+    first_round_bam="results/bam_merge/hap{hap}/first_round_hap{hap}.bam",
+    second_round_bam="results/bam_merge/hap{hap}/second_round_hap{hap}.bam"
+  output:
+    first_round_bai="results/bam_merge/hap{hap}/first_round_hap{hap}.bam.bai",
+    second_round_bai="results/bam_merge/hap{hap}/second_round_hap{hap}.bam.bai"
+  log:
+    first_round_log="results/logs/index_bams/first_round_hap{hap}.log",
+    second_round_log="results/logs/index_bams/second_round_hap{hap}.log"
+  envmodules:
+    "samtools/1.20"
+  shell:
+    """
+    samtools index {input.first_round_bam} {output.first_round_bai} 2> {log.first_round_log}
+    samtools index {input.second_round_bam} {output.second_round_bai} 2> {log.second_round_log}
+    """
+
+# Only applies to hap2 
+rule estimate_depth_per_round_per_scaffold:
+  input:
+    first_round_bam="results/bam_merge/hap2/first_round_hap2.bam",
+    first_round_bai="results/bam_merge/hap2/first_round_hap2.bam.bai",
+    second_round_bam="results/bam_merge/hap2/second_round_hap2.bam",
+    second_round_bai="results/bam_merge/hap2/second_round_hap2.bam.bai",
+    ref="data/reference/hap2/lupinehap2.fasta"
+  output:
+    first_round_depth="results/depths/hap2/first_round/scaffold/{hap2scaffold_prefix}_depth_est.txt.gz",
+    second_round_depth="results/depths/hap2/second_round/scaffold/{hap2scaffold_prefix}_depth_est.txt.gz"
+  params:
+    hap2scaffold=lambda wildcards: map_prefix_to_full_scaffold(wildcards.hap2scaffold_prefix, 2)
+  envmodules:
+    "samtools/1.20"
+  shell:
+    """
+    # Estimate depth for first sequencing round per scaffold
+    bamstats {input.first_round_bam} -r {params.hap2scaffold} \
+    -A -d 77000000 -q 0 -Q 0 --ff UNMAP,SECONDARY,QCFAIL,DUP \
+    -s -aa -f {input.ref} | gzip > {output.first_round_depth}
+
+    # Estimate depth for second sequencing round per scaffold
+    bamstats {input.second_round_bam} -r {params.hap2scaffold} \
+    -A -d 77000000 -q 0 -Q 0 --ff UNMAP,SECONDARY,QCFAIL,DUP \
+    -s -aa -f {input.ref} | gzip > {output.second_round_depth}
+    """
+
+
+
+# Plot aggregated depths per sequencing rounds/platform
+rule plot_depth_per_round:
+  input:
+    first_round_depth=expand("results/depths/hap2/first_round/{hap2scaffold_prefix}_depth_est.txt.gz", hap2scaffold_prefix=HAP2SCAFFOLD_PREFIXES),
+    second_round_depth=expand("results/depths/hap2/second_round/{hap2scaffold_prefix}_depth_est.txt.gz", hap2scaffold_prefix=HAP2SCAFFOLD_PREFIXES)
+  output:
+    plot="results/plots/hap2/depths/depth_by_round_boxplot.png"
+  log:
+    "results/logs/plot_depth_per_round.log"
+  shell:
+    """
+    python scripts/plot_depths_by_round.py {input.first_round_depth} {input.second_round_depth} {output.plot} > {log} 2>&1
+    """
+
+
+
+# Plot aggregate depths per population
+rule plot_depth_per_scaffold_hap1:
+  input:
+    depth_file="results/depths/hap1/{hap1scaffold_prefix}_depth_est.txt.gz"
+  output:
+    plot="results/plots/hap1/depths/{hap1scaffold_prefix}_depth_histogram.png"
+  shell:
+    """
+    python scripts/plot_depths.py {input.depth_file} {output.plot}
+    """
+
+rule plot_depth_per_scaffold_hap2:
+  input:
+    depth_file="results/depths/hap2/{hap2scaffold_prefix}_depth_est.txt.gz"
+  output:
+    plot="results/plots/hap2/depths/{hap2scaffold_prefix}_depth_histogram.png"
+  shell:
+    """
+    python scripts/plot_depths.py {input.depth_file} {output.plot}
+    """
+
+rule plot_aggregate_depths_hap1:
+  input:
+    aggregated_depth=expand("results/depths/hap1/{hap1scaffold_prefix}_depth_est.txt.gz", hap1scaffold_prefix=HAP1SCAFFOLD_PREFIXES)
+  output:
+    plot="results/plots/hap1/depths/hap1_aggregate_depth_histogram.png"
+  shell:
+    """
+    python scripts/plot_depths_WG.py {input.aggregated_depth} {output.plot}
+    """
+
+rule plot_aggregate_depths_hap2:
+  input:
+    aggregated_depth=expand("results/depths/hap2/{hap2scaffold_prefix}_depth_est.txt.gz", hap2scaffold_prefix=HAP2SCAFFOLD_PREFIXES)
+  output:
+    plot="results/plots/hap2/depths/hap2_aggregate_depth_histogram.png"
+  shell:
+    """
+    python scripts/plot_depths_WG.py {input.aggregated_depth} {output.plot}
+    """
+
+
+
+## STEP 2: Quality control check of HWE and SFS
+
+# Rule to create .txt file of BAM files per population
+rule generate_bam_list_per_population:
+  input:
+    expand("results/bam_realign/hap{hap}/{sample_prefix}_hap{hap}_realign.bam", sample_prefix=sample_prefixes, hap=haps),
+  output:
+    "data/lists/hap{hap}/{population}_realign_hap{hap}.txt"
+  wildcard_constraints:
+    population="|".join(POPULATIONS)
+  run:
+    bam_files = input
+    output_file = output[0]
+    population = wildcards.population
+    hap = wildcards.hap
+
+    with open(output_file, "w") as output:
+        for bam_file in bam_files:
+            if population in bam_file and f"_hap{hap}_" in bam_file:
+                output.write(f"{bam_file}\n")
+
+# ANGSD by population:  To calculate SFS without ngsParalog filtering
+# We try different depth levels to get a better distribution of HWE. 
+
+rule angsd_SFS_control_by_population_on_all_sites:
+  input:
+    bam_list="data/lists/hap{hap}/{population}_realign_hap{hap}.txt"
+  output:
+    arg_file="results/angsd/hap{hap}/raw/by_popln/{population}_raw_sites_control_minMAF{min_MAF}.arg",
+    mafs_file="results/angsd/hap{hap}/raw/by_popln/{population}_raw_sites_control_minMAF{min_MAF}.mafs.gz",
+    depth_sample="results/angsd/hap{hap}/raw/by_popln/{population}_raw_sites_control_minMAF{min_MAF}.depthSample",
+    depth_global="results/angsd/hap{hap}/raw/by_popln/{population}_raw_sites_control_minMAF{min_MAF}.depthGlobal",
+    saf_1="results/angsd/hap{hap}/raw/by_popln/{population}_raw_sites_control_minMAF{min_MAF}.saf.idx",
+    saf_2="results/angsd/hap{hap}/raw/by_popln/{population}_raw_sites_control_minMAF{min_MAF}.saf.pos.gz",
+    saf_3="results/angsd/hap{hap}/raw/by_popln/{population}_raw_sites_control_minMAF{min_MAF}.saf.gz"
+  params:
+    ref="data/reference/hap{hap}/lupinehap{hap}.fasta",
+    file_name="results/angsd/hap{hap}/raw/by_popln/{population}_raw_sites_control_minMAF{min_MAF}",
+    scaffolds="results/scaffolds/hap{hap}_scaffolds.txt",
+    min_MAF=lambda wildcards: wildcards.min_MAF
+    #min_depth=lambda wildcards: wildcards.min_depth,
+    #max_depth=lambda wildcards: wildcards.max_depth
+  log:
+    "results/logs/angsd/hap{hap}/raw/by_popln/angsd_raw_sites_control_hap{hap}_{population}_minMAF{min_MAF}.log"
+  envmodules:
+    "angsd/0.940"
+  threads: 8
+  shell:
+    """
+    angsd -bam {input.bam_list}\
+    -ref {params.ref}\
+    -out {params.file_name}\
+    -remove_bads 1\
+    -rf {params.scaffolds}\
+    -GL 2\
+    -C 50\
+    -minMapQ 30\
+    -minQ 20\
+    -minInd 20\
+    -minMAF {params.min_MAF}\
+    -setMinDepth 25\
+    -setMaxDepth 3500\
+    -baq 2\
+    -only_proper_pairs 1\
+    -nThreads {threads}\
+    -doCounts 1\
+    -doDepth 1\
+    -doMajorMinor 1\
+    -doMaf 1\
+    -doSaf 1\
+    -anc {params.ref}\
+    &> {log}
+    """
+
+# -minMaf 0.01 makes everything with a steep SFS
+
+# Rule for generating global SFS with different depth settings
+rule global_SFS_control_by_population:
+  input:
+    saf_idx="results/angsd/hap{hap}/raw/by_popln/{population}_raw_sites_control_minMAF{min_MAF}.saf.idx"
+  output:
+    sfs="results/winSFS/hap{hap}/globalSFS/{population}_hap{hap}_globalSFS_control_minMAF{min_MAF}.sfs"
+  log:
+    sfs1="results/logs/winSFS/hap{hap}/globalSFS/{population}_hap{hap}_globalSFS_control_minMAF{min_MAF}.log"
+  threads: 40
+  shell:
+    """
+    winsfs {input.saf_idx} -t {threads} --seed 1 -v > {output.sfs} 2> {log.sfs1}
+    """
+
+
+rule fold_global_SFS_control_by_population:
+  input:
+    sfs="results/winSFS/hap{hap}/globalSFS/{population}_hap{hap}_globalSFS_control_minMAF{min_MAF}.sfs"
+  output:
+    sfs_folded="results/winSFS/hap{hap}/globalSFS/{population}_hap{hap}_globalSFS_control_folded_minMAF{min_MAF}.sfs"
+  log:
+    sfs2="results/logs/winSFS/hap{hap}/globalSFS/{population}_hap{hap}_globalSFS_control_folded_minMAF{min_MAF}.log"
+  threads: 40
+  shell:
+    """
+    winsfs view --fold {input.sfs} -v > {output.sfs_folded} 2> {log.sfs2}
+    """
+
+
+# Rule for plotting the folded SFS with different depth settings
+rule global_SFS_control_by_population_plots:
+  input:
+    unfolded_sfs="results/winSFS/hap{hap}/globalSFS/{population}_hap{hap}_globalSFS_control_minMAF{min_MAF}.sfs",
+    folded_sfs="results/winSFS/hap{hap}/globalSFS/{population}_hap{hap}_globalSFS_control_folded_minMAF{min_MAF}.sfs"
+  output:
+    unfolded_plot="results/plots/hap{hap}/SFS/{population}_globalSFS_control_unfolded_minMAF{min_MAF}.png",
+    folded_plot="results/plots/hap{hap}/SFS/{population}_globalSFS_control_folded_minMAF{min_MAF}.png"
+  envmodules:
+    "r/4.4.0"
+  threads: 2
+  shell:
+    """
+    Rscript scripts/SFS_1D_graph.R {input.folded_sfs} {output.folded_plot}
+    Rscript scripts/SFS_1D_graph.R {input.unfolded_sfs} {output.unfolded_plot}
+    """
+
+
+# Running ANGSD HWE analysis with different depth settings
+rule angsd_HWE_by_population_on_control_SNPs:
+  input:
+    bam_list="data/lists/hap{hap}/{population}_realign_hap{hap}.txt",
+    fasta_fai="data/reference/hap{hap}/lupinehap{hap}.fasta.fai"
+  output:
+    arg_file="results/angsd/hap{hap}/raw/by_popln/{population}_raw_SNPs_control_min{min_depth}_max{max_depth}.arg",
+    mafs_file="results/angsd/hap{hap}/raw/by_popln/{population}_raw_SNPs_control_min{min_depth}_max{max_depth}.mafs.gz",
+    hwe_file="results/angsd/hap{hap}/raw/by_popln/{population}_raw_SNPs_control_min{min_depth}_max{max_depth}.hwe.gz",
+    depth_sample="results/angsd/hap{hap}/raw/by_popln/{population}_raw_SNPs_control_min{min_depth}_max{max_depth}.depthSample",
+    depth_global="results/angsd/hap{hap}/raw/by_popln/{population}_raw_SNPs_control_min{min_depth}_max{max_depth}.depthGlobal"
+  params:
+    ref="data/reference/hap{hap}/lupinehap{hap}.fasta",
+    file_name="results/angsd/hap{hap}/raw/by_popln/{population}_raw_SNPs_control_min{min_depth}_max{max_depth}",
+    scaffolds="results/scaffolds/hap{hap}_scaffolds.txt",
+    min_depth=lambda wildcards: wildcards.min_depth,
+    max_depth=lambda wildcards: wildcards.max_depth
+  log:
+    "results/logs/angsd/hap{hap}/raw/by_popln/angsd_raw_SNPs_control_hap{hap}_{population}_min{min_depth}_max{max_depth}.log"
+  envmodules:
+    "angsd/0.940"
+  threads: 8
+  shell:
+    """
+    angsd -bam {input.bam_list}\
+    -ref {params.ref}\
+    -out {params.file_name}\
+    -remove_bads 1\
+    -rf {params.scaffolds}\
+    -GL 2\
+    -C 50\
+    -minMapQ 30\
+    -minQ 20 \
+    -minMaf 0.01\
+    -minHWEpval 0.01\
+    -setMinDepth {params.min_depth}\
+    -setMaxDepth {params.max_depth}\
+    -baq 2\
+    -only_proper_pairs 1\
+    -nThreads {threads}\
+    -SNP_pval 1e-6\
+    -doHWE 1\
+    -doCounts 1\
+    -doDepth 1\
+    -doMajorMinor 1\
+    -doMaf 1\
+    &> {log}
+    """
+
+
+# Unzipping the HWE output with different depth settings
+rule unzip_hwe_control:
+  input:
+    zipped_hwe="results/angsd/hap{hap}/raw/by_popln/{population}_raw_SNPs_control_min{min_depth}_max{max_depth}.hwe.gz"
+  output:
+    unzip_hwe="results/angsd/hap{hap}/raw/by_popln/{population}_hwe_raw_SNPs_control_min{min_depth}_max{max_depth}.lr"
+  shell:
+    """
+    zcat {input.zipped_hwe} > {output.unzip_hwe}
+    """
+
+# Generating HWE histograms with different depth settings
+rule hwe_histogram_control:
+  input:
+    lr_file="results/angsd/hap{hap}/raw/by_popln/{population}_hwe_raw_SNPs_control_min{min_depth}_max{max_depth}.lr"
+  output:
+    plot="results/plots/hap{hap}/HWE/{population}_hwe_raw_SNPs_control_min{min_depth}_max{max_depth}.png"
+  envmodules:
+    "r/4.4.0"
+  shell:
+    "Rscript scripts/hetero_excess_header.R {input.lr_file} {output.plot}"
+
+
+
+## STEP 3: IDENTIFY PARALOGOUS REGIONS 
+
+# Call SNPs with liberal rules for input to ngsParalog
+# NOTE: -SNP_pvalue 0.05 so very liberal SNP calls
+# NOTE: NO filters applied to gather as much as data as possible as input for ngsParalog
+rule angsd_raw_SNP:
+  input:
+    bam_list="data/lists/hap{hap}/{population}_realign_hap{hap}.txt"
+  output:
+    arg_file="results/angsd/hap{hap}/raw/ngsParalog_input/{population}_raw_SNPs_realign.arg",
+    mafs_file="results/angsd/hap{hap}/raw/ngsParalog_input/{population}_raw_SNPs_realign.mafs.gz",
+    hwe_file="results/angsd/hap{hap}/raw/ngsParalog_input/{population}_raw_SNPs_realign.hwe.gz",
+    depth_sample="results/angsd/hap{hap}/raw/ngsParalog_input/{population}_raw_SNPs_realign.depthSample",
+    depth_global="results/angsd/hap{hap}/raw/ngsParalog_input/{population}_raw_SNPs_realign.depthGlobal"
+  params:
+    ref="data/reference/hap{hap}/lupinehap{hap}.fasta",
+    file_name="results/angsd/hap{hap}/raw/ngsParalog_input/{population}_raw_SNPs_realign",
+    hap="{hap}",
+    population="{population}"
+  log:
+    "results/logs/angsd/hap{hap}/raw/ngsParalog_input/angsd_SNP_raw_hap{hap}_{population}.log"
+  envmodules:
+    "angsd/0.940"
+  threads: 8
+  shell:
+    """
+    angsd -bam {input.bam_list}\
+    -ref {params.ref}\
+    -out {params.file_name}\
+    -remove_bads 1\
+    -C 50\
+    -GL 2\
+    -SNP_pval 0.05\
+    -minMapQ 30\
+    -minQ 20\
+    -minInd 20 \
+    -baq 2\
+    -only_proper_pairs 1\
+    -nThreads {threads}\
+    -doHWE 1\
+    -doCounts 1\
+    -doDepth 1\
+    -doMajorMinor 1\
+    -doMaf 1\
+    &> {log}
+    """
+
+
+# Create BED files so including only SNPs into ngsParalog
+# NOTE: BED files indexed at 0bp because SAMtools to create pileup requires 0bp index
+rule convert_mafs_to_bed:
+  input:
+    mafs_gz="results/angsd/hap{hap}/raw/ngsParalog_input/{population}_raw_SNPs_realign.mafs.gz"
+  output:
+    bed_file="results/bed/hap{hap}/raw_SNPs/{population}_raw_SNPs_realign.BED"
+  shell:
+   """
+   gunzip -c {input.mafs_gz} | awk 'NR>1 {{print $1, $2 - 1, $2}}' > {output.bed_file}
+   dos2unix {output.bed_file}  # Add this line to convert line endings
+   """
+
+
+# Run ngsParalog on all SNPs across the genome (parallelized by running 1 job per scaffold)
+rule ngsParalog_hap1: 
+  input:
+    bam_ngsPara=lambda wildcards: expand("results/bam_realign/hap1/{sample}_hap1_realign.bam", sample=[s for s in sample_prefixes if s.startswith(wildcards.population)]),
+    ref="data/reference/hap1/lupinehap1.fasta",
+    bed_file="results/bed/hap1/raw_SNPs/{population}_raw_SNPs_realign.BED"
+  output:
+    paralog_output="results/ngs_paralog/hap1/by_popln/{population}_scaffolds/{population}-{hap1scaffold_prefix}.lr"
+  log:
+    "results/logs/ngs_paralog/hap1/by_popln/{population}_scaffolds/{population}-{hap1scaffold_prefix}.log"
+  params:
+    hap1scaffold=lambda wildcards: map_prefix_to_full_scaffold(wildcards.hap1scaffold_prefix, 1)
+  envmodules:
+    "samtools/1.20"
+  shell:
+    """
+    rm -f {output.paralog_output} #remove existing output file if it exists
+    touch {output.paralog_output}
+    samtools mpileup {input.bam_ngsPara} -A -d 77000000 -q 0 -Q 0 --ff UNMAP,QCFAIL,DUP \
+    -l {input.bed_file} -r {params.hap1scaffold} -f {input.ref} 2>> {log} | \
+    /home/socamero/ngsParalog/ngsParalog calcLR -infile - -outfile {output.paralog_output} -allow_overwrite 1 \
+    -minQ 20 -minind 20 -mincov 1 \
+    -runinfo 1 \
+    2>> {log} || true
+    """
+
+
+rule ngsParalog_hap2:
+  input:
+    bam_ngsPara=lambda wildcards: expand("results/bam_realign/hap2/{sample}_hap2_realign.bam", sample=[s for s in sample_prefixes if s.startswith(wildcards.population)]),
+    ref="data/reference/hap2/lupinehap2.fasta",
+    bed_file="results/bed/hap2/raw_SNPs/{population}_raw_SNPs_realign.BED"
+  output:
+    paralog_output="results/ngs_paralog/hap2/by_popln/{population}_scaffolds/{population}-{hap2scaffold_prefix}.lr"
+  log:
+    "results/logs/ngs_paralog/hap2/by_popln/{population}_scaffolds/{population}-{hap2scaffold_prefix}.log"
+  params:
+    hap2scaffold=lambda wildcards: map_prefix_to_full_scaffold(wildcards.hap2scaffold_prefix, 2)
+  envmodules:
+    "samtools/1.20"
+  shell:
+    """
+    rm -f {output.paralog_output} #remove existing output file if it exists
+    touch {output.paralog_output}
+    samtools mpileup {input.bam_ngsPara} -A -d 77000000 -q 0 -Q 0 --ff UNMAP,QCFAIL,DUP \
+    -l {input.bed_file} -r {params.hap2scaffold} -f {input.ref} 2>> {log} | \
+    /home/socamero/ngsParalog/ngsParalog calcLR -infile - -outfile {output.paralog_output} -allow_overwrite 1 \
+    -minQ 20 -minind 20 -mincov 1 \
+    -runinfo 1 \
+    2>> {log} || true
+    """
+
+
+# Combine all ngsParalog outputs together into one file per population
+rule concatenate_paralog_hap1:
+  input:
+    scaffold_files=lambda wildcards: expand("results/ngs_paralog/hap1/by_popln/{population}_scaffolds/{{population}}-{hap1scaffold_prefix}.lr", population=wildcards.population, hap1scaffold_prefix=HAP1SCAFFOLD_PREFIXES)
+  output:
+    paralog_final="results/ngs_paralog/hap1/concat/{population}_paralog_realign_WGS.lr"
+  log:
+    "results/logs/ngs_paralog/hap1/concat/{population}_paralog_realign_WGS.log"
+  shell:
+    """
+    cat {input.scaffold_files} >> {output.paralog_final}
+    """
+
+
+rule concatenate_paralog_hap2:
+  input:
+    scaffold_files=lambda wildcards: expand("results/ngs_paralog/hap2/by_popln/{population}_scaffolds/{{population}}-{hap2scaffold_prefix}.lr", population=wildcards.population, hap2scaffold_prefix=HAP2SCAFFOLD_PREFIXES)
+  output:
+    paralog_final="results/ngs_paralog/hap2/concat/{population}_paralog_realign_WGS.lr"
+  log:
+    "results/logs/ngs_paralog/hap2/concat/{population}_paralog_realign_WGS.log"
+  shell:
+    """
+    cat {input.scaffold_files} >> {output.paralog_final}
+    """
+
+
+# Print summary of calcLR quantile ranges
+rule quantile_summary:
+  input:
+    "results/ngs_paralog/hap{hap}/concat/{population}_paralog_realign_WGS.lr"
+  output:
+    "results/ngs_paralog/hap{hap}/quantile_summary/{population}_calcLR_quantile_summary.txt"
+  envmodules:
+    "r/4.4.0"
+  shell:
+    "Rscript scripts/calcLR_quantile_summary.R {input} {output}"
+
+
+# Identify false positives from ngsParalog (grab only true Paralogs) and filter out
+# NOTE: R script indexes positions back to 1bp start
+rule ngsParalog_false_pos:
+  input:
+    lr_file="results/ngs_paralog/hap{hap}/concat/{population}_paralog_realign_WGS.lr"
+  output:
+    deviant_snps="results/bed/hap{hap}/deviant_SNPs/{population}_deviant_SNPs_calcLR_BH_corrected.BED",
+    deviant_snps_bp1="results/bed/hap{hap}/deviant_SNPs/{population}_deviant_SNPs_realign_bp1_BH_corrected.lr"
+  envmodules:
+    "r/4.4.0"
+  shell:
+    """
+    Rscript scripts/ngs_paralog_false_pos.R {input.lr_file} {output.deviant_snps} {output.deviant_snps_bp1}
+    """
+
+
+# Identify false positives for varying levels of Benjamini Hochberg critical values
+rule ngsParalog_false_pos_BH:
+  input:
+    lr_file="results/ngs_paralog/hap{hap}/concat/{population}_paralog_realign_WGS.lr"
+  output:
+    deviant_snps_bp1_BH="results/bed/hap{hap}/deviant_SNPs/BH_correction/{population}_deviant_SNPs_bp1_realign_BH{BH_VAR}.lr"
+  params:
+    BH_VAR="{BH_VAR}"
+  envmodules:
+    "r/4.4.0"
+  shell:
+    """
+    Rscript scripts/ngs_paralog_false_pos_BH.R {input.lr_file} {output.deviant_snps_bp1_BH} {params.BH_VAR}
+    """
+
+
+# Create Manhattan Plots [NOTE: Specific Scaffold # otherwise it'll take forever for whole genome!] 
+rule ngsParalog_manhattan:
+  input:
+    lr_file="results/ngs_paralog/hap{hap}/by_popln/{population}_scaffolds/{population}-Scaffold_1.lr"
+  output:
+    plot="results/plots/hap{hap}/ngsParalog/by_popln/{population}_manhattan_plot_realign_scaffold_1.png"
+  envmodules:
+    "r/4.4.0"
+  threads: 2
+  shell:
+    "Rscript scripts/ngs_paralog_graphs.R {input.lr_file} {output.plot}"
+
+
+## dupHMM - Discover paralogous regions rather than individual sites ##
+# Requires calcLR .lr files and depth of coverage .tsv files 
+
+# Convert ngsParalog calcLR outputs (.lr files) to BED format
+# This is NOT BH corrected. This is just here for future use
+rule convert_calcLR_output_to_BED:
+  input:
+    lr_file="results/ngs_paralog/hap{hap}/concat/{population}_paralog_realign_WGS.lr",
+  output:
+    bed="results/bed/hap{hap}/deviant_SNPs_realign/{population}_deviant_SNPs_calcLR.BED"
+  envmodules:
+    "r/4.4.0"
+  threads: 2
+  shell:
+    "Rscript scripts/convert_calcLR_to_bed.R {input.lr_file} {output.bed}"
+
+
+# Generate average depth of coverage per site for dupHMM
+# Only estimate depth at sites deemed 'paralogous' from raw ngsParalog (pre BH filter)
+# Use pre BH filter because take all data as input!
+rule estimate_average_coverage_per_population:
+  input:
+    bam_files=lambda wildcards: expand("results/bam_realign/hap{hap}/{sample}_hap{hap}_realign.bam", sample=[s for s in sample_prefixes if s.startswith(wildcards.population)], hap=haps),
+    raw_lr="results/ngs_paralog/hap{hap}/concat/{population}_paralog_realign_WGS.lr"
+  output:
+    bed="results/bed/hap{hap}/deviant_SNPs/{population}_deviant_SNPs_calcLR.BED",
+    avg_cov_file="results/coverage/hap{hap}/{population}_average_deviant_SNP_coverage.tsv"
+  threads: 2
+  log:
+    "results/logs/coverage/hap{hap}/{population}_average_coverage.log"
+  envmodules:
+    "samtools/1.20"
+  shell:
+    """
+    # Convert .lr file to BED format (0-based start)
+    awk '{{print $1 "\\t" ($2-1) "\\t" $2}}' {input.raw_lr} > {output.bed}
+
+    # Calculate the average coverage per position for all BAM files together using the calcLR BED file
+    samtools depth -q 0 -Q 0 -J -a -b {output.bed} {input.bam_files} | \
+    awk '{{cov[$1"\\t"$2]+=$3; count[$1"\\t"$2]++}} END {{for (pos in cov) print pos, cov[pos] / count[pos]}}' | \
+    sort -k1,1V -k2,2n > {output.avg_cov_file}
+    """
+
+# Print summary statistics
+rule estimate_coverage_statistics:
+  input:
+    avg_cov_file="results/coverage/hap{hap}/{population}_average_deviant_SNP_coverage.tsv"
+  output:
+    stats="results/coverage_stats/hap{hap}/{population}_coverage_stats.txt"
+  shell:
+    """
+    python scripts/estimate_coverage_stats.py {input.avg_cov_file} > {output.stats}
+    """
+
+
+# Reduce deviant SNP calls (aka calcLR LRs) to the number of known sites with depth data.
+# ANGSD estimates depth globally and per individual, but NOT per site (see -doDepth 1)
+rule filter_paralog_by_coverage:
+  input:
+    lr_file="results/ngs_paralog/hap{hap}/concat/{population}_paralog_realign_WGS.lr",
+    cov_file="results/coverage/hap{hap}/{population}_average_deviant_SNP_coverage.tsv"
+  output:
+    filtered_lr="results/bed/hap{hap}/deviant_SNPs/{population}_coverage_only_paralog_realign_WGS.lr"
+  log:
+    "results/logs/filter_lr/hap{hap}/{population}_filtered_deviant_SNPs_realign.log"
+  shell:
+    """
+    # Filter the .lr file based on the coverage file, ensuring no empty lines
+    awk 'NR==FNR && $0!="" {{cov[$1" "$2]=1; next}} $0!="" && cov[$1" "$2] {{print}}' {input.cov_file} {input.lr_file} > {output.filtered_lr}
+    """
+
+# dupHMM_setup is run across the entire genome Whereas dupHMM_run is across each scaffold. 
+rule dupHMM_setup:
+  input:
+    lr_file="results/bed/hap{hap}/deviant_SNPs/{population}_coverage_only_paralog_realign_WGS.lr",
+    cov_file="results/coverage/hap{hap}/{population}_average_deviant_SNP_coverage.tsv"
+  output:
+    param_output="results/ngs_paralog/hap{hap}/dupHMM/{population}_dupHMM_realign.par"
+  params:
+    r_script_path="/home/socamero/ngsParalog/dupHMM.R",
+    name_output="results/ngs_paralog/hap{hap}/dupHMM/{population}_dupHMM_realign"
+  log:
+    "results/logs/ngs_paralog/hap{hap}/dupHMM/{population}_dupHMM_realign_setup.log"
+  envmodules:
+    "r/4.4.0"
+  shell:
+    """
+    Rscript {params.r_script_path} \
+    --lrfile {input.lr_file} \
+    --outfile {params.name_output} \
+    --covfile {input.cov_file} \
+    --lrquantile 0.975 \
+    --paramOnly 1 \
+    2> {log}
+    """
+
+
+# Now generate coverage per scaffold and per population
+# We need to input coverage into dupHMM!
+rule estimate_coverage_per_population_and_scaffold_hap1:
+  input:
+    bam_files=lambda wildcards: expand("results/bam_realign/hap1/{sample}_hap1_realign.bam", sample=[s for s in sample_prefixes if s.startswith(wildcards.population)]),
+    raw_lr="results/ngs_paralog/hap1/by_popln/{population}_scaffolds/{population}-{hap1scaffold_prefix}.lr"
+  output:
+    bed="results/bed/hap1/deviant_SNPs/{population}_scaffolds/{population}_{hap1scaffold_prefix}.BED",
+    avg_cov_file="results/coverage/hap1/{population}_scaffolds/{population}_{hap1scaffold_prefix}_average_coverage.tsv"
+  log:
+    "results/logs/coverage/hap1/{population}_scaffolds/{population}_{hap1scaffold_prefix}_average_coverage.log"
+  threads: 2
+  envmodules:
+    "samtools/1.20"
+  shell:
+    """
+    # Check if the .lr file is empty and create a BED file accordingly
+    if [ -s {input.raw_lr} ]; then
+      # Convert non-empty .lr file to BED format (0-based start)
+      awk '{{print $1 "\\t" ($2-1) "\\t" $2}}' {input.raw_lr} > {output.bed}
+    else
+      # Create an empty BED file if .lr file is empty
+      touch {output.bed}
+    fi
+
+    # If the BED file is not empty, calculate the average coverage
+    if [ -s {output.bed} ]; then
+      samtools depth -@ 2 -q 0 -Q 0 -J -a -b {output.bed} {input.bam_files} | \
+      awk '{{cov[$1"\\t"$2]+=$3; count[$1"\\t"$2]++}} END {{for (pos in cov) print pos, cov[pos] / count[pos]}}' | \
+      sort -k1,1V -k2,2n > {output.avg_cov_file}
+    else
+      # Create an empty average coverage file if BED file is empty
+      touch {output.avg_cov_file}
+    fi
+    """
+
+
+rule estimate_coverage_per_population_and_scaffold_hap2:
+  input:
+    bam_files=lambda wildcards: expand("results/bam_realign/hap2/{sample}_hap2_realign.bam", sample=[s for s in sample_prefixes if s.startswith(wildcards.population)]),
+    raw_lr="results/ngs_paralog/hap2/by_popln/{population}_scaffolds/{population}-{hap2scaffold_prefix}.lr"
+  output:
+    bed="results/bed/hap2/deviant_SNPs/{population}_scaffolds/{population}_{hap2scaffold_prefix}.BED",
+    avg_cov_file="results/coverage/hap2/{population}_scaffolds/{population}_{hap2scaffold_prefix}_average_coverage.tsv"
+  log:
+    "results/logs/coverage/hap2/{population}_scaffolds/{population}_{hap2scaffold_prefix}_average_coverage.log"
+  threads: 2
+  envmodules:
+    "samtools/1.20"
+  shell:
+    """
+    # Check if the .lr file is empty and create a BED file accordingly
+    if [ -s {input.raw_lr} ]; then
+      # Convert non-empty .lr file to BED format (0-based start)
+      awk '{{print $1 "\\t" ($2-1) "\\t" $2}}' {input.raw_lr} > {output.bed}
+    else
+      # Create an empty BED file if .lr file is empty
+      touch {output.bed}
+    fi
+
+    # If the BED file is not empty, calculate the average coverage
+    if [ -s {output.bed} ]; then
+      samtools depth -@ 2 -q 0 -Q 0 -J -a -b {output.bed} {input.bam_files} | \
+      awk '{{cov[$1"\\t"$2]+=$3; count[$1"\\t"$2]++}} END {{for (pos in cov) print pos, cov[pos] / count[pos]}}' | \
+      sort -k1,1V -k2,2n > {output.avg_cov_file}
+    else
+      # Create an empty average coverage file if BED file is empty
+      touch {output.avg_cov_file}
+    fi
+    """
+
+# Filter .lr files by which there is depth data
+# This is similar as before, but we need it by scaffold since...
+# dupHMM setup is run across the entire genome ! Where as dupHMM run is run across each scaffold instead. 
+rule filter_scaffold_lr_by_coverage_hap1:
+  input:
+    lr_file="results/ngs_paralog/hap1/by_popln/{population}_scaffolds/{population}-{hap1scaffold_prefix}.lr",
+    cov_file="results/coverage/hap1/{population}_scaffolds/{population}_{hap1scaffold_prefix}_average_coverage.tsv"
+  output:
+    filtered_lr="results/bed/hap1/deviant_SNPs/{population}_scaffolds/{population}_{hap1scaffold_prefix}_coverage_only_paralog_realign.lr"
+  log:
+    "results/logs/filter_lr/hap1/{population}_scaffolds/{population}_{hap1scaffold_prefix}_filtered_deviant_SNPs_realign.log"
+  shell:
+    """
+    # Filter the .lr file based on the coverage file, ensuring no empty lines
+    awk 'NR==FNR && $0!="" {{cov[$1" "$2]=1; next}} $0!="" && cov[$1" "$2] {{print}}' {input.cov_file} {input.lr_file} > {output.filtered_lr}
+
+    # If the filtered file is empty, create an empty file
+    if [ ! -s {output.filtered_lr} ]; then
+      touch {output.filtered_lr}
+    fi
+    """
+
+
+rule filter_scaffold_lr_by_coverage_hap2:
+  input:
+    lr_file="results/ngs_paralog/hap2/by_popln/{population}_scaffolds/{population}-{hap2scaffold_prefix}.lr",
+    cov_file="results/coverage/hap2/{population}_scaffolds/{population}_{hap2scaffold_prefix}_average_coverage.tsv"
+  output:
+    filtered_lr="results/bed/hap2/deviant_SNPs/{population}_scaffolds/{population}_{hap2scaffold_prefix}_coverage_only_paralog_realign.lr"
+  log:
+    "results/logs/filter_lr/hap2/{population}_scaffolds/{population}_{hap2scaffold_prefix}_filtered_deviant_SNPs_realign.log"
+  shell:
+    """
+    # Filter the .lr file based on the coverage file, ensuring no empty lines
+    awk 'NR==FNR && $0!="" {{cov[$1" "$2]=1; next}} $0!="" && cov[$1" "$2] {{print}}' {input.cov_file} {input.lr_file} > {output.filtered_lr}
+
+    # If the filtered file is empty, create an empty file
+    if [ ! -s {output.filtered_lr} ]; then
+      touch {output.filtered_lr}
+    fi
+    """
+
+# Run dupHMM with beginning estimated parameters
+# adjust --lrquantile based on manhattan plot! 
+# adjust --maxcoverage based on .tsv files! Seems like some coverages are HIGH! ~50.. To be slightly conservative, choosing 25 (see coverage stats)
+# NOTE: Some scaffolds only have 1 SNP with coverage and/or paralog data and can't be used in dupHMM so we skip these. 
+rule dupHMM_run_hap1:
+  input:
+    lr_file = "results/ngs_paralog/hap1/by_popln/{population}_scaffolds/{population}-{hap1scaffold_prefix}.lr",
+    cov_file = "results/coverage/hap1/{population}_scaffolds/{population}_{hap1scaffold_prefix}_average_coverage.tsv",
+    parameters = "results/ngs_paralog/hap1/dupHMM/{population}_dupHMM_realign.par"
+  output:
+    paralog_region = "results/ngs_paralog/hap1/dupHMM/{population}_scaffolds/{population}-{hap1scaffold_prefix}_dupHMM_realign_run.rf"
+  params:
+    r_script_path = "/home/socamero/ngsParalog/dupHMM.R",
+    name_output = "results/ngs_paralog/hap1/dupHMM/{population}_scaffolds/{population}-{hap1scaffold_prefix}_dupHMM_realign_run"
+  log:
+    "results/logs/ngs_paralog/hap1/dupHMM/{population}_scaffolds/{population}-{hap1scaffold_prefix}_dupHMM_realign_run.log"
+  envmodules:
+    "r/4.4.0"
+  shell:
+    """
+    if [ -s {input.lr_file} ] && [ $(cat {input.lr_file} | wc -l) -gt 1 ]; then
+        Rscript {params.r_script_path} \
+        --lrfile {input.lr_file} \
+        --outfile {params.name_output} \
+        --covfile {input.cov_file} \
+        --lrquantile 0.97 \
+        --maxcoverage 25 \
+        --paramfile {input.parameters} \
+        2> {log} || touch {output.paralog_region}
+    else
+        echo "Skipping .lr file due to insufficient data (empty or only one row): {input.lr_file}" >> {log}
+        touch {output.paralog_region}
+    fi
+    """
+
+# NOTE: coverage is lower using hap2
+rule dupHMM_run_hap2:
+  input:
+    lr_file = "results/ngs_paralog/hap2/by_popln/{population}_scaffolds/{population}-{hap2scaffold_prefix}.lr",
+    cov_file = "results/coverage/hap2/{population}_scaffolds/{population}_{hap2scaffold_prefix}_average_coverage.tsv",
+    parameters = "results/ngs_paralog/hap2/dupHMM/{population}_dupHMM_realign.par"
+  output:
+    paralog_region = "results/ngs_paralog/hap2/dupHMM/{population}_scaffolds/{population}-{hap2scaffold_prefix}_dupHMM_realign_run.rf"
+  params:
+    r_script_path = "/home/socamero/ngsParalog/dupHMM.R",
+    name_output = "results/ngs_paralog/hap2/dupHMM/{population}_scaffolds/{population}-{hap2scaffold_prefix}_dupHMM_realign_run"
+  log:
+    "results/logs/ngs_paralog/hap2/dupHMM/{population}_scaffolds/{population}-{hap2scaffold_prefix}_dupHMM_realign_run.log"
+  envmodules:
+    "r/4.4.0"
+  shell:
+    """
+    if [ -s {input.lr_file} ] && [ $(cat {input.lr_file} | wc -l) -gt 1 ]; then
+        Rscript {params.r_script_path} \
+        --lrfile {input.lr_file} \
+        --outfile {params.name_output} \
+        --covfile {input.cov_file} \
+        --lrquantile 0.97 \
+        --maxcoverage 20 \
+        --paramfile {input.parameters} \
+        2> {log} || touch {output.paralog_region}
+    else
+        echo "Skipping .lr file due to insufficient data (empty or only one row): {input.lr_file}" >> {log}
+        touch {output.paralog_region}
+    fi
+    """
+
+
+# Combine all dupHMM outputs together into one file per population
+rule concatenate_dupHMM_hap1:
+  input:
+    dupHMM_files=lambda wildcards: expand("results/ngs_paralog/hap1/dupHMM/{population}_scaffolds/{{population}}-{hap1scaffold_prefix}_dupHMM_realign_run.rf", population=wildcards.population, hap1scaffold_prefix=HAP1SCAFFOLD_PREFIXES)
+  output:
+    dupHMM_final="results/ngs_paralog/hap1/dupHMM/{population}_dupHMM_realign_WGS.lr"
+  log:
+    "results/logs/ngs_paralog/hap1/dupHMM/{population}_dupHMM_realign_WGS.log"
+  shell:
+    """
+    cat {input.dupHMM_files} >> {output.dupHMM_final}
+    """
+
+
+rule concatenate_dupHMM_hap2:
+  input:
+    dupHMM_files=lambda wildcards: expand("results/ngs_paralog/hap2/dupHMM/{population}_scaffolds/{{population}}-{hap2scaffold_prefix}_dupHMM_realign_run.rf", population=wildcards.population, hap2scaffold_prefix=HAP2SCAFFOLD_PREFIXES)
+  output:
+    dupHMM_final="results/ngs_paralog/hap2/dupHMM/{population}_dupHMM_realign_WGS.lr"
+  log:
+    "results/logs/ngs_paralog/hap2/dupHMM/{population}_dupHMM_realign_WGS.log"
+  shell:
+    """
+    cat {input.dupHMM_files} >> {output.dupHMM_final}
+    """
+
+
+# Convert dupHMM outputs (.lr files) to BED format
+rule convert_dupHMM_output_to_BED:
+  input:
+    lr_file="results/ngs_paralog/hap{hap}/dupHMM/{population}_dupHMM_realign_WGS.lr"
+  output:
+    bed="results/bed/hap{hap}/deviant_SNPs/{population}_deviant_SNPs_dupHMM.BED"
+  envmodules:
+    "r/4.4.0"
+  threads: 2
+  shell:
+    "Rscript scripts/convert_dupHMM_to_bed.R {input.lr_file} {output.bed}"
+
+    
+## STEP 4: VERIFY PARALOGS REDUCED -> look at SFS with RE-RUN ANGSD
+
+# Print out all sites (monomorphic or not) to later filter out paralogous regions
+rule angsd_raw_sites_by_popln:
+  input:
+    bam_list="data/lists/hap{hap}/{population}_realign_hap{hap}.txt"
+  output:
+    all_sites_gz="results/angsd/hap{hap}/raw/by_popln/{population}_all_sites.pos.gz",
+    all_sites_arg="results/angsd/hap{hap}/raw/by_popln/{population}_all_sites.arg",
+    all_sites_bed="results/bed/hap{hap}/raw_sites/{population}_all_sites.BED"
+  params:
+    ref="data/reference/hap{hap}/lupinehap{hap}.fasta",
+    angsd_out="results/angsd/hap{hap}/raw/by_popln/{population}_all_sites"
+  log:
+    angsd_log="results/logs/angsd/hap{hap}/raw/by_popln/{population}_all_sites.log"
+  threads: 8
+  envmodules:
+    "angsd/0.940"
+  shell:
+    """
+    # Extract all sites across the genome
+    angsd -bam {input.bam_list} -ref {params.ref} -out {params.angsd_out} \
+    -doCounts 1 -dumpCounts 1 -P 8 &> {log.angsd_log}
+
+    # Convert the ANGSD output to a BED format file
+    gunzip -c {params.angsd_out}.pos.gz | awk 'NR > 1 {{print $1, $2-1, $2}}' > {output.all_sites_bed}
+    """
+
+
+# Format all BED files accordingly and make sure they're in UNIX format + tab delimited
+rule preprocess_bed_files_all_populations:
+  input: 
+    all_sites_bed="results/bed/hap{hap}/raw_sites/{population}_all_sites.BED",
+    calcLR_deviant_snps_bed="results/bed/hap{hap}/deviant_SNPs/{population}_deviant_SNPs_calcLR_BH_corrected.BED",
+    dupHMM_deviant_regs_bed="results/bed/hap{hap}/deviant_SNPs/{population}_deviant_SNPs_dupHMM.BED"
+  output:
+    processed_all_sites_bed="results/bed/hap{hap}/raw_sites/by_popln/{population}_all_sites_processed.BED",
+    processed_calcLR_snps="results/bed/hap{hap}/deviant_SNPs/{population}_deviant_SNPs_calcLR_BH_corrected_processed.BED",
+    processed_dupHMM_regs="results/bed/hap{hap}/deviant_SNPs/{population}_deviant_SNPs_dupHMM_processed.BED"
+  shell:
+    """
+    # Convert all_sites_bed BED file from DOS to UNIX line endings and process
+    dos2unix {input.all_sites_bed}
+    awk 'NF >= 3 {{print $1"\t"$2"\t"$3}}' {input.all_sites_bed} > {output.processed_all_sites_bed}
+
+    # Convert calcLR_snps BED file from DOS to UNIX line endings and process
+    dos2unix {input.calcLR_deviant_snps_bed}
+    awk 'NF >= 3 {{print $1"\t"$2"\t"$3}}' {input.calcLR_deviant_snps_bed} > {output.processed_calcLR_snps}
+
+    # Convert dupHMM_regions BED file from DOS to UNIX line endings and process
+    dos2unix {input.dupHMM_deviant_regs_bed}
+    awk 'NF >= 3 {{print $1"\t"$2"\t"$3}}' {input.dupHMM_deviant_regs_bed} > {output.processed_dupHMM_regs}
+    
+
+    # Optional: Print lines before and after removal for auditing
+    echo "Lines before processing in {input.all_sites_bed}:"
+    wc -l {input.all_sites_bed}
+    echo "Lines after processing in {output.processed_all_sites_bed}:"
+    wc -l {output.processed_all_sites_bed}
+
+    echo "Lines before processing in {input.calcLR_deviant_snps_bed}:"
+    wc -l {input.calcLR_deviant_snps_bed}
+    echo "Lines after processing in {output.processed_calcLR_snps}:"
+    wc -l {output.processed_calcLR_snps}
+
+    echo "Lines before processing in {input.dupHMM_deviant_regs_bed}:"
+    wc -l {input.dupHMM_deviant_regs_bed}
+    echo "Lines after processing in {output.processed_dupHMM_regs}:"
+    wc -l {output.processed_dupHMM_regs}
+    """
+
+
+# Filter out deviant SNPs from all known sites
+rule filter_all_sites_by_popln_calcLR:
+  input:
+    processed_all_sites_bed="results/bed/hap{hap}/raw_sites/by_popln/{population}_all_sites_processed.BED",
+    processed_calcLR_snps="results/bed/hap{hap}/deviant_SNPs/{population}_deviant_SNPs_calcLR_BH_corrected_processed.BED",
+  output:
+    filtered_calcLR_bed="results/bed/hap{hap}/canonical_sites/filtered_calcLR/{population}_filtered_calcLR_sites.BED",
+    filtered_calcLR_txt="results/bed/hap{hap}/canonical_sites/filtered_calcLR/{population}_filtered_calcLR_sites.txt"
+  log:
+    calcLR_log="results/logs/bedtools/hap{hap}/canonical_sites/filtered_calcLR/{population}_filtered_sites.log"
+  envmodules:
+    "bedtools/2.31.0"
+  shell:
+    """
+    # Filter out deviant calcLR SNPs using bedtools and save to BED
+    bedtools subtract -a {input.processed_all_sites_bed} -b {input.processed_calcLR_snps} > {output.filtered_calcLR_bed} 2> {log.calcLR_log}
+
+    # Convert the filtered BED files to a .txt file formatted for -sites in ANGSD
+    awk '{{print $1, $3}}' {output.filtered_calcLR_bed} > {output.filtered_calcLR_txt}
+    """
+
+
+rule filter_all_sites_by_popln_dupHMM:
+  input:
+    processed_dupHMM_regs="results/bed/hap{hap}/deviant_SNPs/{population}_deviant_SNPs_dupHMM_processed.BED",
+    filtered_calcLR_bed="results/bed/hap{hap}/canonical_sites/filtered_calcLR/{population}_filtered_calcLR_sites.BED"
+  output:
+    filtered_dupHMM_bed="results/bed/hap{hap}/canonical_sites/filtered_dupHMM/{population}_filtered_sites_dupHMM_calcLR.BED",
+    filtered_dupHMM_txt="results/bed/hap{hap}/canonical_sites/filtered_dupHMM/{population}_filtered_sites_dupHMM_calcLR.txt"
+  log:
+    dupHMM_log="results/logs/bedtools/hap{hap}/canonical_sites/filtered_dupHMM/{population}_filtered_sites_dupHMM_calcLR.log"
+  envmodules:
+    "bedtools/2.31.0"
+  shell:
+    """
+    # Filter out dupHMM regions from the calcLR BED file
+    bedtools subtract -a {input.filtered_calcLR_bed} -b {input.processed_dupHMM_regs} > {output.filtered_dupHMM_bed} 2> {log.dupHMM_log}
+
+    # Convert the filtered BED files to a .txt file formatted for -sites in ANGSD
+    awk '{{print $1, $3}}' {output.filtered_dupHMM_bed} > {output.filtered_dupHMM_txt}
+    """
+
+
+# Index filtered all sites BED file
+rule index_all_sites_by_popln_calcLR:
+  input: 
+    canonical_calcLR_sites="results/bed/hap{hap}/canonical_sites/filtered_calcLR/{population}_filtered_calcLR_sites.txt"
+  output: 
+    calcLR_index="results/bed/hap{hap}/canonical_sites/filtered_calcLR/{population}_filtered_calcLR_sites.txt.bin"
+  envmodules:
+    "angsd/0.940"
+  shell: 
+    "angsd sites index {input.canonical_calcLR_sites}"
+
+
+rule index_all_sites_by_popln_dupHMM:
+  input:
+    canonical_dupHMM_sites="results/bed/hap{hap}/canonical_sites/filtered_dupHMM/{population}_filtered_sites_dupHMM_calcLR.txt"
+  output:
+    dupHMM_index="results/bed/hap{hap}/canonical_sites/filtered_dupHMM/{population}_filtered_sites_dupHMM_calcLR.txt.bin"
+  envmodules:
+    "angsd/0.940"
+  shell:
+    "angsd sites index {input.canonical_dupHMM_sites}"
+
+
+# ANGSD by population: To calculate SFS (check if heterozygote excess reduced) with filtered sites by ngsParalog
+# Previously attempted just calcLR outputs but this did not remove paralogs. We now incorporate dupHMM and calcLR
+rule angsd_SFS_by_population_on_all_sites:
+  input:
+    bam_list="data/lists/hap{hap}/{population}_realign_hap{hap}.txt",
+    canonical_sites="results/bed/hap{hap}/canonical_sites/filtered_dupHMM/{population}_filtered_sites_dupHMM_calcLR.txt",
+    bin_index="results/bed/hap{hap}/canonical_sites/filtered_dupHMM/{population}_filtered_sites_dupHMM_calcLR.txt.bin"
+  output:
+    arg_file="results/angsd/hap{hap}/canonical/by_popln/{population}_canonical_sites_dupHMM.arg",
+    mafs_file="results/angsd/hap{hap}/canonical/by_popln/{population}_canonical_sites_dupHMM.mafs.gz",
+    depth_sample="results/angsd/hap{hap}/canonical/by_popln/{population}_canonical_sites_dupHMM.depthSample",
+    depth_global="results/angsd/hap{hap}/canonical/by_popln/{population}_canonical_sites_dupHMM.depthGlobal",
+    saf_1="results/angsd/hap{hap}/canonical/by_popln/{population}_canonical_sites_dupHMM.saf.idx",
+    saf_2="results/angsd/hap{hap}/canonical/by_popln/{population}_canonical_sites_dupHMM.saf.pos.gz",
+    saf_3="results/angsd/hap{hap}/canonical/by_popln/{population}_canonical_sites_dupHMM.saf.gz"
+  params:
+    ref="data/reference/hap{hap}/lupinehap{hap}.fasta",
+    file_name="results/angsd/hap{hap}/canonical/by_popln/{population}_canonical_sites_dupHMM",
+    scaffolds="results/scaffolds/hap{hap}_scaffolds.txt"
+  log:
+    "results/logs/angsd/hap{hap}/canonical/by_popln/angsd_canonical_sites_dupHMM_hap{hap}_{population}.log"
+  envmodules:
+    "angsd/0.940"
+  threads: 8
+  shell:
+    """
+    angsd -bam {input.bam_list}\
+    -ref {params.ref}\
+    -out {params.file_name}\
+    -remove_bads 1\
+    -rf {params.scaffolds}\
+    -GL 2\
+    -C 50\
+    -sites {input.canonical_sites}\
+    -setMinDepth 25\
+    -setMaxDepth 3500\
+    -minMapQ 30\
+    -minQ 20\
+    -minInd 20\
+    -minMaf 0.01\
+    -baq 2\
+    -only_proper_pairs 1\
+    -nThreads {threads}\
+    -doCounts 1\
+    -doDepth 1\
+    -doMajorMinor 1\
+    -doMaf 1\
+    -doSaf 1\
+    -anc {params.ref}\
+    &> {log}
+    """
+
+
+# FILTERED SFS: Optimize and calculate SFS with folded spectra (--fold) since ancestral state unknown
+# Can bootstrap to get confidence intervals
+# We use 'winsfs' rather than 'realSFS' because realSFS is computational heavy (>100GB RAM required) plus less accurate
+# Based on winsfs github, we allocate ~150GB RAM for ~1B sites (extracted from gzip and wc -l)
+# We set seed at 1 for reproducibility
+rule global_SFS_by_population:
+  input:
+    saf_idx="results/angsd/hap{hap}/canonical/by_popln/{population}_canonical_sites_dupHMM.saf.idx"
+  output:
+    sfs="results/winSFS/hap{hap}/globalSFS/{population}_hap{hap}_globalSFS_dupHMM.sfs"
+  log:
+    sfs1="results/logs/winSFS/hap{hap}/globalSFS/{population}_hap{hap}_globalSFS_dupHMM.log"
+  threads: 40
+  shell:
+    """
+    winsfs {input.saf_idx} -t {threads} --seed 1 -v > {output.sfs} 2> {log.sfs1}
+    """
+
+
+rule fold_global_SFS_by_population:
+  input:
+    sfs="results/winSFS/hap{hap}/globalSFS/{population}_hap{hap}_globalSFS_dupHMM.sfs"
+  output:
+    sfs_folded="results/winSFS/hap{hap}/globalSFS/{population}_hap{hap}_globalSFS_dupHMM_folded.sfs"
+  log:
+    sfs2="results/logs/winSFS/hap{hap}/globalSFS/{population}_hap{hap}_globalSFS_dupHMM_folded.log"
+  threads: 40
+  shell:
+    """
+    winsfs view --fold {input.sfs} -v > {output.sfs_folded} 2> {log.sfs2}
+    """
+
+
+# Create SFS Plots on filtered data
+rule global_SFS_by_population_plots:
+  input:
+    sfs_file="results/winSFS/hap{hap}/globalSFS/{population}_hap{hap}_globalSFS_dupHMM_folded.sfs"
+  output:
+    plot="results/plots/hap{hap}/SFS/{population}_globalSFS_dupHMM_folded.png"
+  envmodules:
+    "r/4.4.0"
+  threads: 2
+  shell:
+    "Rscript scripts/SFS_1D_graph.R {input.sfs_file} {output.plot}"
+
+
+# To check F distribution on filtered SNPs using dupHMM and calcLR
+rule angsd_HWE_by_population_on_dupHMM_SNPs:
+  input:
+    bam_list="data/lists/hap{hap}/{population}_realign_hap{hap}.txt",
+    canonical_sites="results/bed/hap{hap}/canonical_sites/filtered_dupHMM/{population}_filtered_sites_dupHMM_calcLR.txt",
+    bin_index="results/bed/hap{hap}/canonical_sites/filtered_dupHMM/{population}_filtered_sites_dupHMM_calcLR.txt.bin",
+    fasta_fai="data/reference/hap{hap}/lupinehap{hap}.fasta.fai"
+  output:
+    arg_file="results/angsd/hap{hap}/canonical/by_popln/{population}_canonical_SNPs_dupHMM.arg",
+    mafs_file="results/angsd/hap{hap}/canonical/by_popln/{population}_canonical_SNPs_dupHMM.mafs.gz",
+    hwe_file="results/angsd/hap{hap}/canonical/by_popln/{population}_canonical_SNPs_dupHMM.hwe.gz",
+    depth_sample="results/angsd/hap{hap}/canonical/by_popln/{population}_canonical_SNPs_dupHMM.depthSample",
+    depth_global="results/angsd/hap{hap}/canonical/by_popln/{population}_canonical_SNPs_dupHMM.depthGlobal",
+  params:
+    ref="data/reference/hap{hap}/lupinehap{hap}.fasta",
+    file_name="results/angsd/hap{hap}/canonical/by_popln/{population}_canonical_SNPs_dupHMM",
+    scaffolds="results/scaffolds/hap{hap}_scaffolds.txt"
+  log:
+    "results/logs/angsd/hap{hap}/canonical/by_popln/angsd_canonical_SNPs_dupHMM_hap{hap}_{population}.log"
+  envmodules:
+    "angsd/0.940"
+  threads: 8
+  shell:
+    """
+    angsd -bam {input.bam_list}\
+    -ref {params.ref}\
+    -out {params.file_name}\
+    -remove_bads 1\
+    -rf {params.scaffolds}\
+    -GL 2\
+    -C 50\
+    -sites {input.canonical_sites}\
+    -setMinDepth 25\
+    -setMaxDepth 3500\
+    -minMapQ 30\
+    -minQ 20\
+    -minInd 20\
+    -minHWEpval 0.01\
+    -minMaf 0.01\
+    -baq 2\
+    -only_proper_pairs 1\
+    -nThreads {threads}\
+    -SNP_pval 1e-6\
+    -doHWE 1\
+    -doCounts 1\
+    -doDepth 1\
+    -doMajorMinor 1\
+    -doMaf 1\
+    &> {log}
+    """
+
+
+# Unzip hwe to extract desired variables (i.e F values)
+rule unzip_hwe_dupHMM:
+  input:
+    zipped_hwe="results/angsd/hap{hap}/canonical/by_popln/{population}_canonical_SNPs_dupHMM.hwe.gz"
+  output:
+    unzip_hwe="results/angsd/hap{hap}/canonical/by_popln/{population}_hwe_canonical_SNPs_dupHMM.lr"
+  shell:
+    """
+    zcat {input.zipped_hwe} > {output.unzip_hwe}
+    """
+
+
+# Create histogram of F values for canonical SNPs (excludes header)
+rule hwe_histogram_dupHMM:
+  input:
+    lr_file="results/angsd/hap{hap}/canonical/by_popln/{population}_hwe_canonical_SNPs_dupHMM.lr"
+  output:
+    plot="results/plots/hap{hap}/HWE/{population}_hwe_canonical_SNPs_dupHMM.png"
+  envmodules:
+    "r/4.4.0"
+  shell:
+    "Rscript scripts/hetero_excess_header.R {input.lr_file} {output.plot}"

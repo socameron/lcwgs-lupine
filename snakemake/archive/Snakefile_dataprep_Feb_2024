@@ -1,0 +1,452 @@
+import os
+import glob
+import subprocess
+import pandas as pd
+
+# Define a function to extract the sample name from a fastq.gz filename
+def extract_sample_name(filename):
+    # Get the base filename without the directory
+    base_filename = os.path.basename(filename)
+    
+    # Split the filename by underscores
+    parts = base_filename.split('_')
+    
+    # Find the part that contains 'L001' and get the sample name before it
+    for i, part in enumerate(parts):
+        if 'L001' in part:
+            return '_'.join(parts[:i])
+
+# Defining wildcard for haplotype and sequence batch #
+wildcard_constraints:
+    hap = r'1|2',
+    batch = r'1|2'
+
+# Directory containing the fastq.gz files 
+# Change 1 to {batch}
+directory = "data/batch_1"
+
+# Get a list of all fastq.gz files in the directory
+fastq_files = glob.glob(os.path.join(directory, "*.fastq.gz"))
+
+# Initialize a set to store unique sample names
+SAMPLES = set()
+
+# Iterate over the fastq.gz files and extract sample names
+for filename in fastq_files:
+    sample_name = extract_sample_name(filename)
+    SAMPLES.add(sample_name)
+
+# Convert the set to a sorted list for consistent order
+SAMPLES = sorted(list(SAMPLES))
+POPULATIONS = ("HPW", "IDNP-MW", "LCTGP", "MFNP", "PPP", "RLPLV", "SWCP")
+POPULATIONS2 = ("CSS", "FMB", "")
+
+with open("results/scaffolds/hap1_scaffolds.txt", "r") as file:
+    HAP1SCAFFOLDS = [line.strip() for line in file.readlines()]
+
+with open("results/scaffolds/hap2_scaffolds.txt", "r") as file:
+    HAP2SCAFFOLDS = [line.strip() for line in file.readlines()]
+
+# Split scaffold names by comma and create a list
+HAP1SCAFFOLDS = [name.strip() for name in HAP1SCAFFOLDS]
+HAP2SCAFFOLDS = [name.strip() for name in HAP2SCAFFOLDS]
+HAP1SCAFFOLD_PREFIXES = [s.split("__")[0] for s in HAP1SCAFFOLDS]
+HAP2SCAFFOLD_PREFIXES = [s.split("__")[0] for s in HAP2SCAFFOLDS]
+
+# Function give full scaffold name given prefix of scaffold
+def map_prefix_to_full_scaffold(prefix, hap_type):
+    scaffold_list = HAP1SCAFFOLDS if hap_type == 1 else HAP2SCAFFOLDS
+    for scaffold in scaffold_list:
+        if scaffold.startswith(prefix):
+            return scaffold
+    return None  # Return None or an appropriate default if not found
+
+BH_VARS=[50,40,30,20,10,5]
+
+
+# Update the SAMPLES list with merged sample names 
+# ONLY INCLUDE AFTER rule merge_replicates IS RUN. MUST RUN WORKFLOW AT 2 POINTS. !!!
+merged_samples = ["MFNP-48_2_269001_S193", "IDNP-MW-6_2_269002_S194", "RLPLV-13_2_269003_S195"]
+samples_to_remove = ["MFNP-48_2-2695929_S1", "MFNP-48_2-2697940_S99", "IDNP-MW-6_2-2698020_S129", "IDNP-MW-6_2-2698118_S177", "RLPLV-13_2-2696026_S48", "RLPLV-13_2-2696110_S82"]
+SAMPLES = set([sample for sample in SAMPLES if sample not in samples_to_remove])
+SAMPLES.update(merged_samples)
+SAMPLES = sorted(list(SAMPLES))
+
+###########################
+## BEGINNING OF WORKFLOW ##
+###########################
+
+
+# final files desired (can change)
+rule all:
+  input:
+    expand("results/bam_realign/hap{hap}/{sample}_hap{hap}_realign.bam", hap=(1,2), sample=SAMPLES)
+
+
+#### DATA PREPARATION ####
+
+# Trim adapter ends off each sequence file using Trimmomatic 
+# When batch 2 is available, use wildcard {batch}
+rule trim_reads:
+  input:
+    r1="data/batch_1/{sample}_L001_R1_001.fastq.gz",
+    r2="data/batch_1/{sample}_L001_R2_001.fastq.gz",
+  output:
+    r1="results/fastq_trimmed/batch_1/{sample}_R1.fastq.gz",
+    r1_unp="results/fastq_trimmed/batch_1/{sample}_R1_unpaired.fastq.gz",
+    r2="results/fastq_trimmed/batch_1/{sample}_R2.fastq.gz",
+    r2_unp="results/fastq_trimmed/batch_1/{sample}_R2_unpaired.fastq.gz"
+  log:
+    "results/logs/trim_reads/{sample}.log"
+  envmodules:
+    "trimmomatic/0.39"
+  params:
+    adapters="$EBROOTTRIMMOMATIC/adapters/TruSeq3-PE-2.fa"
+  shell:
+    "java -jar $EBROOTTRIMMOMATIC/trimmomatic-0.39.jar PE {input.r1} {input.r2} "
+    "{output.r1} {output.r1_unp} {output.r2} {output.r2_unp} "
+    "ILLUMINACLIP:{params.adapters}:2:30:10 "
+    "LEADING:3 "
+    "TRAILING:3 "
+    "SLIDINGWINDOW:4:15 "
+    "MINLEN:36 2> {log}"
+
+
+# Unzip trimmed files as fastqc 0.12.0 cannot properly read compressed files
+rule unzip_files:
+  input:
+    zipped_r1="results/fastq_trimmed/batch_1/{sample}_R1.fastq.gz",
+    zipped_r2="results/fastq_trimmed/batch_1/{sample}_R2.fastq.gz"
+  output: 
+    unzipped_r1="results/fastq_trimmed_unzip/batch_1/{sample}_R1.fastq",
+    unzipped_r2="results/fastq_trimmed_unzip/batch_1/{sample}_R2.fastq"
+  shell:
+    "gunzip -c {input.zipped_r1} > {output.unzipped_r1} && gunzip -c {input.zipped_r2} > {output.unzipped_r2}"
+
+
+# Run FastQC per each trimmed sequence file
+rule fastqc:
+  input:
+    fastq_r1="results/fastq_trimmed_unzip/batch_1/{sample}_R1.fastq",
+    fastq_r2="results/fastq_trimmed_unzip/batch_1/{sample}_R2.fastq"
+  output:
+    html_report_r1="results/fastqc/batch_1/{sample}_R1_fastqc.html",
+    zip_report_r1="results/fastqc/batch_1/{sample}_R1_fastqc.zip",
+    html_report_r2="results/fastqc/batch_1/{sample}_R2_fastqc.html",
+    zip_report_r2="results/fastqc/batch_1/{sample}_R2_fastqc.zip"
+  envmodules:
+    "fastqc/0.12.0"
+  shell:
+    "fastqc {input.fastq_r1} {input.fastq_r2} --outdir results/fastqc"
+
+
+# Create an aggregated FastQC report using MultiQC.
+# Note that we create separate MultiQC reports for both batch 1 and 2
+rule multiqc_raw:
+  input:
+    fastqc_dir="results/fastqc/batch_1"
+  output:
+    html_report="results/multiqc/multiqc_raw/multiqc_report_batch_1.html"
+  params:
+    output_dir="results/multiqc/multiqc_raw"
+  shell:
+    "multiqc -o {params.output_dir} {input.fastqc_dir} "
+
+
+# Creating faidx index for reference genome
+rule faidx_reference:
+  input:
+    "data/reference/hap{hap}/lupinehap{hap}.fasta",
+  output:
+    "data/reference/hap{hap}/lupinehap{hap}.fasta.fai",
+  log:
+    "results/logs/refgen/lupinehap{hap}_faidx.log",
+  envmodules:
+    "samtools/1.17"
+  shell:
+    "samtools faidx {input} 2> {log} "
+
+
+# Rules for indexing reference genomes (haplotypes 1 and 2)
+rule index_reference:
+  input:
+    "data/reference/hap{hap}/lupinehap{hap}.fasta"
+  output:
+    multiext("data/reference/hap{hap}/lupinehap{hap}.fasta", ".amb", ".ann", ".bwt", ".pac", ".sa"),
+  log:
+    "results/logs/refgen/lupinehap{hap}_bwa_index.log"
+  envmodules:
+    "bwa/0.7.17"
+  shell:
+    "bwa index {input} 2> {log}"
+
+
+# Rules for creating dictionary files
+rule create_dict:
+  input:
+    "data/reference/hap{hap}/lupinehap{hap}.fasta"
+  output:
+    "data/reference/hap{hap}/lupinehap{hap}.dict"
+  log:
+    "results/logs/refgen/hap{hap}_dict.log"
+  envmodules:
+    "samtools/1.17"
+  shell:
+    "samtools dict {input} > {output} 2> {log}"
+
+
+# Removing reads smaller than 70bp so 'bwa mem' works better
+rule remove_short_reads_fastq:
+  input:
+    r1="results/fastq_trimmed/batch_1/{sample}_R1.fastq.gz",
+    r2="results/fastq_trimmed/batch_1/{sample}_R2.fastq.gz"
+    output:
+    r1_filtered="results/fastq_filtered/batch_1/{sample}_R1_filtered.fastq.gz",
+    r2_filtered="results/fastq_filtered/batch_1/{sample}_R2_filtered.fastq.gz"
+  log:
+    "results/logs/fastq_filter/batch_1/{sample}_filter_fastq.log"
+  envmodules:
+    "seqkit/2.3.1"
+  shell:
+    """
+    seqkit seq -m 70 {input.r1} | gzip > {output.r1_filtered}
+    seqkit seq -m 70 {input.r2} | gzip > {output.r2_filtered}
+    """
+
+
+# Mapping/Aligning reads to haplotypes
+rule map_reads:
+  input:
+    r1="results/fastq_filtered/batch_1/{sample}_R1.fastq.gz",
+    r2="results/fastq_filtered/batch_1/{sample}_R2.fastq.gz",
+    genome="data/reference/hap{hap}/lupinehap{hap}.fasta",
+    idx=multiext("data/reference/hap{hap}/lupinehap{hap}.fasta", ".amb", ".ann", ".bwt", ".pac", ".sa")
+  output:
+    "results/bam_raw/hap{hap}/{sample}_hap{hap}.bam"
+  log:
+    "results/logs/map_reads/hap{hap}/{sample}_hap{hap}.log"
+  envmodules:
+    "bwa/0.7.17",
+    "samtools/1.17"
+  threads: 8 
+  params:
+    RG="-R '@RG\\tID:{sample}\\tSM:{sample}\\tPL:ILLUMINA' "
+    # Excluded information on flowcell, lane, and barcode index b/c not thought necessary
+  shell:
+    " (bwa mem {params.RG} -t {threads} {input.genome} {input.r1} {input.r2} | "
+    " samtools view -u | "
+    " samtools sort - > {output}) 2> {log}"
+
+
+
+
+
+
+
+
+
+
+
+
+
+#### DATA QUALITY CONTROL ####
+
+# Steps in QC :
+  # 1. Mark PCR and optical duplicates
+  # 2. Identify paralogous regions due to duplication events
+      # - Requires ngsParalog and 1st run of ANGSD
+      # - ANGSD: SNP call and input SNPs (aka polymorphic sites) into ngsParalog
+      # - ngsParalog: probablistic call of paralogous regions
+      # - After ngsParalog, calculate p-values based on chi-sq df = 1 with Benjamini-Hochberg correction
+  # 3. Verify heterozygote excess is reduced
+      # - Re-run ANGSD excluding paralogous regions and PCR duplicates
+      #   - Visualize SFS
+
+## STEP 1: MERGE REPLICATES & MARK PCR & OPTICAL DUPLICATES 
+
+# Merge replicates
+rule merge_replicates:
+  input:
+    MFNP_48A="results/bam_raw/hap{hap}/MFNP-48_2-2695929_S1_hap{hap}.bam",
+    MFNP_48B="results/bam_raw/hap{hap}/MFNP-48_2-2697940_S99_hap{hap}.bam",
+    IDNP_6A="results/bam_raw/hap{hap}/IDNP-MW-6_2-2698020_S129_hap{hap}.bam",
+    IDNP_6B="results/bam_raw/hap{hap}/IDNP-MW-6_2-2698118_S177_hap{hap}.bam",
+    RLPLV_13A="results/bam_raw/hap{hap}/RLPLV-13_2-2696026_S48_hap{hap}.bam",
+    RLPLV_13B="results/bam_raw/hap{hap}/RLPLV-13_2-2696110_S82_hap{hap}.bam"
+  output:
+    MFNP_48="results/bam_raw/hap{hap}/MFNP-48_2_269001_S193_hap{hap}.bam",
+    IDNP_6="results/bam_raw/hap{hap}/IDNP-MW-6_2_269002_S194_hap{hap}.bam",
+    RLPLV_13="results/bam_raw/hap{hap}/RLPLV-13_2_269003_S195_hap{hap}.bam"
+  params:
+    archive="results/bam_raw/archive/hap{hap}"
+  envmodules:
+    "samtools/1.17"
+  shell:
+    """
+    samtools merge -o {output.MFNP_48} {input.MFNP_48A} {input.MFNP_48B}
+    samtools merge -o {output.IDNP_6} {input.IDNP_6A} {input.IDNP_6B}
+    samtools merge -o {output.RLPLV_13} {input.RLPLV_13A} {input.RLPLV_13B}
+    mkdir -p {params.archive}
+    mv {input.MFNP_48A} {input.MFNP_48B} {input.IDNP_6A} {input.IDNP_6B} {input.RLPLV_13A} {input.RLPLV_13B} {params.archive}
+    """
+
+
+
+# Marking and removing PCR duplicates + index
+# Note that: /bam_mkdup/ is where marked duplicates are marked but not removed. This is backed up in the projects folder.
+rule mark_remove_duplicates:
+  input:
+    "results/bam_raw/hap{hap}/{sample}_hap{hap}.bam"
+  output:
+    bam="results/bam_mkdup/hap{hap}/{sample}_hap{hap}_mkdup.bam",
+    bai="results/bam_mkdup/hap{hap}/{sample}_hap{hap}_mkdup.bai",
+    metrics="results/qc/mkdup_metrics/{sample}_hap{hap}.metrics"
+  log:
+    "results/logs/mark_remove_duplicates/hap{hap}/{sample}_hap{hap}.log"
+  envmodules:
+    "gatk/4.2.5.0"
+  shell:
+    """
+    gatk MarkDuplicates \
+    --CREATE_INDEX \
+    -I {input} \
+    -O {output.bam} \
+    -M {output.metrics} \
+    --REMOVE_DUPLICATES true \
+    2> {log}
+    """
+
+
+# Clip overlapping reads
+rule clip_overlapping_reads:
+  input:
+    bam="results/bam_mkdup/hap{hap}/{sample}_hap{hap}_mkdup.bam"
+  output:
+    clipped_bam="results/bam_clipped/hap{hap}/{sample}_hap{hap}_clipped.bam",
+    clipped_index="results/bam_clipped/hap{hap}/{sample}_hap{hap}_clipped.bai"
+  log:
+    "results/logs/clip_overlap/hap{hap}/{sample}_clip_overlapping_reads.log"
+  shell:
+    """
+    module --force purge
+    module load nixpkgs/16.09 intel/2018.3
+    module load bamutil/1.0.14
+    bam clipOverlap --in {input.bam} --out {output.clipped_bam} 2> {log}
+    module --force purge
+    module load StdEnv/2023 samtools/1.18
+    samtools index -b {output.clipped_bam} -o {output.clipped_index} --threads 2
+    module --force purge
+    """
+
+
+# Create bam list per population for entry into realign indels
+rule generate_clipped_bam_list_per_population:
+  input:
+    expand("results/bam_clipped/hap{hap}/{sample}_hap{hap}_clipped.bam", sample=SAMPLES, hap=(1,2)),
+  output:
+    "data/lists/hap{hap}/{population}_clipped_hap{hap}.list"
+  wildcard_constraints:
+    population="|".join(POPULATIONS)
+  run:
+    bam_files = input
+    output_file = output[0]
+    population = wildcards.population
+    hap = wildcards.hap
+
+    with open(output_file, "w") as output:
+        for bam_file in bam_files:
+            if population in bam_file and f"_hap{hap}_" in bam_file:
+                output.write(f"{bam_file}\n")
+
+
+# Create interval list of indels
+rule indel_list:
+  input:
+    bam_list="data/lists/hap{hap}/{population}_clipped_hap{hap}.list",
+    reference="data/reference/hap{hap}/lupinehap{hap}.fasta"
+  output:
+    intervals="data/lists/hap{hap}/{population}_hap{hap}_indels.intervals"
+  log:    
+    "results/logs/indel_list/hap{hap}/{population}_hap{hap}_indel_list.log"
+  shell:
+    """
+    module --force purge
+    module load nixpkgs/16.09 gatk/3.8
+    java -Xmx16g \
+    -jar $EBROOTGATK/GenomeAnalysisTK.jar \
+    -T RealignerTargetCreator \
+    -R {input.reference} \
+    -I {input.bam_list} \
+    -o {output.intervals} \
+    -drf BadMate \
+    2> {log}
+    module --force purge
+    """
+
+
+# Realign reads around indels - necessary if using ANGSD
+rule realign_indels:
+  input:
+    bam="results/bam_clipped/hap{hap}/{sample}_hap{hap}_clipped.bam",
+    ref="data/reference/hap{hap}/lupinehap{hap}.fasta",
+    intervals=lambda wildcards: "data/lists/hap" + wildcards.hap + "/" + next(pop for pop in POPULATIONS if pop in wildcards.sample) + f"_hap{wildcards.hap}_indels.intervals"
+  output:
+    realigned_bam="results/bam_realign/hap{hap}/{sample}_hap{hap}_realign.bam"
+  log:
+    "results/logs/realign_indels/hap{hap}/{sample}_hap{hap}_realign_indels.log"
+  shell:
+    """
+    module --force purge
+    module load nixpkgs/16.09 gatk/3.8
+    java -Xmx16g \
+    -jar $EBROOTGATK/GenomeAnalysisTK.jar \
+    -T IndelRealigner \
+    -I {input.bam} \
+    -R {input.ref} \
+    -targetIntervals {input.intervals} \
+    -o {output.realigned_bam}\
+    &> {log}
+    module --force purge
+    """
+
+
+# Remove reads below ~70bp length
+rule remove_small_reads:
+  input: 
+    bam="results/bam_realign/hap{hap}/{sample}_hap{hap}_realign.bam"
+  output:
+    bam_qc1="results/bam_qc1/hap{hap}/{sample}_hap{hap}_qc1.bam"
+  log:
+    "results/logs/remove_small/hap{hap}/{sample}_hap{hap}_qc1.log"
+  envmodules:
+    "samtools/1.17"
+  shell:
+    """
+    samtools view -h -b -e 'length(seq) >= 70' {input.bam} > {output.bam_qc1} 2> {log}
+    """
+  
+
+# Estimate depth per bp per samplen
+rule estimate_depth:
+  input:
+    bam="results/bam_qc1/hap{hap}/{sample}_hap{hap}_qc1.bam"
+  output:
+    depth="results/depths/hap{hap}/{sample}_hap{hap}_depth.txt"
+  envmodules:
+    "samtools/1.17"
+  shell:
+    """
+    samtools depth -a {input.bam} > {output.depth}
+    """
+
+
+# Aggregate depth per population 
+rule aggregate_depths:
+    input:
+        depths=lambda wildcards: expand("results/depths/hap{{hap}}/{{sample}}_hap{{hap}}_depth.txt", sample=populations[wildcards.pop])
+    output:
+        aggregated_depth="results/depths/hap{hap}/{pop}_hap{hap}_aggregated_depth.txt"
+    shell:
+        """
+        python sum_depths.py {input.depths} > {output.aggregated_depth}
+        """
