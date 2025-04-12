@@ -11,10 +11,10 @@ This is a Snakemake workflow for running the population genetic analyses on low 
 7. Linkage disequilibrium (software [ngsLD](https://github.com/fgvieira/ngsLD))
 
 Some analyses will be implemented include:
-i. Contemporary effective population size (software [NeEstimator v2](https://github.com/bunop/NeEstimator2.X) and [GONE](https://github.com/esrud/GONE))
-ii. Mutation screens (dN/dS) (custom software, email dan.schoen@mcgill.ca for info)
-iii. Genotype-environment associations (software [Redundancy Analysis](https://github.com/Capblancq/RDA-landscape-genomics))
-iv. Genetic off-sets (software TBD)
+1.. Contemporary effective population size (software [NeEstimator v2](https://github.com/bunop/NeEstimator2.X) and [GONE](https://github.com/esrud/GONE))
+2.. Mutation screens (dN/dS) (custom software, email dan.schoen@mcgill.ca for info)
+3. Genotype-environment associations (software [Redundancy Analysis](https://github.com/Capblancq/RDA-landscape-genomics))
+4. Genetic off-sets (software TBD)
 
 ## About the _Lupinus perennis_ dataset
 
