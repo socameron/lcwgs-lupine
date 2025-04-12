@@ -11,8 +11,9 @@ This is a Snakemake workflow for running the population genetic analyses on low 
 7. Linkage disequilibrium (software [ngsLD](https://github.com/fgvieira/ngsLD))
 
 Some analyses will be implemented include:
-1.. Contemporary effective population size (software [NeEstimator v2](https://github.com/bunop/NeEstimator2.X) and [GONE](https://github.com/esrud/GONE))
-2.. Mutation screens (dN/dS) (custom software, email dan.schoen@mcgill.ca for info)
+
+1. Contemporary effective population size (software [NeEstimator v2](https://github.com/bunop/NeEstimator2.X) and [GONE](https://github.com/esrud/GONE))
+2. Mutation screens (dN/dS) (custom software, email dan.schoen@mcgill.ca for info)
 3. Genotype-environment associations (software [Redundancy Analysis](https://github.com/Capblancq/RDA-landscape-genomics))
 4. Genetic off-sets (software TBD)
 
