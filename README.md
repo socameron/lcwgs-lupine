@@ -30,7 +30,7 @@ Populations are distinguished based on their geographical position relative to t
 
 ## Quality control prior to analyses
 
-Before running any analyses, I mapped my reads to a scaffold-based reference genome. Since I'm using ANGSD for a majority of my analyses, I also clipped overlapping reads with `bamutil/1.0.14` and realigned around indels using `gatk/3.8`. I then filtered out potential paralogs using `ngsParalog` and its internal program called `dupHMM`. Any downstream analyses then underwent its own filtering criteria, but was required to constrain the analysis to the first 24 scaffolds of our reference assembly, as these in theory should represent the 24 chromosomes of _Lupinus perennis_. In the future, we'll likely utilize our Hi-C data to construct a chromosome-based reference assembly. 
+Before running any analyses, I mapped my reads to a scaffold-based reference genome. Since I'm using ANGSD for a majority of my analyses, I also clipped overlapping reads with `bamutil/1.0.14` and realigned around indels using `gatk/3.8`. I then filtered out potential paralogs using [ngsParalog](https://github.com/tplinderoth/ngsParalog) and its internal program called `dupHMM`. Any downstream analyses then underwent its own filtering criteria, but was required to constrain the analysis to the first 24 scaffolds of our reference assembly, as these in theory should represent the 24 chromosomes of _Lupinus perennis_. In the future, we'll likely utilize our Hi-C data to construct a chromosome-based reference assembly. 
 
 ## Snakemake
 
