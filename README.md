@@ -1,10 +1,10 @@
 # Population Genetics - _Lupinus perennis_ (lcWGS)
 
-This is a Snakemake workflow for running the population genetic analyses on low to medium coverage data. It primarily uses genotype likelihoods (estimated from ANGSD) rather than genotype calls (e.g PLINK or bcftools) It includes the following analyses:
+This is a Snakemake workflow for running the population genetic analyses on low to medium coverage data (ranges from 2x to 20x, with mean 10x). It primarily uses genotype likelihoods (estimated from ANGSD) rather than genotype calls (e.g PLINK or bcftools) It includes the following analyses:
 
-1. Relatedness structure for identifying clones (software [ngsRelate](https://github.com/ANGSD/NgsRelate)
+1. Relatedness structure for identifying clones (software [ngsRelate](https://github.com/ANGSD/NgsRelate))
 2. Individual-level inbreeding coefficients (software [ngsF-HMM](https://github.com/fgvieira/ngsF-HMM))
-3. Runs of Homozygosity (ROH) for inbreeding (software [RZooRoH](https://cran.r-project.org/web/packages/RZooRoH/index.html)
+3. Runs of Homozygosity (ROH) for inbreeding (software [RZooRoH](https://cran.r-project.org/web/packages/RZooRoH/index.html))
 4. Population structure and admixture (software [PCangsd](https://github.com/Rosemeis/pcangsd) and [ngsAdmix](https://github.com/aalbrechtsen/NGSadmix?tab=readme-ov-file))
 5. Thetas for Taijama's D, nucleotide diversity, and Watterson's theta (software [ANGSD](https://github.com/ANGSD/angsd) with command `thetaStat`) 
 6. Population-level pairwise Fst and Fst by Distance (IBD) (software [ANGSD](https://github.com/ANGSD/angsd) with command `realSFS`)
@@ -16,6 +16,7 @@ Some analyses will be implemented include:
 2. Mutation screens (dN/dS) (custom software, email dan.schoen@mcgill.ca for info)
 3. Genotype-environment associations (software [Redundancy Analysis](https://github.com/Capblancq/RDA-landscape-genomics))
 4. Genetic off-sets (software TBD)
+5. Demographic histories (software Dadi)
 
 ## About the _Lupinus perennis_ dataset
 
