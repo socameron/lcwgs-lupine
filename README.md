@@ -1,6 +1,6 @@
 # Population Genetics - _Lupinus perennis_ (lcWGS)
 
-This is a Snakemake workflow for running the population genetic analyses on low to medium coverage data (ranges from 2x to 20x, with mean 10x). It primarily uses genotype likelihoods (estimated from ANGSD) rather than genotype calls (e.g PLINK or bcftools) It includes the following analyses:
+This is a Snakemake workflow for running the population genetic analyses on low to medium coverage data (ranges from 2x to 20x, with mean 10x). It primarily uses genotype likelihoods (estimated from ANGSD) rather than genotype calls (e.g PLINK or bcftools). It includes the following analyses:
 
 1. Relatedness structure for identifying clones (software [ngsRelate](https://github.com/ANGSD/NgsRelate))
 2. Individual-level inbreeding coefficients (software [ngsF-HMM](https://github.com/fgvieira/ngsF-HMM))
@@ -20,7 +20,7 @@ Some analyses will be implemented include:
 
 ## About the _Lupinus perennis_ dataset
 
-The _Lupinus perennis_ genomic dataset represents 18 populations sampled across the southern Ontario and the US Midwest. I collected leaf samples from 22+ Wild lupine (_Lupinus perennis_) populations in 2022, 2023, and 2024 and sequenced 18 populations using low coverage whole genome sequencing (lcWGS; about 10x coverage). Some populations were sampled by colllaborators in American state agencies. 
+The _Lupinus perennis_ genomic dataset represents 18 populations sampled across southern Ontario in Canada and the US Midwest. I collected leaf samples from 22+ Wild lupine (_Lupinus perennis_) populations in 2022, 2023, and 2024 and sequenced 18 populations using low coverage whole genome sequencing (lcWGS; about 10x coverage). Some populations were sampled by colllaborators from US state agencies. 
 
 For 7 populations, the [University of Wisconsin Biotechnology Center DNA Sequencing Facility](https://dnaseq.biotech.wisc.edu/) completed our DNA extractions and the [McGill Genome Centre](https://www.mcgillgenomecentre.ca/) performed the sequencing using Illumina NovaSeq6000. For the remaining 11 populations, [Génome Québec](https://genomequebec.com/en/) completed our DNA extractions and sequencing using Illumina NovaSeq X+. 
 
