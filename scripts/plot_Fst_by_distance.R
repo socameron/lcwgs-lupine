@@ -4,7 +4,7 @@ library(ggplot2)
 library(geosphere)
 
 # 1. Load population coordinates data
-pop_coords <- read.csv("data/lists/batch_1_popln_only_geo_coord.csv")
+pop_coords <- read.csv("data/lists/all_popln_geo_coord.csv")
 
 # 2. Function to calculate distances between populations based on lat/long
 calculate_distances <- function(pop1, pop2, coords) {
@@ -22,7 +22,7 @@ calculate_distances <- function(pop1, pop2, coords) {
   # Calculate geographic distance using the haversine formula (in kilometers)
   dist <- distHaversine(coord1, coord2) / 1000  # Distance in km
   return(dist)
-}
+} 
 
 # 3. Load Fst estimates
 fst_files <- list.files(path = "results/realSFS/hap2/fst/", pattern = "*_fst_global.txt", full.names = TRUE)
@@ -50,10 +50,10 @@ fst_data <- fst_data %>% filter(Pop1 != Pop2)
 
 # 5. Map Pop1 and Pop2 to their Site_code in pop_coords to use for distance calculations
 fst_data <- fst_data %>%
-  left_join(pop_coords %>% select(Site_code, New_code), by = c("Pop1" = "Site_code")) %>%
-  rename(Pop1_New_code = New_code) %>%
-  left_join(pop_coords %>% select(Site_code, New_code), by = c("Pop2" = "Site_code")) %>%
-  rename(Pop2_New_code = New_code)
+  left_join(pop_coords %>% select(Site_code, Site_code2), by = c("Pop1" = "Site_code")) %>%
+  rename(Pop1_Site_code2 = Site_code2) %>%
+  left_join(pop_coords %>% select(Site_code, Site_code2), by = c("Pop2" = "Site_code")) %>%
+  rename(Pop2_Site_code2 = Site_code2)
 
 # 6. Create a unique identifier for each population pair, sorted alphabetically
 fst_data <- fst_data %>%
@@ -70,11 +70,11 @@ fst_data <- fst_data %>%
 
 # 9. Determine population pair type (Core-Core, Core-Edge, or Edge-Edge)
 fst_data <- fst_data %>%
-  left_join(pop_coords %>% select(New_code, Position), by = c("Pop1_New_code" = "New_code")) %>%
-  rename(Pop1_Position = Position) %>%
-  left_join(pop_coords %>% select(New_code, Position), by = c("Pop2_New_code" = "New_code")) %>%
-  rename(Pop2_Position = Position) %>%
-  mutate(PairType = case_when(
+  left_join(pop_coords %>% select(Site_code2, Range_position), by = c("Pop1_Site_code2" = "Site_code2")) %>%
+  rename(Pop1_Position = Range_position) %>%
+  left_join(pop_coords %>% select(Site_code2, Range_position), by = c("Pop2_Site_code2" = "Site_code2")) %>%
+  rename(Pop2_Position = Range_position) %>%
+    mutate(PairType = case_when(
     Pop1_Position == "Core" & Pop2_Position == "Core" ~ "Core-Core",
     Pop1_Position == "Edge" & Pop2_Position == "Edge" ~ "Edge-Edge",
     TRUE ~ "Edge-Core"

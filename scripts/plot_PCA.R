@@ -18,11 +18,33 @@ e <- eigen(C)
 # Prepare data for ggplot
 pca_data <- data.frame(PC1 = e$vectors[, 1], PC2 = e$vectors[, 2], Population = pop[, 1])
 
-# Define colors for each population-based cluster (same as in admixture plot)
-cluster_colors <- c("C.OH.1" = "orchid", "C.MI.2" = "darkorchid", 
-                    "C.ON.3" = "purple4", "C.IN.2" = "lightsalmon1", 
-                    "E.ON.5" = "cyan", "E.ON.8" = "aquamarine", 
-                    "E.ON.9" = "turquoise4")
+
+cluster_colors <- c(
+  # Existing colors:
+  "C.OH.1" = "#DA70D6",    # orchid
+  "C.MI.2" = "#9932CC",    # darkorchid
+  "C.ON.3" = "#551A8B",    # purple4
+  "C.IN.2" = "#FFA07A",    # lightsalmon1
+  "E.ON.5" = "#00FFFF",    # cyan
+  "E.ON.8" = "#7FFFD4",    # aquamarine
+  "E.ON.9" = "#00868B",    # turquoise4
+  
+  # New core colors (4):
+  "C.IL.1" = "#9370DB",    # mediumpurple
+  "C.MN.4" = "#BA55D3",    # mediumorchid
+  "C.WI.1" = "#663399",    # rebeccapurple
+  "C.WI.2" = "#9400D3",    # darkviolet
+  
+  # New edge colors (4):
+  "E.MI.7" = "#20B2AA",    # lightseagreen
+  "E.MN.2" = "#48D1CC",    # mediumturquoise
+  "E.MN.3" = "#5F9EA0",    # cadetblue
+  "E.NH.1" = "#008B8B",    # darkcyan
+  "E.NY.1" = "#00CED1",    # dark turqoise 
+  "E.WI.4" = "#40E0D0",    # turquoise
+  "E.WI.9" = "#009999"     # balanced teal
+)
+
 
 # Set the Population column as a factor with specific levels to maintain consistent coloring
 pca_data$Population <- factor(pca_data$Population, levels = names(cluster_colors))
