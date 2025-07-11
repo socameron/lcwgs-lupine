@@ -1,20 +1,26 @@
 # Population Genetics - _Lupinus perennis_ (lcWGS)
 
-This is a Snakemake workflow for running the population genetic analyses. It includes the following analyses:
+This is a Snakemake workflow for running the population genetic analyses on low to medium coverage data (ranges from 2x to 20x, with mean 10x). It primarily uses genotype likelihoods (estimated from ANGSD) rather than genotype calls (e.g PLINK or bcftools). It includes the following analyses:
 
-1. Relatedness structure for identifying clones (software `ngsRelate`)
-2. Individual-level inbreeding coefficients (software `ngsF-HMM`)
-3. Runs of Homozygosity (ROH) for inbreeding (software `bcftools roh`)
-4. Population structure and admixture (software `PCangsd`)
-5. Thetas for Taijama's D, nucleotide diversity, and Watterson's theta (software `angsd` with command `thetaStat`) 
-6. Population-level pairwise Fst and Fst by Distance (IBD) (software `realSFS`)
-7. Contemporary effective population size (software `GONE`)
-8. Linkage disequilibrium (software `ngsLD`)
-9. Mutation screens (dN/dS) (custom software, email dan.schoen@mcgill.ca for info)
+1. Relatedness structure for identifying clones (software [ngsRelate](https://github.com/ANGSD/NgsRelate))
+2. Individual-level inbreeding coefficients (software [ngsF-HMM](https://github.com/fgvieira/ngsF-HMM))
+3. Runs of Homozygosity (ROH) for inbreeding (software [RZooRoH](https://cran.r-project.org/web/packages/RZooRoH/index.html))
+4. Population structure and admixture (software [PCangsd](https://github.com/Rosemeis/pcangsd) and [ngsAdmix](https://github.com/aalbrechtsen/NGSadmix?tab=readme-ov-file))
+5. Thetas for Taijama's D, nucleotide diversity, and Watterson's theta (software [ANGSD](https://github.com/ANGSD/angsd) with command `thetaStat`) 
+6. Population-level pairwise Fst and Fst by Distance (IBD) (software [ANGSD](https://github.com/ANGSD/angsd) with command `realSFS`)
+7. Linkage disequilibrium (software [ngsLD](https://github.com/fgvieira/ngsLD))
+
+Some analyses will be implemented include:
+
+1. Contemporary effective population size (software [NeEstimator v2](https://github.com/bunop/NeEstimator2.X) and [GONE](https://github.com/esrud/GONE))
+2. Mutation screens (dN/dS) (custom software, email dan.schoen@mcgill.ca for info)
+3. Genotype-environment associations (software [Redundancy Analysis](https://github.com/Capblancq/RDA-landscape-genomics))
+4. Genetic off-sets (software TBD)
+5. Demographic histories (software Dadi)
 
 ## About the _Lupinus perennis_ dataset
 
-The _Lupinus perennis_ genomic dataset represents 18 populations sampled across the southern Ontario and the US Midwest. I collected leaf samples from 22+ Wild lupine (_Lupinus perennis_) populations in 2022, 2023, and 2024 and sequenced 18 populations using low coverage whole genome sequencing (lcWGS; about 10x coverage). Some populations were sampled by colllaborators in American state agencies. 
+The _Lupinus perennis_ genomic dataset represents 18 populations sampled across southern Ontario in Canada and the US Midwest. I collected leaf samples from 22+ Wild lupine (_Lupinus perennis_) populations in 2022, 2023, and 2024 and sequenced 18 populations using low coverage whole genome sequencing (lcWGS; about 10x coverage). Some populations were sampled by colllaborators from US state agencies. 
 
 For 7 populations, the [University of Wisconsin Biotechnology Center DNA Sequencing Facility](https://dnaseq.biotech.wisc.edu/) completed our DNA extractions and the [McGill Genome Centre](https://www.mcgillgenomecentre.ca/) performed the sequencing using Illumina NovaSeq6000. For the remaining 11 populations, [Génome Québec](https://genomequebec.com/en/) completed our DNA extractions and sequencing using Illumina NovaSeq X+. 
 
@@ -24,7 +30,7 @@ Populations are distinguished based on their geographical position relative to t
 
 ## Quality control prior to analyses
 
-Before running any analyses, I mapped my reads to a scaffold-based reference genome. Since I'm using ANGSD for a majority of my analyses, I also clipped overlapping reads with `bamutil/1.0.14` and realigned around indels using `gatk/3.8`. I then filtered out potential paralogs using `ngsParalog` and its internal program called `dupHMM`. Any downstream analyses then underwent its own filtering criteria, but was required to constrain the analysis to the first 24 scaffolds of our reference assembly, as these in theory should represent the 24 chromosomes of _Lupinus perennis_. In the future, we'll likely utilize our Hi-C data to construct a chromosome-based reference assembly. 
+Before running any analyses, I mapped my reads to a scaffold-based reference genome. Since I'm using ANGSD for a majority of my analyses, I also clipped overlapping reads with `bamutil/1.0.14` and realigned around indels using `gatk/3.8`. I then filtered out potential paralogs using [ngsParalog](https://github.com/tplinderoth/ngsParalog) and its internal program called `dupHMM`. Any downstream analyses then underwent its own filtering criteria, but was required to constrain the analysis to the first 24 scaffolds of our reference assembly, as these in theory should represent the 24 chromosomes of _Lupinus perennis_. In the future, we'll likely utilize our Hi-C data to construct a chromosome-based reference assembly. 
 
 ## Snakemake
 
