@@ -2003,6 +2003,14 @@ set-resources:
     mem_mb: 153000
     threads: 16
     time: 10000
+  angsd_for_DFE_4fold:
+    mem_mb: 34400
+    threads: 12
+    time: 1440
+  angsd_for_DFE_CDS:
+    mem_mb: 34400
+    threads: 12
+    time: 1440
   angsd_for_GONE:
     mem_mb: 34400
     threads: 12
@@ -2063,6 +2071,14 @@ set-resources:
     mem_mb: 34400
     threads: 24
     time: 240
+  bcftools_snp_call_by_population:
+    mem_mb: 34400
+    threads: 24
+    time: 900
+  bcftools_snp_call_canonical_by_population:
+    mem_mb: 34400
+    threads: 24
+    time: 900
   clip_overlapping_reads:
     mem_mb: 13800
     threads: 4
@@ -2072,6 +2088,10 @@ set-resources:
     threads: 4
     time: 420
   convert_bcf_to_vcf:
+    mem_mb: 13800
+    threads: 2
+    time: 360
+  convert_vcf_GP_to_GT:
     mem_mb: 13800
     threads: 2
     time: 360
@@ -2173,6 +2193,10 @@ set-resources:
     mem_mb: 13800
     threads: 2
     time: 180
+  filter_by_popln_4D_and_CDS:
+    mem_mb: 48000
+    threads: 2
+    time: 360
   filter_beagle_with_prune_graph:
     mem_mb: 23000
     threads: 4
@@ -2181,6 +2205,9 @@ set-resources:
     time: 180
   filter_scaffold_lr_by_coverage_hap2:
     time: 180
+  find_4fold_degenerate_sites:
+    mem_mb: 13800
+    threads: 2
   fold_global_SFS_by_population:
     mem_mb: 149500
     threads: 40
@@ -2194,6 +2221,14 @@ set-resources:
     threads: 40
     time: 240
   fold_global_SFS_theta_by_population:
+    mem_mb: 149500
+    threads: 40
+    time: 240
+  fold_SFS_4fold_by_population:
+    mem_mb: 149500
+    threads: 40
+    time: 240
+  fold_SFS_CDSother_by_population:
     mem_mb: 149500
     threads: 40
     time: 240
@@ -2234,7 +2269,12 @@ set-resources:
     threads: 2
     time: 120
   indel_list:
+    mem_mb: 38000
+    threads: 4
+    time: 8500
+  indel_list_per_sample:
     mem_mb: 13800
+    threads: 2
     time: 1440
   index_bams:
     mem_mb: 13800
@@ -2397,7 +2437,9 @@ set-threads:
   angsd_SFS_by_population_on_all_sites: 12
   angsd_SFS_canonical_sites: 12
   angsd_SFS_control_by_population_on_all_sites: 12
-  angsd_for_EMU: 16
+  angsd_for_EMU: 162
+  angsd_for_DFE_4fold: 12
+  angsd_for_DFE_CDS: 12
   angsd_for_GONE: 12
   angsd_for_PCAngsd: 12
   angsd_for_bcftools_roh: 4
@@ -2411,9 +2453,12 @@ set-threads:
   bcftools_annotate_vcf: 4
   bcftools_roh_across_samples: 24
   bcftools_roh_single_sample: 24
+  bcftools_snp_call_by_population: 12
+  bcftools_snp_call_canonical_by_population: 12
   clip_overlapping_reads: 4
   convert_raw_sites_all_poplns: 4
   convert_bcf_to_vcf: 2
+  convert_vcf_GP_to_GT: 2
   convert_vcf_to_genepop: 2
   combine_raw_sites_all_poplns: 4
   combine_GLs_all_popln_scaffolds: 4
@@ -2437,6 +2482,7 @@ set-threads:
   filter_all_sites_all_populations_dupHMM: 2
   filter_all_sites_by_popln_calcLR: 2
   filter_all_sites_by_popln_dupHMM: 2
+  filter_by_popln_4D_and_CDS: 2
   filter_beagle_with_prune_graph: 4
   fold_global_SFS_by_population: 40
   fst_analysis: 40
