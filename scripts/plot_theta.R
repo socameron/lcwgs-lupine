@@ -145,6 +145,7 @@ p_tajimasD <- combined_theta_data %>%
   ggplot(aes(x = population, y = tajimasD/sites, fill = population)) +
   geom_boxplot() +
   scale_fill_manual(values = population_colors) +
+  scale_x_discrete(labels = function(x) sub("^[CE]\\.", "", x)) + # remove C. and E. precursors of population names
   labs(title = "Tajima's D across Populations", x = "Population", y = "Tajima's D") +
   custom_theme
 
@@ -155,6 +156,7 @@ p_nucleotide_div <- combined_theta_data %>%
   #geom_hline(data = mean_values, aes(yintercept = mean_diversity), color = "blue", linetype = "dashed", size = 0.5) +
   #geom_hline(data = median_values, aes(yintercept = median_diversity), color = "red", linetype = "solid", size = 0.5) +
   scale_fill_manual(values = population_colors) +
+  scale_x_discrete(labels = function(x) sub("^[CE]\\.", "", x)) + # remove C. and E. precursors of population names
   labs(title = "Nucleotide Diversity (π) across Populations", x = "Population", y = "Nucleotide Diversity (π)") +
   custom_theme
 
@@ -201,6 +203,7 @@ p_mean_nucleotide <- ggplot(nucleotide_summary, aes(x = population, y = mean_div
     x = "Population",
     y = expression("Nucleotide Diversity (π)")
   ) +
+  scale_x_discrete(labels = function(x) sub("^[CE]\\.", "", x)) + # remove C. and E. precursors of population names
   custom_theme
 
 # Create a bar plot of the mean nucleotide diversity with error bars representing the standard error
@@ -214,6 +217,7 @@ p_mean_tajima <- ggplot(tajima_summary, aes(x = population, y = mean_tajimasD, c
     x = "Population",
     y = expression("Tajima's D")
   ) +
+  scale_x_discrete(labels = function(x) sub("^[CE]\\.", "", x)) + # remove C. and E. precursors of population names
   custom_theme
 
 # Save the plot to file
@@ -238,6 +242,7 @@ p_tajimasD_violin <- combined_theta_data %>%
   geom_violin() + 
   stat_summary(fun = median, geom = "crossbar", width = 0.5, color = "black") +
   scale_fill_manual(values = population_colors) +
+  scale_x_discrete(labels = function(x) sub("^[CE]\\.", "", x)) + # remove C. and E. precursors of population names
   labs(title = "Tajima's D across Populations", x = "Population", y = "Tajima's D") +
   custom_theme
 
@@ -249,6 +254,7 @@ p_nucleotide_div_violin <- combined_theta_data %>%
   #geom_hline(data = median_values, aes(yintercept = median_diversity), color = "red", linetype = "solid", size = 0.5) +
   stat_summary(fun = median, geom = "crossbar", width = 0.5, color = "black") +
   scale_fill_manual(values = population_colors) +
+  scale_x_discrete(labels = function(x) sub("^[CE]\\.", "", x)) + # remove C. and E. precursors of population names
   #scale_y_continuous(breaks = seq(floor(min(combined_theta_data$nucleotide_diversity)), 
                               #ceiling(max(combined_theta_data$nucleotide_diversity)), 
                               #by = 10)) +  # Set y-axis breaks every 10 units

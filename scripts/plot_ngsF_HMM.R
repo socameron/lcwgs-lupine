@@ -130,6 +130,7 @@ p_inbreeding <- combined_inbreeding_data %>%
   ggplot(aes(x = population, y = InbreedingCoefficient, fill = population)) +
   geom_boxplot() +
   scale_fill_manual(values = population_colors) +
+  scale_x_discrete(labels = function(x) sub("^[CE]\\.", "", x)) + # remove C. and E. precursors of population names
   labs(title = "Inbreeding Coefficients across Populations", x = "Population", y = "Inbreeding Coefficient (F)") +
   custom_theme
 
@@ -151,6 +152,7 @@ p_mean_inbreeding <- ggplot(inbreeding_summary, aes(x = population, y = mean_F, 
   geom_errorbar(aes(ymin = mean_F - se_F, ymax = mean_F + se_F), 
                 width = 0.75, linewidth = 1.5) +
   scale_color_manual(values = population_colors) +
+  scale_x_discrete(labels = function(x) sub("^[CE]\\.", "", x)) + # remove C. and E. precursors of population names
   labs(
     title = "Mean Inbreeding Coefficient by Population (F[IS])",
     x = "Population",

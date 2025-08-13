@@ -1,93 +1,75 @@
-# Load necessary libraries
+#!/usr/bin/env Rscript
+# scripts/plot_admixture.R
+#
+# Conventional STRUCTURE-style barplot from a PCAngsd .Q file
+
 library(ggplot2)
 library(dplyr)
 library(tidyr)
 
-# Read command line arguments
-args <- commandArgs(trailingOnly = TRUE)
-input_file <- args[1]
-info_file <- args[2]
-output_file <- args[3]
+# 1) parse command-line args
+args     <- commandArgs(trailingOnly = TRUE)
+qfile    <- args[1]  # e.g. results/pcangsd/.../all_popln_canonical_SNP_pcangsd.admix.18.Q
+meta_csv <- args[2]  # data/lists/.../all_samples_to_popln_bam_order.csv
+out_png  <- args[3]  # e.g. results/plots/.../all_popln_SNP_admix.png
 
-# Read the .Q file into a data frame
-admix_data <- read.table(input_file, header = FALSE)
+# 2) load Q-matrix and metadata
+Qmat <- read.table(qfile, header = FALSE, stringsAsFactors = FALSE)
+meta <- read.csv(meta_csv, stringsAsFactors = FALSE)
 
-# Read the population info file
-pop_info <- read.table(info_file, header = FALSE, stringsAsFactors = FALSE)
-colnames(pop_info) <- c("PopulationCode", "Individual")
+# 3) annotate rows
+Qmat$Individual     <- meta$Sample_name    # unique IDs, e.g. "PBBT-22"
+Qmat$PopulationCode <- meta$Site_code2     # e.g. "E.MN.2"
 
-# Add individual IDs based on the order (assuming the same order as in pop_info)
-admix_data <- admix_data %>%
-  mutate(Individual = pop_info$Individual,
-         PopulationCode = pop_info$PopulationCode)
+# 4) pivot to long form
+admix_long <- Qmat %>%
+  mutate(Row = row_number()) %>%
+  pivot_longer(
+    cols      = starts_with("V"),
+    names_to  = "Cluster",
+    values_to = "Proportion"
+  ) %>%
+  select(Individual, PopulationCode, Cluster, Proportion)
 
-# Calculate the average proportion per cluster for each population
-cluster_means <- admix_data %>%
-  pivot_longer(cols = starts_with("V"), names_to = "Cluster", values_to = "Proportion") %>%
-  group_by(PopulationCode, Cluster) %>%
-  summarize(AverageProportion = mean(Proportion), .groups = "drop")
-
-# Identify the dominant cluster for each population
-dominant_clusters <- cluster_means %>%
-  group_by(PopulationCode) %>%
-  slice_max(order_by = AverageProportion, n = 1) %>%
-  select(PopulationCode, DominantCluster = Cluster)
-
-# Create a mapping between Cluster (V1, V2, etc.) and PopulationCode based on the dominant cluster
-cluster_map <- setNames(dominant_clusters$PopulationCode, dominant_clusters$DominantCluster)
-
-# Join the dominant cluster information back to the admixture data
-admix_data <- admix_data %>%
-  left_join(dominant_clusters, by = "PopulationCode")
-
-# Convert the data frame into long format for ggplot2
-admix_long <- admix_data %>%
-  pivot_longer(cols = starts_with("V"), names_to = "Cluster", values_to = "Proportion")
-
-# Map the generic cluster names (V1, V2, ...) to population-based labels using the cluster_map
-admix_long$Cluster <- factor(admix_long$Cluster, levels = names(cluster_map), labels = cluster_map)
-
-# Define colors for each population-based cluster (adjust according to your populations)
-cluster_colors <- c("C.OH.1" = "orchid", "C.MI.2" = "darkorchid", 
-                    "C.ON.3" = "purple4", "C.IN.2" = "lightsalmon1", 
-                    "E.ON.5" = "cyan", "E.ON.8" = "aquamarine", 
-                    "E.ON.9" = "turquoise4")
-
-# Set the order of the Individuals by PopulationCode and within each population by the dominant proportion
-admix_long <- admix_long %>%
+# 5) order individuals by Population then by their strongest ancestry
+order_df <- admix_long %>%
   group_by(Individual, PopulationCode) %>%
-  mutate(DominantProportion = max(Proportion)) %>%
-  ungroup()
+  summarize(MaxProp = max(Proportion), .groups="drop") %>%
+  arrange(PopulationCode, desc(MaxProp))
 
-# Order the individuals: first by PopulationCode and then by DominantProportion within each population
-admix_long <- admix_long %>%
-  arrange(PopulationCode, desc(DominantProportion))
+admix_long$Individual <- factor(admix_long$Individual,
+                                levels = order_df$Individual)
 
-# Define a custom theme
-custom_theme <- theme(panel.background = element_rect(fill = "white", color = NA),
-                      panel.grid.major = element_blank(), 
-                      panel.grid.minor = element_blank(),
-                      axis.line = element_line(colour = "black", linewidth = 1), 
-                      axis.ticks = element_line(linewidth = 1), 
-                      axis.ticks.length = unit(0.25, "cm"), 
-                      plot.title = element_text(hjust = 0.5), 
-                      axis.text.y = element_text(size=12),
-                      axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 1, size = 6),
-                      axis.title = element_text(size=12),
-                      legend.position = "top", 
-                      legend.margin = margin(0, 0, 0, 0), 
-                      legend.text = element_text(size=12), 
-                      legend.title = element_text(size=10))
+# 6) choose a palette for the K clusters
+K <- length(unique(admix_long$Cluster))
+cluster_cols <- colorRampPalette(RColorBrewer::brewer.pal(8,"Set2"))(K)
 
-# Number of clusters (K) is the number of columns in admix_data excluding Individual and PopulationCode
-K <- ncol(admix_data) - 3
+# 7) theme tweaks
+custom_theme <- theme_minimal() +
+  theme(
+    panel.grid.major = element_blank(),
+    panel.grid.minor = element_blank(),
+    axis.text.x       = element_blank(),  # hide sample labels
+    axis.ticks.x      = element_blank(),
+    axis.title.x      = element_blank(),
+    axis.title.y      = element_text(size=12),
+    plot.title        = element_text(hjust=0.5),
+    legend.position   = "top"
+  )
 
-# Create the admixture bar plot with colors based on the population-aligned clusters
+# 8) plot
 p <- ggplot(admix_long, aes(x = Individual, y = Proportion, fill = Cluster)) +
-  geom_bar(stat = "identity", position = "stack", width = 1) +
-  scale_fill_manual(values = cluster_colors) +
-  labs(x = "Individuals", y = "Admixture Proportion", title = paste("Admixture Proportions (K =", K, ")")) +
+  geom_col(width = 1) +
+  facet_grid(~ PopulationCode, scales="free_x", space="free_x") +
+  scale_fill_manual(
+    values = cluster_cols,
+    name   = "Cluster"
+  ) +
+  labs(
+    title = paste0("Admixture proportions (K = ", K, ")"),
+    y     = "Proportion"
+  ) +
   custom_theme
 
-# Save the plot to the specified output file
-ggsave(output_file, plot = p, width = 14, height = 8)
+# 9) save
+ggsave(out_png, p, width = 14, height = 6, dpi = 300)

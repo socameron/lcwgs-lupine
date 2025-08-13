@@ -37,11 +37,26 @@ n_threads   <- as.integer(args[6])
 output_dir <- dirname(output_base)
 if(!dir.exists(output_dir)) dir.create(output_dir, recursive = TRUE)
 
+# scan allele freqs into a numeric vector 
+# Please see section 7.2.3 of the vignette -> a vector, NOT a filename, must be passed
+sample_ids <- scan(sample_file, what=character(), quiet=TRUE)
+afreqs     <- scan(allele_freq, what=numeric(),   quiet=TRUE)
+
+# sanity checks -> check for length of files and make sure they match for:
+  # (1) allele freq + zoodata (for number of rows for SNPs)
+  # (2) sample_file + zoodata (for number of samples within popln)
+stopifnot(length(sample_ids) * 3 == (length(scan(input_zoo, what=character(), nlines=1)) - 5))
+stopifnot(length(afreqs) == length(readLines(input_zoo)))
+
+
 # 1) Load the data
-zoo_data <- zoodata(file1      = input_zoo,
+zoo_data <- zoodata(genofile   = input_zoo,
                     zformat    = "gl",
+                    supcol     = 5,
+                    chrcol     = 1,
+                    poscol     = 3,
                     samplefile = sample_file,
-                    allelefreq = allele_freq)
+                    allelefreq = afreqs)
 
 # 2) Define exactly the MixKR rate‐sets you want to try:
 custom_models <- list(
@@ -60,8 +75,7 @@ candidate_models <- setNames(
   lapply(custom_models, function(rates){
     zoomodel(predefined = TRUE,
              K          = length(rates),
-             krates     = rates,
-             layers     = FALSE)
+             krates     = rates)
   }),
   names(custom_models)
 )
@@ -95,7 +109,7 @@ for(mn in names(candidate_models)){
   bic_table <- rbind(bic_table, data.frame(
     Population = population,
     Model      = mn,
-    K          = zmod@K,
+    K          = length(zmod@krates),
     Rates      = paste(zmod@krates, collapse=","),
     TotalBIC   = tbic,
     stringsAsFactors = FALSE

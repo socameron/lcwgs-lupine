@@ -9,6 +9,7 @@ import pandas as pd
 import yaml
 import re
 import itertools
+import gzip
 from pathlib import Path
 
 
@@ -232,7 +233,9 @@ def map_prefix_to_full_scaffold(prefix, hap_type):
     return None  
 # Return None or an appropriate default if not found
 
-
+wildcard_constraints:
+    population="({})".format("|".join(POPULATIONS)),
+    hap2scaffold_prefix="({})".format("|".join(HAP2SCAFFOLD_PREFIXES))
 
 #### Bunch of parameters for using ngsParalog, Fst, ANGSD, etc
 
@@ -251,14 +254,14 @@ POP_COMBINATIONS = list(itertools.combinations(POPULATIONS, 2))
 # Varying levels of K for admixture analyses
 K_values = [16,17,18,19,20]
 
-# These functions are necessary for bcftools/roh because it calls for specific .vcf files pertaining to each population. 
+# These functions are necessary for RZooROH because it calls for specific .vcf files pertaining to each individual
 # Function to expand VCF file paths
 def generate_vcf_files():
     vcf_files = []
     for population in POPULATIONS:
         sample_prefixes = get_population_sample_prefixes(population)
         vcf_files.extend(
-            [f"results/angsd/hap2/canonical/bcfROH_input/{population}/{prefix}_canonical_SNPs.vcf.gz" for prefix in sample_prefixes]
+            [f"results/angsd/hap2/canonical/RZooROH_input/{population}/{prefix}_canonical_SNPs.vcf.gz" for prefix in sample_prefixes]
         )
     return vcf_files
 
@@ -268,7 +271,7 @@ def generate_annotated_vcfs():
     for population in POPULATIONS:
         sample_prefixes = get_population_sample_prefixes(population)
         annotated_vcfs.extend(
-            [f"results/bcftools/hap2/roh_analysis/{population}/{prefix}_annotated.vcf.gz" for prefix in sample_prefixes]
+            [f"results/RZooROH/hap2/RZooROH_analysis/{population}/{prefix}_annotated.vcf.gz" for prefix in sample_prefixes]
         )
     return annotated_vcfs
 
@@ -2292,7 +2295,8 @@ rule angsd_for_ngsRelate:
   params:
     ref="data/reference/hap{hap}/lupinehap{hap}.fasta",
     file_name="results/angsd/hap{hap}/canonical/ngsRelate_input/by_popln/{population}_canonical_SNPs_dupHMM",
-    scaffolds="results/scaffolds/hap{hap}_scaffolds.txt"
+    scaffolds="results/scaffolds/hap{hap}_scaffolds.txt",
+    minInd=lambda wildcards, input: max(1, int(0.8 * sum(1 for _ in open(input.bam_list))))
   log:
     "results/logs/angsd/hap{hap}/canonical/ngsRelate_input/by_popln/angsd_canonical_SNPs_dupHMM_hap{hap}_{population}.log"
   envmodules:
@@ -2312,7 +2316,7 @@ rule angsd_for_ngsRelate:
     -setMaxDepth 3500\
     -minMapQ 30\
     -minQ 20\
-    -minInd 20\
+    -minInd {params.minInd}\
     -minHWEpval 0.01\
     -minMaf 0.0001\
     -baq 2\
@@ -2346,20 +2350,22 @@ rule ngsRelate_prep:
 
 
 # Identify potential clones using ngsRelate
-# Will need to change -n 27 according to the number of samples per population (create some list)
 rule ngsRelate_analysis:
   input:
+    bam_list="data/lists/hap{hap}/{population}_realign_hap{hap}.txt",
     glf_file="results/angsd/hap{hap}/canonical/ngsRelate_input/by_popln/{population}_canonical_SNPs_dupHMM.glf.gz",
     freq_file="results/ngsRelate/hap{hap}/{population}_freq"
   output:
     ngsrelate_output="results/ngsRelate/hap{hap}/{population}_ngsrelate.out"
+  params:
+    pop_size=lambda wildcards: sum(1 for _ in open(f"data/lists/hap{wildcards.hap}/{wildcards.population}_realign_hap{wildcards.hap}.txt"))
   log:
     "results/logs/ngsRelate/hap{hap}/{population}_ngsrelate_analysis.log"
   threads: 4
   shell:
     """
     ngsRelate -g {input.glf_file} \
-              -n 27 \
+              -n {params.pop_size} \
               -f {input.freq_file} \
               -O {output.ngsrelate_output} \
               &> {log}
@@ -2393,17 +2399,20 @@ rule detect_clones:
 
 rule ngsRelate_analysis_inbreeding:
   input:
+    bam_list="data/lists/hap{hap}/{population}_realign_hap{hap}.txt",
     glf_file="results/angsd/hap{hap}/canonical/ngsRelate_input/by_popln/{population}_canonical_SNPs_dupHMM.glf.gz",
     freq_file="results/ngsRelate/hap{hap}/{population}_freq"
   output:
     ngsrelate_output="results/ngsRelate/hap{hap}/{population}_inbreeding.out"
+  params:
+    pop_size=lambda wildcards: sum(1 for _ in open(f"data/lists/hap{wildcards.hap}/{wildcards.population}_realign_hap{wildcards.hap}.txt"))
   log:
     "results/logs/ngsRelate/hap{hap}/{population}_ngsrelate_inbreeding_analysis.log"
   threads: 4
   shell:
     """
     ngsRelate -g {input.glf_file} \
-              -n 27 \
+              -n {params.pop_size} \
               -F 1\
               -f {input.freq_file} \
               -O {output.ngsrelate_output} \
@@ -2447,7 +2456,8 @@ rule angsd_for_ngsF:
   params:
     ref="data/reference/hap{hap}/lupinehap{hap}.fasta",
     file_name="results/angsd/hap{hap}/canonical/ngsF_input/by_popln/{population}_canonical_SNPs",
-    scaffolds="results/scaffolds/hap{hap}_scaffolds.txt"
+    scaffolds="results/scaffolds/hap{hap}_scaffolds.txt",
+    minInd=lambda wildcards, input: max(1, int(0.8 * sum(1 for _ in open(input.bam_list))))
   log:
     "results/logs/angsd/hap{hap}/canonical/ngsF_input/by_popln/angsd_canonical_SNPs_hap{hap}_{population}.log"
   envmodules:
@@ -2467,7 +2477,7 @@ rule angsd_for_ngsF:
     -setMaxDepth 3500\
     -minMapQ 30\
     -minQ 20\
-    -minInd 20\
+    -minInd {params.minInd}\
     -minMaf 0.0001\
     -baq 2\
     -only_proper_pairs 1\
@@ -2500,13 +2510,14 @@ rule count_variable_sites:
 # For low-coverage data, set min_epsilon for lower threshold b/w 1e-5 and 1e-9 so algorithm keeps exploring before stopping
 rule ngsF_analysis:
   input:
+    bam_list="data/lists/hap{hap}/{population}_realign_hap{hap}.txt",
     GL3="results/angsd/hap{hap}/canonical/ngsF_input/by_popln/{population}_canonical_SNPs.glf.gz",
     SNP_count="results/ngsF/hap{hap}/by_popln/{population}_SNPs_count.txt"
   output:
     ngsF_est="results/ngsF/hap{hap}/by_popln/{population}_ngsF_inbreeding_final.lrt"
   params:
     ngsF_output_base="results/ngsF/hap{hap}/by_popln/{population}_ngsF_inbreeding_iter",
-    pop_size=27,
+    pop_size=lambda wildcards: sum(1 for _ in open(f"data/lists/hap{wildcards.hap}/{wildcards.population}_realign_hap{wildcards.hap}.txt")),
     n_sites=lambda wildcards: int(open(f"results/ngsF/hap{wildcards.hap}/by_popln/{wildcards.population}_SNPs_count.txt").read().strip()),
     iterations=5  # Number of iterations
   log:
@@ -2552,6 +2563,7 @@ rule ngsF_analysis:
 # Use ngsF-HMM which uses a 2-step hidden-markov model
 rule ngsF_HMM_analysis:
   input:
+    bam_list="data/lists/hap{hap}/{population}_realign_hap{hap}.txt",
     GL3="results/angsd/hap{hap}/canonical/ngsF_input/by_popln/{population}_canonical_SNPs.glf.gz",
     GL3_pos="results/angsd/hap{hap}/canonical/ngsF_input/by_popln/{population}_canonical_SNPs.glf.pos.gz",
     SNP_count="results/ngsF/hap{hap}/by_popln/{population}_SNPs_count.txt"
@@ -2561,7 +2573,7 @@ rule ngsF_HMM_analysis:
     GL3_pos_unzipped="results/angsd/hap{hap}/canonical/ngsF_input/by_popln/{population}_canonical_SNPs.glf.pos"
   params:
     ngsFHMM_output_base="results/ngsF/hap{hap}/by_popln/{population}_ngsF-HMM_inbreeding",
-    pop_size=27,
+    pop_size=lambda wildcards: sum(1 for _ in open(f"data/lists/hap{wildcards.hap}/{wildcards.population}_realign_hap{wildcards.hap}.txt")),
     n_sites=lambda wildcards: int(open(f"results/ngsF/hap{wildcards.hap}/by_popln/{wildcards.population}_SNPs_count.txt").read().strip())
   log:
     "results/logs/ngsF/hap{hap}/by_popln/{population}_inbreeding_HMM_estimate.log"
@@ -2600,295 +2612,11 @@ rule plot_ngsF_HMM:
     """
 
 
-## ANALYSIS 3: Runs of Homozygosity (ROH) to look at longer regions of inbreeding across the genome
-# PROGRAM 1: ROHan | https://github.com/grenaud/ROHan
-# PROGRAM 2: BCFtools/RoH | https://samtools.github.io/bcftools/howtos/roh-calling.html with lep-map3 | https://github.com/pdimens/LepWrap
-
-# PROGRAM 1: Using ROHan!
-# First estimate Ts/Tv ratio
-rule estimate_Ts_Tv_ratio:
-  input:
-    mafs_file="results/angsd/hap{hap}/canonical/ngsF_input/by_popln/{population}_canonical_SNPs.mafs.gz"
-  output:
-    ts_tv_ratio="results/angsd/hap{hap}/canonical/ngsF_input/by_popln/{population}_Ts_Tv_ratio.txt"
-  shell:
-    """
-    python scripts/estimate_ts_tv.py {input.mafs_file} {output.ts_tv_ratio}
-    """
-
-# we run it against all bam files
-rule rohan_analysis:
-  input:
-    bam="results/bam_realign/hap{hap}/{sample_prefix}_hap{hap}_realign.bam"
-  output:
-    heterozygosity="results/rohan/hap{hap}/rohan_{sample_prefix}.het_1_X.pdf",
-    regions_homo="results/rohan/hap{hap}/rohan_{sample_prefix}.hmm_1_X.pdf"
-  params:
-    output_prefix="results/rohan/hap{hap}/rohan_{sample_prefix}",
-    ref="data/reference/hap{hap}/lupinehap{hap}.fasta"
-  log:
-    "results/logs/rohan/hap{hap}/{sample_prefix}_ROH.log"
-  threads: 4
-  shell:
-    """
-    rohan --rohmu 2e-5\
-    -o {params.output_prefix}\
-    {params.ref}\
-    {input.bam}
-    #--tstv ?
-    """
-
-# PROGRAM 2: BCFtools/RoH
-
-# Call angsd for bcf outputs on individual samples
-# Use "results/bam_realign/hap{hap}/{sample_prefix}_hap{hap}_realign.bam" to call
-rule angsd_for_bcftools_roh:
-  input:
-    bam="results/bam_realign/hap{hap}/{sample_prefix}_hap{hap}_realign.bam",
-    canonical_sites=lambda wildcards: f"results/bed/hap{wildcards.hap}/canonical_sites/filtered_dupHMM/{next(pop for pop in POPULATIONS if pop in wildcards.sample_prefix)}_filtered_sites_dupHMM_calcLR.txt",
-    bin_index=lambda wildcards: f"results/bed/hap{wildcards.hap}/canonical_sites/filtered_dupHMM/{next(pop for pop in POPULATIONS if pop in wildcards.sample_prefix)}_filtered_sites_dupHMM_calcLR.txt.bin"
-  output:
-    bam_list="results/angsd/hap{hap}/canonical/bcfROH_input/{sample_prefix}_bamlist.txt",
-    arg_file="results/angsd/hap{hap}/canonical/bcfROH_input/{sample_prefix}_canonical_SNPs.arg",
-    mafs_file="results/angsd/hap{hap}/canonical/bcfROH_input/{sample_prefix}_canonical_SNPs.mafs.gz",
-    bcf_file="results/angsd/hap{hap}/canonical/bcfROH_input/{sample_prefix}_canonical_SNPs.bcf",
-    hwe_file="results/angsd/hap{hap}/canonical/bcfROH_input/{sample_prefix}_canonical_SNPs.hwe.gz"
-  params:
-    ref="data/reference/hap{hap}/lupinehap{hap}.fasta",
-    file_name="results/angsd/hap{hap}/canonical/bcfROH_input/{sample_prefix}_canonical_SNPs",
-    scaffolds="results/scaffolds/hap{hap}_scaffolds.txt"
-  log:
-    "results/logs/angsd/hap{hap}/canonical/bcfROH_input/angsd_canonical_SNPs_{sample_prefix}.log"
-  envmodules:
-    "angsd/0.940"
-  threads: 4
-  shell:
-    """
-    echo {input.bam} > {output.bam_list}
-    
-    angsd -bam {output.bam_list} \
-    -ref {params.ref} \
-    -out {params.file_name} \
-    -remove_bads 1 \
-    -rf {params.scaffolds} \
-    -GL 2 \
-    -C 50 \
-    -sites {input.canonical_sites} \
-    -minMapQ 30 \
-    -minQ 20 \
-    -minMaf 0.001 \
-    -SNP_pval 1e-6 \
-    -baq 2 \
-    -only_proper_pairs 1 \
-    -nThreads {threads} \
-    -doMajorMinor 1 \
-    -doMaf 1 \
-    -doBcf 1 \
-    -doHWE 1 \
-    -doPost 1 \
-    -doCounts 1 \
-    &> {log}
-    """
-
-    #-setMinDepth 25 \
-    #-setMaxDepth 3500 \
-
-
-# Use *generate_vcf_files() in rule all to call!
-rule bcftools_prep:
-  input:
-    arg_file="results/angsd/hap{hap}/canonical/bcfROH_input/{sample_prefix}_canonical_SNPs.arg",
-    mafs_file="results/angsd/hap{hap}/canonical/bcfROH_input/{sample_prefix}_canonical_SNPs.mafs.gz",
-    bcf_file="results/angsd/hap{hap}/canonical/bcfROH_input/{sample_prefix}_canonical_SNPs.bcf",
-    hwe_file="results/angsd/hap{hap}/canonical/bcfROH_input/{sample_prefix}_canonical_SNPs.hwe.gz",
-    bamlist_file="results/angsd/hap{hap}/canonical/bcfROH_input/{sample_prefix}_bamlist.txt"
-  output:
-    organized_arg_file="results/angsd/hap{hap}/canonical/bcfROH_input/{population}/{sample_prefix}_canonical_SNPs.arg",
-    organized_mafs_file="results/angsd/hap{hap}/canonical/bcfROH_input/{population}/{sample_prefix}_canonical_SNPs.mafs.gz",
-    organized_vcf_file="results/angsd/hap{hap}/canonical/bcfROH_input/{population}/{sample_prefix}_canonical_SNPs.vcf.gz",
-    organized_hwe_file="results/angsd/hap{hap}/canonical/bcfROH_input/{population}/{sample_prefix}_canonical_SNPs.hwe.gz",
-    organized_bamlist_file="results/angsd/hap{hap}/canonical/bcfROH_input/{population}/{sample_prefix}_bamlist.txt"
-  params:
-    population=lambda wildcards: next(pop for pop in POPULATIONS if pop in wildcards.sample_prefix)
-  envmodules:
-    "bcftools/1.19"
-  shell:
-    """
-    mkdir -p results/angsd/hap{wildcards.hap}/canonical/bcfROH_input/{params.population}
-    
-    # Move other files
-    mv {input.arg_file} {output.organized_arg_file}
-    mv {input.mafs_file} {output.organized_mafs_file}
-    mv {input.hwe_file} {output.organized_hwe_file}
-    mv {input.bamlist_file} {output.organized_bamlist_file}
-    
-    # Convert BCF to VCF and compress it using bcftools
-    bcftools view -O z -o {output.organized_vcf_file} {input.bcf_file}
-    
-    # Index the VCF file
-    bcftools index -t {output.organized_vcf_file}
-    """
-
-
-
-# Generate allele frequencies per popln in preparation for bcftools/roh
-rule bcftools_allele_freq:
-  input:
-    allele_freq="results/angsd/hap2/canonical/ngsF_input/by_popln/{population}_canonical_SNPs.mafs.gz"
-  output:
-    allele_freq_txt="results/bcftools/hap2/roh_analysis/{population}/{population}_allele_freq.txt",
-    allele_freq_hdr="results/bcftools/hap2/roh_analysis/{population}/{population}_allele_freq.txt.gz.hdr",
-    allele_freq_gz="results/bcftools/hap2/roh_analysis/{population}/{population}_allele_freq.txt.gz",
-    allele_freq_tbi="results/bcftools/hap2/roh_analysis/{population}/{population}_allele_freq.txt.gz.tbi"
-  params:
-    output_dir="results/bcftools/hap2/roh_analysis/{population}"
-  log:
-    "results/logs/bcftools/hap2/{population}_allele_freq_creation.log"
-  envmodules:
-    "bcftools/1.19"
-  threads: 4
-  shell:
-    """
-    # Ensure the output directory exists
-    mkdir -p {params.output_dir}
-
-    # Transform the .mafs.gz file into the format required for bcftools
-    zcat {input.allele_freq} | awk 'BEGIN {{OFS="\\t"}} NR > 1 {{print $1, $2, $5, $4, $7}}' > {output.allele_freq_txt}
-
-    # Make a copy of the .txt file before compressing
-    cp {output.allele_freq_txt} {output.allele_freq_txt}.copy
-
-    # Index the allele frequency file using bgzip and tabix
-    bgzip -f {output.allele_freq_txt}
-    tabix -s 1 -b 2 -e 2 {output.allele_freq_gz}
-
-    # Restore the original .txt file from the copy
-    mv {output.allele_freq_txt}.copy {output.allele_freq_txt}
-
-    # Create a header for the annotation
-    echo -e "##INFO=<ID=AF1KG,Number=A,Type=Float,Description=\"Allele frequency from ANGSD\">" > {output.allele_freq_hdr}
-    """
-
-
-rule bcftools_annotate_vcf:
-  input:
-    vcf_file="results/angsd/hap2/canonical/bcfROH_input/{population}/{sample_prefix}_canonical_SNPs.vcf.gz",
-    allele_freq_gz="results/bcftools/hap2/roh_analysis/{population}/{population}_allele_freq.txt.gz",
-    allele_freq_hdr="results/bcftools/hap2/roh_analysis/{population}/{population}_allele_freq.txt.gz.hdr"
-  output:
-    annotated_vcf="results/bcftools/hap2/roh_analysis/{population}/{sample_prefix}_annotated.vcf.gz"
-  params:
-    population=lambda wildcards: next(pop for pop in POPULATIONS if pop in wildcards.sample_prefix)
-  log:
-    "results/logs/bcftools/hap2/{population}_{sample_prefix}_annotation.log"
-  envmodules:
-    "bcftools/1.19"
-  threads: 4
-  shell:
-    """
-    # Annotate the individual VCF file with the allele frequencies
-    bcftools annotate -a {input.allele_freq_gz} \
-      -h {input.allele_freq_hdr} \
-      -c CHROM,POS,REF,ALT,AF1KG \
-      -O z -o {output.annotated_vcf} \
-      {input.vcf_file} 2> {log}
-
-    # Index the annotated vcf file
-    bcftools index -t {output.annotated_vcf} 2> {log}
-    """
-
-
-rule bcftools_roh_across_samples:
-  input:
-    annotated_vcfs=lambda wildcards: expand(
-        "results/bcftools/hap2/roh_analysis/{population}/{sample_prefix}_annotated.vcf.gz",
-        population=[wildcards.population],
-        sample_prefix=[sp for sp in sample_prefixes if sp.startswith(wildcards.population)]
-    ),
-    allele_freq="results/bcftools/hap2/roh_analysis/{population}/{population}_allele_freq.txt.gz"
-  output:
-    dummy_file="results/bcftools/hap2/roh_analysis/{population}/roh_analysis_complete.txt"
-  params:
-    output_dir="results/bcftools/hap2/roh_analysis/{population}",
-    input_dir="results/bcftools/hap2/roh_analysis/{population}"
-  log:
-    "results/logs/bcftools/hap2/{population}/{population}_roh_comparison.log"
-  envmodules:
-    "bcftools/1.19"
-  threads: 24
-  shell:
-    """
-    # Ensure the output directory exists
-    mkdir -p {params.input_dir}
-
-    # Run the run-roh.pl script using the annotated VCF files
-    run-roh.pl --indir {params.input_dir} \
-      --outdir {params.output_dir} \
-      --rec-rate 0.4 \
-      --af-annots {input.allele_freq} &> {log}
-
-    # Create a dummy file to signify rule completion
-    echo "ROH analysis completed successfully for {wildcards.population}" > {output.dummy_file}
-    """
-
-
-
-# use rule all: expand("results/plots/hap2/bcftools_roh/{population}/{scaffold}_ROH_comparison.png", population=populations, hap2scaffold=HAP2SCAFFOLDS)
-rule bcftools_roh_plot_across_samples:
-  input:
-    dummy_file="results/bcftools/hap2/roh_analysis/{population}/roh_analysis_complete.txt"
-  output:
-    roh_png="results/plots/hap2/bcftools_roh/{population}/{hap2scaffold}_ROH_comparison.png"
-  log:
-    "results/logs/bcftools/hap2/{population}/{hap2scaffold}_roh_comparison.log"
-  params:
-    input_dir="results/bcftools/hap2/roh_analysis/{population}"
-  envmodules:
-    "bcftools/1.19"
-  shell:
-    """
-    # Check that the dummy file exists
-    if [ ! -f {input.dummy_file} ]; then
-      echo "Error: Dummy file {input.dummy_file} not found. Ensure previous steps completed successfully." >&2
-      exit 1
-    fi
-
-    # Generate plots using plot-roh.py
-    plot-roh.py {params.input_dir} \
-    --outfile {output.roh_png} \
-    --region {wildcards.hap2scaffold}  &> {log}
-    """
-
-
-
-# Run ROH on single samples
-rule bcftools_roh_single_sample:
-  input:
-    mafs_file=lambda wildcards: f"results/angsd/hap{wildcards.hap}/canonical/bcfROH_input/{wildcards.population}/{wildcards.sample_prefix}_canonical_SNPs.mafs.gz",
-    bcf_file=lambda wildcards: f"results/angsd/hap{wildcards.hap}/canonical/bcfROH_input/{wildcards.population}/{wildcards.sample_prefix}_canonical_SNPs.bcf.gz"
-  output:
-    roh_file="results/bcftools/hap{hap}/{population}/{sample_prefix}_roh.txt",
-    allele_freq="results/angsd/hap{hap}/canonical/bcfROH_input/{population}/{sample_prefix}_allele_freq.txt"
-  log:
-    "results/logs/bcfROH/hap{hap}/{population}_{sample_prefix}_roh.log"
-  envmodules:
-    "bcftools/1.19"
-  threads: 24
-  shell:
-    """
-    zcat {input.mafs_file} | awk 'BEGIN {{OFS="\\t"}} {{if (NR > 1) print $1, $2, $5, $6, $7}}' > {output.allele_freq}
-
-    bcftools roh --AF-file {output.allele_freq} \
-    --output {output.roh_file} \
-    {input.bcf_file} &> {log}
-    """
 
 
 
 
-
-
-## ANALYSIS 4: PCA for population structure + Admixture
+## ANALYSIS 3: PCA for population structure + Admixture
 # PROGRAM: PCAngsd | https://github.com/Rosemeis/pcangsd
 # PROGRAM 2: EMU | https://github.com/Rosemeis/emu
   # EMU takes into account of non-random missing data long the genome. Since I previously masked paralogs, this could be these regions. 
@@ -2898,7 +2626,7 @@ rule bcftools_roh_single_sample:
 
 rule generate_bam_list_all_populations:
   input:
-    expand("results/bam_realign/hap2/{sample}_hap2_realign.bam", sample=sample_prefixes)),
+    expand("results/bam_realign/hap2/{sample_prefix}_hap2_realign.bam", sample_prefix=sample_prefixes)
   output:
     "data/lists/hap2/all_populations_realign_hap2.txt"
   run:
@@ -2913,7 +2641,7 @@ rule generate_bam_list_all_populations:
 
 rule combine_population_calcLR_bed_files:
   input:
-    lambda wildcards: expand("results/bed/hap2/deviant_SNPs/{population}_deviant_SNPs_calcLR_BH_corrected.BED", population=POPULATIONS),
+    lambda wildcards: expand("results/bed/hap2/deviant_SNPs/{population}_deviant_SNPs_calcLR_BH_corrected.BED", population=POPULATIONS)
   output:
     "results/bed/hap2/deviant_sites/hap2_combined_deviant_SNPs_realign_BH_correction.BED"
   envmodules:
@@ -2927,7 +2655,7 @@ rule combine_population_calcLR_bed_files:
 
 rule combine_population_dupHMM_bed_files:
   input:
-    lambda wildcards: expand("results/bed/hap2/deviant_SNPs/{population}_deviant_SNPs_dupHMM.BED", population=POPULATIONS),
+    lambda wildcards: expand("results/bed/hap2/deviant_SNPs/{population}_deviant_SNPs_dupHMM.BED", population=POPULATIONS)
   output:
     "results/bed/hap2/deviant_sites/hap2_combined_dupHMM_regions.BED"
   envmodules:
@@ -2940,39 +2668,58 @@ rule combine_population_dupHMM_bed_files:
 
 
 # Extract all known sites from ALL populations. This is to create list sites and later filter from paralogs
+# Parallelize across scaffolds as it would take too long for all samples
 rule angsd_raw_sites_all_poplns:
   input:
     bam_list="data/lists/hap2/all_populations_realign_hap2.txt"
   output:
-    all_sites_gz="results/angsd/hap2/raw/all_poplns/all_sites.pos.gz",
-    all_sites_arg="results/angsd/hap2/raw/all_poplns/all_sites.arg"
+    all_sites_gz="results/angsd/hap2/raw/all_poplns/{hap2scaffold}_all_sites.pos.gz",
+    all_sites_arg="results/angsd/hap2/raw/all_poplns/{hap2scaffold}_all_sites.arg"
   params:
     ref="data/reference/hap2/lupinehap2.fasta",
-    angsd_out="results/angsd/hap2/raw/all_poplns/all_sites"
+    angsd_out="results/angsd/hap2/raw/all_poplns/{hap2scaffold}_all_sites"
   log:
-    angsd_log="results/logs/angsd/hap2/raw/all_poplns/all_sites.log"
-  threads: 8
+    angsd_log="results/logs/angsd/hap2/raw/all_poplns/{hap2scaffold}_all_sites.log"
+  threads: 12
   envmodules:
     "angsd/0.940"
   shell:
     """
-    # Extract all sites across the genome for all populations
-    angsd -bam {input.bam_list} -ref {params.ref} -out {params.angsd_out} \
-    -doCounts 1 -dumpCounts 1 -P {threads} &> {log.angsd_log}
+    # Extract all sites across the genome for the given scaffold from all populations
+    angsd -bam {input.bam_list} \
+          -ref {params.ref} \
+          -out {params.angsd_out} \
+          -doCounts 1 -dumpCounts 1 \
+          -P {threads} \
+          -r {wildcards.hap2scaffold} \
+          &> {log.angsd_log}
     """
 
-
-rule convert_raw_sites_all_poplns:
+# Convert each scaffold's sites to BED format
+rule convert_raw_sites_scaffold:
   input:
-    all_sites_gz="results/angsd/hap2/raw/all_poplns/all_sites.pos.gz",
-    all_sites_arg="results/angsd/hap2/raw/all_poplns/all_sites.arg"
+    all_sites_gz="results/angsd/hap2/raw/all_poplns/{hap2scaffold}_all_sites.pos.gz"
+  output:
+    bed="results/bed/hap2/raw_sites/by_scaffold/{hap2scaffold}_all_sites.BED"
+  threads: 4
+  shell:
+    """
+    # Convert the ANGSD output to BED format for the scaffold
+    gzip -cd {input.all_sites_gz} | awk 'NR>1 && NF>=3 {{print $1"\t"$2-1"\t"$2}}' > {output.bed}
+    dos2unix {output.bed}
+    """
+
+# Combine scaffold BED files 
+rule combine_raw_sites_scaffolds:
+  input:
+    beds=expand("results/bed/hap2/raw_sites/by_scaffold/{hap2scaffold}_all_sites.BED", hap2scaffold=HAP2SCAFFOLDS)
   output:
     all_sites_bed="results/bed/hap2/raw_sites/all_poplns/all_sites.BED"
   threads: 4
   shell:
     """    
-    # Convert the ANGSD output to a BED format file and check for completeness of data
-    gzip -cd {input.all_sites_gz} | awk 'NR > 1 && NF >= 3 {{print $1"\t"$2-1"\t"$2}}' > {output.all_sites_bed}
+    # Conmbine BED format file and check for completeness of data
+    cat {input.beds} > {output.all_sites_bed}
     dos2unix {output.all_sites_bed}
     """
 
@@ -3048,7 +2795,7 @@ rule index_all_sites_all_popln_dupHMM:
     angsd sites index {input.dupHMM_sites}
     """
 
-
+# This analysis excludes pruning for LD
 # Estimate SAF, HWE, GL with SNPs on entire population
 rule angsd_for_PCAngsd:
   input:
@@ -3057,36 +2804,36 @@ rule angsd_for_PCAngsd:
     bin_index="results/bed/hap2/canonical_sites/filtered_dupHMM/dupHMM_calcLR_filtered_sites.txt.bin",
     idx_index="results/bed/hap2/canonical_sites/filtered_dupHMM/dupHMM_calcLR_filtered_sites.txt.idx"
   output:
-    arg_file="results/angsd/hap2/canonical/pcangsd_input/all_poplns_canonical_SNPs.arg",
-    mafs_file="results/angsd/hap2/canonical/pcangsd_input/all_poplns_canonical_SNPs.mafs.gz",
-    hwe_file="results/angsd/hap2/canonical/pcangsd_input/all_poplns_canonical_SNPs.hwe.gz",
-    depth_sample="results/angsd/hap2/canonical/pcangsd_input/all_poplns_canonical_SNPs.depthSample",
-    depth_global="results/angsd/hap2/canonical/pcangsd_input/all_poplns_canonical_SNPs.depthGlobal",
-    saf_1="results/angsd/hap2/canonical/pcangsd_input/all_poplns_canonical_SNPs.saf.idx",
-    saf_2="results/angsd/hap2/canonical/pcangsd_input/all_poplns_canonical_SNPs.saf.pos.gz",
-    saf_3="results/angsd/hap2/canonical/pcangsd_input/all_poplns_canonical_SNPs.saf.gz",
-    beagle="results/angsd/hap2/canonical/pcangsd_input/all_poplns_canonical_SNPs.beagle.gz"
+    arg_file="results/angsd/hap2/canonical/pcangsd_input/all_poplns_{hap2scaffold}_canonical_SNPs.arg",
+    mafs_file="results/angsd/hap2/canonical/pcangsd_input/all_poplns_{hap2scaffold}_canonical_SNPs.mafs.gz",
+    hwe_file="results/angsd/hap2/canonical/pcangsd_input/all_poplns_{hap2scaffold}_canonical_SNPs.hwe.gz",
+    depth_sample="results/angsd/hap2/canonical/pcangsd_input/all_poplns_{hap2scaffold}_canonical_SNPs.depthSample",
+    depth_global="results/angsd/hap2/canonical/pcangsd_input/all_poplns_{hap2scaffold}_canonical_SNPs.depthGlobal",
+    saf_1="results/angsd/hap2/canonical/pcangsd_input/all_poplns_{hap2scaffold}_canonical_SNPs.saf.idx",
+    saf_2="results/angsd/hap2/canonical/pcangsd_input/all_poplns_{hap2scaffold}_canonical_SNPs.saf.pos.gz",
+    saf_3="results/angsd/hap2/canonical/pcangsd_input/all_poplns_{hap2scaffold}_canonical_SNPs.saf.gz",
+    beagle="results/angsd/hap2/canonical/pcangsd_input/all_poplns_{hap2scaffold}_canonical_SNPs.beagle.gz"
   params:
     ref="data/reference/hap2/lupinehap2.fasta",
-    file_name="results/angsd/hap2/canonical/pcangsd_input/all_poplns_canonical_SNPs",
+    file_name="results/angsd/hap2/canonical/pcangsd_input/all_poplns_{hap2scaffold}_canonical_SNPs",
     scaffolds="results/scaffolds/hap2_scaffolds.txt"
   log:
-    "results/logs/angsd/hap2/canonical/pcangsd_input/angsd_canonical_SNPs_all_poplns.log"
+    "results/logs/angsd/hap2/canonical/pcangsd_input/angsd_{hap2scaffold}_canonical_SNPs_all_poplns.log"
   envmodules:
     "angsd/0.940"
-  threads: 16
+  threads: 12
   shell:
     """
     angsd -bam {input.bam_list}\
     -ref {params.ref}\
     -out {params.file_name}\
     -remove_bads 1\
-    -rf {params.scaffolds}\
+    -r {wildcards.hap2scaffold}\
     -GL 2\
     -C 50\
     -sites {input.canonical_sites}\
     -setMinDepth 25\
-    -setMaxDepth 3500\
+    -setMaxDepth 4000\
     -minMapQ 30\
     -minQ 20\
     -minInd 100\
@@ -3107,6 +2854,135 @@ rule angsd_for_PCAngsd:
     &> {log}
     """
 
+# Combine ANGSD beagle outputs files 
+rule combine_GLs_all_popln_scaffolds:
+  input:
+    GL_files=expand("results/angsd/hap2/canonical/pcangsd_input/all_poplns_{hap2scaffold}_canonical_SNPs.beagle.gz", hap2scaffold=HAP2SCAFFOLDS)
+  output:
+    all_sites_GL="results/angsd/hap2/canonical/pcangsd_input/all_poplns_canonical_SNPs.beagle.gz"
+  params:
+    script="scripts/combine_and_sort_beagle.py"
+  threads: 4
+  envmodules:
+    "python/3.13.2"
+  shell:
+    """
+    python {params.script} {input.GL_files} {output.all_sites_GL}
+    """
+
+
+# Combine ANGSD mafs output files
+rule combine_mafs_all_popln_scaffolds:
+  input:
+    POS_files=expand("results/angsd/hap2/canonical/pcangsd_input/all_poplns_{hap2scaffold}_canonical_SNPs.mafs.gz", hap2scaffold=HAP2SCAFFOLDS)
+  output:
+    all_sites_POS="results/angsd/hap2/canonical/pcangsd_input/all_poplns_canonical_SNPs.mafs.gz"
+  params:
+    script="scripts/combine_and_sort_mafs.py"
+  threads: 4
+  envmodules:
+    "python/3.13.2"
+  shell:
+    """
+    python {params.script} {input.POS_files} {output.all_sites_POS}
+    """
+
+
+# Estimate LD across all samples for LD pruning for each scaffold (to parallelize)
+rule ngsLD_all_poplns:
+  input:
+    bam_list="data/lists/hap2/all_populations_realign_hap2.txt",
+    mafs_file="results/angsd/hap2/canonical/pcangsd_input/all_poplns_canonical_SNPs.mafs.gz",
+    beagle_file="results/angsd/hap2/canonical/pcangsd_input/all_poplns_canonical_SNPs.beagle.gz"
+  output:
+    GL_file="results/angsd/hap2/canonical/ngsLD/all_poplns_GL_{hap2scaffold_prefix}.beagle.gz",
+    pos_file="results/angsd/hap2/canonical/ngsLD/all_poplns_positions_{hap2scaffold_prefix}.pos.gz",
+    ld_output="results/ngsLD/hap2/all_popln/all_poplns_{hap2scaffold_prefix}_ld_output.ld"
+  params:
+    pop_size=lambda wildcards: sum(1 for _ in open("data/lists/hap2/all_populations_realign_hap2.txt"))
+  log:
+    "results/logs/ngsLD/hap2/all_popln_{hap2scaffold_prefix}_ld_estimation.log"
+  threads: 4
+  shell:
+    """
+    # Filter beagle file to keep only markers from this scaffold
+    zcat {input.beagle_file} | awk -v s="{wildcards.hap2scaffold_prefix}" 'NR==1 || $1 ~ "^"s"__"' > temp_{wildcards.hap2scaffold_prefix}.beagle.txt
+
+    # Strip first three columns and keep GLs only
+    awk 'NR==1 {{next}} {{for (i=4; i<=NF; i++) printf "%s%s", $i, (i==NF?"\\n":"\\t")}}' temp_{wildcards.hap2scaffold_prefix}.beagle.txt | gzip > {output.GL_file}
+    rm temp_{wildcards.hap2scaffold_prefix}.beagle.txt
+
+    # Filter MAF file and extract chrom+pos
+    zcat {input.mafs_file} | awk -v s="{wildcards.hap2scaffold_prefix}" 'NR==1 || $1 ~ "^"s"__"' > temp_{wildcards.hap2scaffold_prefix}.mafs
+    awk 'NR>1 {{print $1"\\t"$2}}' temp_{wildcards.hap2scaffold_prefix}.mafs | gzip > {output.pos_file}
+    rm temp_{wildcards.hap2scaffold_prefix}.mafs
+
+    # Count number of sites dynamically
+    n_sites=$(zcat {output.pos_file} | wc -l)
+
+    # Run ngsLD
+    ngsLD --geno {output.GL_file} \
+          --probs 1 \
+          --n_ind {params.pop_size} \
+          --n_sites $n_sites \
+          --pos {output.pos_file} \
+          --max_kb_dist 50 \
+          --out {output.ld_output} \
+          --n_threads {threads} \
+          --extend_out \
+          --verbose 1 \
+          &> {log}
+    """
+
+
+# can add --weight_filter to filter edge weights, but need 4th column on weights
+# Filter LD SNPs and use info for PCA below
+rule prune_graph_all_poplns:
+  input:
+    ld_input="results/ngsLD/hap2/all_popln/all_poplns_{hap2scaffold_prefix}_ld_output.ld"
+  output:
+    tsv_file="results/ngsLD/hap2/all_popln/{hap2scaffold_prefix}_ld.tsv",
+    pruned_list="results/ngsLD/hap2/all_popln/{hap2scaffold_prefix}_pruned_list.txt",
+    pruned_snps="results/ngsLD/hap2/all_popln/{hap2scaffold_prefix}_pruned_snps.txt"
+  params:
+    prune_graph="/home/socamero/prune_graph/target/release/prune_graph"
+  log:
+    "results/logs/ngsLD/hap2/all_popln/{hap2scaffold_prefix}_prune_graph.log"
+  threads: 4
+  shell:
+    """
+    # Extract snp1, snp2, r2 from ngsLD output (assumes tab-delimited with header)
+    awk 'NR>1 {{print $1"\\t"$2"\\t"$7}}' {input.ld_input} > {output.tsv_file}
+
+    # Run prune_graph to get list of pruned SNPs
+    {params.prune_graph} --in {output.tsv_file} \
+    --out {output.pruned_list} \
+    --out-excl {output.pruned_snps} \
+    --weight-filter 'column_3 > 0.2' \
+    2> {log}
+    """
+
+# !!! Need to check that output of Beagle is compatible with removing markers with pruned_list
+# Combine ANGSD beagle outputs files 
+rule filter_beagle_with_prune_graph:
+  input:
+    beagle="results/angsd/hap2/canonical/pcangsd_input/all_poplns_canonical_SNPs.beagle.gz",
+    pruned_list=expand("results/ngsLD/hap2/all_popln/{hap2scaffold_prefix}_pruned_list.txt", hap2scaffold_prefix=HAP2SCAFFOLD_PREFIXES)
+  output:
+    pruned_snps="results/angsd/hap2/canonical/pcangsd_input/all_poplns_pruned_LD_SNPs.beagle.gz"
+  log:
+    "results/logs/ngsLD/hap2/all_popln/filter_beagle_with_prune_graph.log"
+  params:
+    script="scripts/filter_beagle_with_prune_graph.py"
+  threads: 4
+  envmodules:
+    "python/3.13.2"
+  shell:
+    """
+    python {params.script} {input.beagle} {input.pruned_list} {output.pruned_snps} 2> {log}
+    """
+
+
 # Calculate PCA on genotype likelihoods using PCAngsd
 # .Q output = admixture proportions
 
@@ -3114,7 +2990,6 @@ rule PCAngsd_all_populations:
   input:
     beagle="results/angsd/hap2/canonical/pcangsd_input/all_poplns_canonical_SNPs.beagle.gz"
   output:
-    cov_matrix="results/pcangsd/hap2/canonical/pcangsd_input/all_popln_canonical_SNP_pcangsd.cov",
     admix_Q="results/pcangsd/hap2/canonical/pcangsd_input/all_popln_canonical_SNP_pcangsd.admix.{K}.Q",
     admix_P="results/pcangsd/hap2/canonical/pcangsd_input/all_popln_canonical_SNP_pcangsd.admix.{K}.P"
   params:
@@ -3136,31 +3011,64 @@ rule PCAngsd_all_populations:
     """
 
 
+rule PCAngsd_all_populations_LD_pruned:
+  input:
+    beagle="results/angsd/hap2/canonical/pcangsd_input/all_poplns_pruned_LD_SNPs.beagle.gz"
+  output:
+    admix_Q="results/pcangsd/hap2/canonical/pcangsd_input/all_popln_pruned_LD_SNP_pcangsd.admix.{K}.Q",
+    admix_P="results/pcangsd/hap2/canonical/pcangsd_input/all_popln_pruned_LD_SNP_pcangsd.admix.{K}.P"
+  params:
+    file_name="results/pcangsd/hap2/canonical/pcangsd_input/all_popln_pruned_LD_SNP_pcangsd"
+  log:
+    "results/logs/pcangsd/hap2/canonical/pcangsd_input/all_popln_pruned_LD_SNP_pcangsd.{K}.log"
+  threads: 8
+  envmodules:
+    "python/3.12.4"
+  shell:
+    """
+    pcangsd -b {input.beagle}\
+    -o {params.file_name}\
+    -t {threads}\
+    --iter 1000\
+    --admix\
+    --admix_K {wildcards.K}\
+    2> {log}
+    """
+
+
 # Plot PCAs and admixture plots
+# Remove LD pruned datasets for now until that has been resolved
 rule PCAngsd_all_populations_plots:
   input:
-    cov_matrix="results/pcangsd/hap2/canonical/pcangsd_input/all_popln_canonical_SNP_pcangsd.cov",
-    pop_info="data/lists/hap2/all_samples_to_poplns.info",
-    admixture_prop="results/pcangsd/hap2/canonical/pcangsd_input/all_popln_canonical_SNP_pcangsd.admix.18.Q"
+    pop_info           = "data/lists/hap2/all_samples_to_popln_bam_order.csv",
+    admixture_prop     = "results/pcangsd/hap2/canonical/pcangsd_input/all_popln_canonical_SNP_pcangsd.admix.{K}.Q"
   output:
-    pca_plot="results/plots/hap2/PCAngsd/all_popln_SNP_PCA.png",
-    admix_plot="results/plots/hap2/PCAngsd/all_popln_SNP_admix.png"
+    pca_plot        = "results/plots/hap2/PCAngsd/all_popln_SNP_K{K}_PCA.png",
+    admix_plot      = "results/plots/hap2/PCAngsd/all_popln_SNP_K{K}_admix.png",
+    #ld_pca_plot     = "results/plots/hap2/PCAngsd/all_popln_LD_pruned_SNP_K{K}_PCA.png",
+    #ld_admix_plot   = "results/plots/hap2/PCAngsd/all_popln_LD_pruned_SNP_K{K}_admix.png"
+  params:
+    cov      = "results/pcangsd/hap2/canonical/pcangsd_input/all_popln_canonical_SNP_pcangsd.cov",
+    #ld_cov   = "results/pcangsd/hap2/canonical/pcangsd_input/all_popln_pruned_LD_SNP_pcangsd.cov"
   threads: 2
   envmodules:
     "r/4.4.0"
   shell:
     """
-    Rscript scripts/plot_PCA.R {input.cov_matrix} {input.pop_info} {output.pca_plot}
-    Rscript scripts/plot_admixture.R {input.admixture_prop} {input.pop_info} {output.admix_plot}
+    Rscript scripts/plot_PCA.R  {params.cov}      {input.pop_info} {output.pca_plot}
+    Rscript scripts/plot_admixture.R {input.admixture_prop}    {input.pop_info} {output.admix_plot}
     """
+    #input ld_admixture_prop  = "results/pcangsd/hap2/canonical/pcangsd_input/all_popln_pruned_LD_SNP_pcangsd.admix.{K}.Q"
+    #Rscript scripts/plot_PCA.R  {params.ld_cov}   {input.pop_info} {output.ld_pca_plot}
+    #Rscript scripts/plot_admixture.R {input.ld_admixture_prop} {input.pop_info} {output.ld_admix_plot}
 
 
 # Calculate geographical distances between pairwise individuals between populations
 rule PCA_calc_geo_distances:
   input:
-    csv="data/lists/all_samples_geo_coord.csv"
+    csv="data/lists/hap2/all_samples_geo_coord.csv"
   output:
-    dist="results/pcangsd/hap2/canonical_realign/pcangsd_input/pairwise_individ_geodist.csv"
+    dist="results/pcangsd/hap2/canonical/pcangsd_input/pairwise_individ_geodist.csv"
   envmodules:
     "r/4.4.0"
   shell:
@@ -3169,13 +3077,12 @@ rule PCA_calc_geo_distances:
 
 # PROGRAM ngsAdmix - estimate admixture using ngsAdmix
 # You can run admixture using PCAngsd OR ngsAdmix.
-
-rule run_ngsAdmix:
+rule ngsAdmix_analysis:
   input:
     beagle="results/angsd/hap2/canonical/pcangsd_input/all_poplns_canonical_SNPs.beagle.gz"
   output:
-    Q="results/ngsAdmix/hap2/canonical_K{K}.Q",
-    P="results/ngsAdmix/hap2/canonical_K{K}.P"
+    qopt="results/ngsAdmix/hap2/canonical_K{K}.qopt",
+    fopt="results/ngsAdmix/hap2/canonical_K{K}.fopt.gz",
   params:
     out_prefix="results/ngsAdmix/hap2/canonical_K{K}"
   log:
@@ -3185,11 +3092,65 @@ rule run_ngsAdmix:
     "angsd/0.940"
   shell:
     """
-    ngsAdmix -likes {input.beagle} \
-      -K {params.K} \
+    NGSadmix -likes {input.beagle} \
+      -K {wildcards.K} \
       -P {threads} \
       -o {params.out_prefix} &> {log}
     """
+
+# sample_metadata.csv must be in same format as the bamlist from ANGSD
+rule plot_ngsAdmix_pie_map:
+  input:
+    Q="results/ngsAdmix/hap2/canonical_K18.qopt",
+    sample_metadata="data/lists/hap2/all_samples_to_popln_bam_order.csv",
+    coords="data/lists/hap2/all_popln_geo_coord.csv",
+    script="scripts/plot_ngsAdmix_pie_map.R"
+  output:
+    barplot="results/plots/hap2/ngsAdmix/K18_admixture_barplot.png",
+    piemix="results/plots/hap2/ngsAdmix/K18_pie_charts_map.png",
+    combined="results/plots/hap2/ngsAdmix/K18_combined_admixture_map.png"
+  threads: 4
+  envmodules:
+    "r/4.4.0",
+    "gdal/3.9.1"
+  shell:
+    """
+    Rscript {input.script} \
+      {input.Q} \
+      {input.sample_metadata} \
+      {input.coords} \
+      {output.barplot} \
+      {output.piemix} \
+      {output.combined}
+    """
+
+# similar to pie_map except using the R package mapmixture
+rule plot_ngsAdmix_mapmixture:
+  input:
+    Q             = "results/ngsAdmix/hap2/canonical_K18.qopt",
+    sample_metadata = "data/lists/hap2/all_samples_to_popln_bam_order.csv",
+    coords        = "data/lists/hap2/all_popln_geo_coord.csv",
+    script        = "scripts/plot_ngsAdmix_mapmixture.R"
+  output:
+    barplot       = "results/plots/hap2/ngsAdmix/K18_admixture_barplot_2.png",
+    piemix        = "results/plots/hap2/ngsAdmix/K18_pie_charts_map_mapmixture.png",
+    combined      = "results/plots/hap2/ngsAdmix/K18_combined_mapmixture.png"
+  threads: 4
+  envmodules:
+    "r/4.4.0",
+    "gdal/3.9.1"
+  shell:
+    """
+    Rscript {input.script} \
+      {input.Q} \
+      {input.sample_metadata} \
+      {input.coords} \
+      {output.barplot} \
+      {output.piemix} \
+      {output.combined}
+    """
+
+
 
 # PROGRAM evalAdmix - evaluate admixture - INCOMPLETE
 
@@ -3259,6 +3220,165 @@ rule angsd_for_EMU:
     &> {log}
     """
 
+## ANALYSIS 4: Runs of Homozygosity (ROH) to look at longer regions of inbreeding across the genome
+# PROGRAM 1: RZooRoH | https://cran.r-project.org/web/packages/RZooRoH/vignettes/zooroh-vignette.pdf
+
+
+
+# We call for .beagle.gz and .bcf files
+# .beagle is based on genotype likelihoods (GL) and .bcf -> .vcf *can* create genotype probabilities, both of which are acceptable for RZooROH
+# For this analysis, we use GLs from .beagle.gz. It is also zipped and takes less space. 
+# REVIEW IF .BEAGLE.GZ IS BASED ON GL IF -DoGeno 1 (samples Genotype from posterior) 
+rule angsd_for_RZooROH:
+  input: 
+    bam_list="data/lists/hap{hap}/{population}_realign_hap{hap}.txt",
+    canonical_sites="results/bed/hap{hap}/canonical_sites/filtered_dupHMM/{population}_filtered_sites_dupHMM_calcLR.txt",
+    bin_index="results/bed/hap{hap}/canonical_sites/filtered_dupHMM/{population}_filtered_sites_dupHMM_calcLR.txt.bin",
+    fasta_fai="data/reference/hap{hap}/lupinehap{hap}.fasta.fai"
+  output:
+    arg_file="results/angsd/hap{hap}/canonical/RZooROH_input/{population}/{population}_canonical_SNPs.arg",
+    mafs_file="results/angsd/hap{hap}/canonical/RZooROH_input/{population}/{population}_canonical_SNPs.mafs.gz",
+    hwe_file="results/angsd/hap{hap}/canonical/RZooROH_input/{population}/{population}_canonical_SNPs.hwe.gz",
+    depth_sample="results/angsd/hap{hap}/canonical/RZooROH_input/{population}/{population}_canonical_SNPs.depthSample",
+    depth_global="results/angsd/hap{hap}/canonical/RZooROH_input/{population}/{population}_canonical_SNPs.depthGlobal",
+    beagle="results/angsd/hap{hap}/canonical/RZooROH_input/{population}/{population}_canonical_SNPs.beagle.gz"
+  params:
+    ref="data/reference/hap{hap}/lupinehap{hap}.fasta",
+    file_name="results/angsd/hap{hap}/canonical/RZooROH_input/{population}/{population}_canonical_SNPs",
+    scaffolds="results/scaffolds/hap{hap}_scaffolds.txt",
+    minInd=lambda wildcards, input: max(1, int(0.8 * sum(1 for _ in open(input.bam_list))))
+  log:
+    "results/logs/angsd/hap{hap}/canonical/RZooROH_input/{population}_angsd_canonical_SNPs.log"
+  envmodules:
+    "angsd/0.940"
+  threads: 12
+  shell:
+    """
+    angsd -bam {input.bam_list}\
+    -ref {params.ref}\
+    -out {params.file_name}\
+    -remove_bads 1\
+    -rf {params.scaffolds}\
+    -GL 2\
+    -C 50\
+    -sites {input.canonical_sites}\
+    -setMinDepth 25\
+    -setMaxDepth 4000\
+    -minMapQ 30\
+    -minQ 20\
+    -minInd {params.minInd}\
+    -minMaf 0.0001\
+    -baq 2\
+    -only_proper_pairs 1\
+    -nThreads {threads}\
+    -SNP_pval 1e-6\
+    -doHWE 1\
+    -doMajorMinor 1\
+    -doMaf 1\
+    -doPost 1\
+    -doCounts 1\
+    -doGlf 2\
+    -doDepth 1\
+    &> {log}
+    """
+
+
+rule RZooROH_get_sample_names:
+  input:
+    bam_list="data/lists/hap2/{population}_realign_hap2.txt"
+  output:
+    sample_names="data/lists/hap2/{population}_sample_names.txt"
+  shell:
+    r"""
+    awk -F'/' '{{ f=$NF; sub(/_hap2_realign\.bam$/, "", f); print f }}' {input.bam_list} > {output.sample_names}
+    """
+
+
+rule RZooROH_extract_allele_freq:
+  input:
+    mafs="results/angsd/hap2/canonical/RZooROH_input/{population}/{population}_canonical_SNPs.mafs.gz"
+  output:
+    allelefreq="results/angsd/hap2/canonical/RZooROH_input/{population}/{population}_allelefreq.txt"
+  shell:
+    """
+    # Skip the header line and print only the sixth column (adjust the column number as required)
+    zcat {input.mafs} | awk 'NR>1 {{print $6}}' > {output.allelefreq}
+    """
+
+
+# Convert .beagle.gz files in Oxford Gen format for input into RZooROH
+rule RZooROH_prep:
+  input:
+    beagle_file="results/angsd/hap2/canonical/RZooROH_input/{population}/{population}_canonical_SNPs.beagle.gz",
+    script="scripts/convert_beagle_to_rzooroh.py"
+  output:
+    zoo_txt="results/angsd/hap2/canonical/RZooROH_input/{population}/{population}_Zoo_format.txt"
+  envmodules:
+    "python/3.11.5"
+  shell:
+    "python {input.script} {input.beagle_file} {output.zoo_txt}"
+
+
+# Rscript to run RZooRoH
+rule RZooROH_analysis:
+  input:
+    zoo_txt      = "results/angsd/hap2/canonical/RZooROH_input/{population}/{population}_Zoo_format.txt",
+    sample_names = "data/lists/hap2/{population}_sample_names.txt",
+    allele_freq  = "results/angsd/hap2/canonical/RZooROH_input/{population}/{population}_allelefreq.txt"
+  output:
+    placeholder = "results/RZooROH/hap2/RZooROH_analysis/{population}/{population}_placeholder.txt"
+  log:
+    "results/logs/RZooROH/hap2/{population}_RZooROH_analysis.log"
+  envmodules:
+    "r/4.4.0"
+  params:
+    outbase = "results/RZooROH/hap2/RZooROH_analysis/{population}/{population}_summary"
+  threads: 4
+  shell:
+    """
+    Rscript scripts/estimate_RZooRoH.R \
+      {input.zoo_txt} \
+      {input.sample_names} \
+      {input.allele_freq} \
+      {params.outbase} \
+      {wildcards.population} \
+      {threads}
+    touch {output.placeholder}
+    """
+
+
+# Plot RZooRoH results!
+# We plot F (recent) vs F (ancient) with the K value cutoff of 512 for 'recent' inbreeding and anything bigger than K=512 (or smaller fragment) as ancient inbreeding
+# We use model 6a from every RZooRoH population run since it was significant!
+rule plot_RZooROH_results:
+  input:
+    realized = expand("results/RZooROH/hap2/RZooROH_analysis/{population}/{population}_realized_MixKR_6a.csv", population = POPULATIONS),
+    meta     = "data/lists/hap2/all_popln_geo_coord.csv",
+    script   = "scripts/plot_RZooROH.R"
+  params:
+    recent_thr = 64
+  output:
+    pdf        = "results/plots/hap2/RZooROH/compare_inbreeding_6a.pdf",
+    png_recent = "results/plots/hap2/RZooROH/compare_inbreeding_6a_Frecent.png",
+    png_ancient= "results/plots/hap2/RZooROH/compare_inbreeding_6a_Fancient.png",
+    png_scatter= "results/plots/hap2/RZooROH/compare_inbreeding_6a_scatter.png"
+  threads: 2
+  envmodules:
+    "r/4.4.0"
+  shell:
+    """
+    Rscript {input.script} \
+      {input.realized} \
+      {input.meta} \
+      {params.recent_thr} \
+      {output.pdf} \
+      results/plots/hap2/RZooROH/compare_inbreeding_6a
+    """
+
+
+
+
+
 
 ## ANALYSIS 5: Thetas (nucleotide diversity, etc)
 # PROGRAM: ANGSD | https://www.popgen.dk/angsd/index.php/Thetas,Tajima,Neutrality_tests
@@ -3280,7 +3400,8 @@ rule angsd_for_thetas:
   params:
     ref="data/reference/hap{hap}/lupinehap{hap}.fasta",
     file_name="results/angsd/hap{hap}/canonical/thetas/by_popln/{population}_canonical_sites",
-    scaffolds="results/scaffolds/hap{hap}_scaffolds.txt"
+    scaffolds="results/scaffolds/hap{hap}_scaffolds.txt",
+    minInd=lambda wildcards, input: max(1, int(0.8 * sum(1 for _ in open(input.bam_list))))
   log:
     "results/logs/angsd/hap{hap}/canonical/thetas/by_popln/angsd_canonical_sites_hap{hap}_{population}.log"
   envmodules:
@@ -3300,7 +3421,7 @@ rule angsd_for_thetas:
     -setMaxDepth 3500\
     -minMapQ 30\
     -minQ 20\
-    -minInd 20\
+    -minInd {params.minInd}\
     -baq 2\
     -only_proper_pairs 1\
     -nThreads {threads}\
@@ -3314,7 +3435,6 @@ rule angsd_for_thetas:
     """
 
 # NOTE: Did not filter with -minMAF 0.001
-
 rule global_SFS_theta_by_population:
   input:
     saf_idx="results/angsd/hap{hap}/canonical/thetas/by_popln/{population}_canonical_sites.saf.idx",
@@ -3413,7 +3533,7 @@ rule plot_thetas_output:
   shell:
     """
     Rscript scripts/plot_theta.R
-    Rscript scripts/plot_theta_by_scaffold.R
+    #Rscript scripts/plot_theta_by_scaffold.R
     """
 
 
@@ -3421,7 +3541,7 @@ rule plot_thetas_output:
 # We re-use estimated .saf files from the theta analysis
 
 # Use the following in rule all:
-#expand("..." pop1=[x[0] for x in POP_COMBINATIONS], pop2=[x[1] for x in POP_COMBINATIONS])
+#expand("results/realSFS/hap2/fst/{pop1}_{pop2}_fst_global.txt", pop1=[x[0] for x in POP_COMBINATIONS], pop2=[x[1] for x in POP_COMBINATIONS])
 
 rule fst_prep_by_population:
   input:
@@ -3490,9 +3610,11 @@ rule estimate_fst_stats:
     # Fst in sliding windows
     # realSFS fst stats2 {input.fst_idx} -win {params.window_size} -step {params.step_size} > {output.window_fst}
 
+# Isolation by distance
 rule plot_fst_by_distance:
   input:
-    global_fst=expand("results/realSFS/hap2/fst/{pop1}_{pop2}_fst_global.txt", pop1=[x[0] for x in POP_COMBINATIONS], pop2=[x[1] for x in POP_COMBINATIONS])
+    global_fst=expand("results/realSFS/hap2/fst/{pop1}_{pop2}_fst_global.txt", pop1=[x[0] for x in POP_COMBINATIONS], pop2=[x[1] for x in POP_COMBINATIONS]),
+    coords="data/lists/hap2/all_popln_geo_coord.csv"
   output:
     fst_plot="results/plots/hap2/fst/fst_by_distance.png"
   log:
@@ -3503,27 +3625,468 @@ rule plot_fst_by_distance:
     "Rscript scripts/plot_Fst_by_distance.R"
 
 
+## ANALYSIS 8: Linkage Disequilibrium Decay
+# NOTE: this step is necessary for LD pruning prior to the GEA analysis and PCA
+# PROGRAM: ngsLD
 
-## ANALYSIS 7: Contemporary Effective Population Size - UNTESTED
-# PROGRAM: GONE | https://github.com/esrud/GONE
+# We use more slightly stringent rules to call for genotype likelihoods -> minMaf = 0.01 (remove more rare alleles)
+# But also liberal for minInd at 50%, and no min/max depth, and no HWE filter for -minHWEpval 0.05
+# We use raw genotype likelihoods (GLs) than genotype probabilities (GPs)
+# May want to consider exploring minMaf = 0.001 (allow more rare alleles)
 
-rule angsd_for_GONE:
+rule angsd_for_ngsLD:
   input:
     bam_list="data/lists/hap{hap}/{population}_realign_hap{hap}.txt",
     canonical_sites="results/bed/hap{hap}/canonical_sites/filtered_dupHMM/{population}_filtered_sites_dupHMM_calcLR.txt",
     bin_index="results/bed/hap{hap}/canonical_sites/filtered_dupHMM/{population}_filtered_sites_dupHMM_calcLR.txt.bin",
     fasta_fai="data/reference/hap{hap}/lupinehap{hap}.fasta.fai"
   output:
-    arg_file="results/angsd/hap{hap}/canonical/Ne/by_popln/{population}_canonical_sites.arg",
-    mafs_file="results/angsd/hap{hap}/canonical/Ne/by_popln/{population}_canonical_sites.mafs.gz",
-    bcf_file="results/angsd/hap{hap}/canonical/Ne/by_popln/{population}_canonical_sites.bcf",
-    glf_file="results/angsd/hap{hap}/canonical/Ne/by_popln/{population}_canonical_sites.glf.gz"
+    arg_file="results/angsd/hap{hap}/canonical/ngsLD/by_popln/{population}_canonical_sites.arg",
+    mafs_file="results/angsd/hap{hap}/canonical/ngsLD/by_popln/{population}_canonical_sites.mafs.gz",
+    glf_file="results/angsd/hap{hap}/canonical/ngsLD/by_popln/{population}_canonical_sites.beagle.gz",
+    hwe_file="results/angsd/hap{hap}/canonical/ngsLD/by_popln/{population}_canonical_sites.hwe.gz"
   params:
     ref="data/reference/hap{hap}/lupinehap{hap}.fasta",
-    file_name="results/angsd/hap{hap}/canonical/Ne/by_popln/{population}_canonical_sites",
-    scaffolds="results/scaffolds/hap{hap}_scaffolds.txt"
+    file_name="results/angsd/hap{hap}/canonical/ngsLD/by_popln/{population}_canonical_sites",
+    scaffolds="results/scaffolds/hap{hap}_scaffolds.txt",
+    minInd=lambda wildcards, input: max(1, int(0.5 * sum(1 for _ in open(input.bam_list))))
   log:
-    "results/logs/angsd/hap{hap}/canonical/Ne/by_popln/angsd_canonical_sites_hap{hap}_{population}.log"
+    "results/logs/angsd/hap{hap}/canonical/ngsLD/by_popln/angsd_canonical_sites_hap{hap}_{population}.log"
+  envmodules:
+    "angsd/0.940"
+  threads: 8
+  shell:
+    """
+    angsd -bam {input.bam_list} \
+    -ref {params.ref} \
+    -out {params.file_name} \
+    -remove_bads 1 \
+    -rf {params.scaffolds} \
+    -GL 2 \
+    -C 50 \
+    -sites {input.canonical_sites} \
+    -minMapQ 30 \
+    -minQ 20 \
+    -minInd {params.minInd} \
+    -minMaf 0.001 \
+    -SNP_pval 1e-6 \
+    -baq 2 \
+    -only_proper_pairs 1 \
+    -nThreads {threads} \
+    -doMajorMinor 1 \
+    -doHWE 1 \
+    -doMaf 1 \
+    -doGlf 2 \
+    -doCounts 1 \
+    -doDepth 1 \
+    &> {log}
+    """
+
+# Linkage disequilibrium analysis
+# Make sure to differ max_kb_dist to see differences!
+rule ngsLD_analysis:
+  input:
+    bam_list="data/lists/hap{hap}/{population}_realign_hap{hap}.txt",
+    mafs_file="results/angsd/hap{hap}/canonical/ngsLD/by_popln/{population}_canonical_sites.mafs.gz",
+    beagle_file="results/angsd/hap{hap}/canonical/ngsLD/by_popln/{population}_canonical_sites.beagle.gz"
+  output:
+    GL_file="results/angsd/hap{hap}/canonical/ngsLD/by_popln/{population}_GL.beagle.gz",
+    pos_file="results/angsd/hap{hap}/canonical/ngsLD/by_popln/{population}_positions.pos.gz",
+    ld_output="results/ngsLD/hap{hap}/{population}_ld_output.ld"
+  params:
+    pop_size=lambda wildcards: sum(1 for _ in open(f"data/lists/hap{wildcards.hap}/{wildcards.population}_realign_hap{wildcards.hap}.txt")),
+    n_sites=lambda wildcards, input: sum(1 for line in gzip.open(input.mafs_file, "rt")) - 1
+  log:
+    "results/logs/ngsLD/hap{hap}/{population}_ld_estimation.log"
+  threads: 4
+  shell:
+    """
+    # Remove the header and first three columns of the Beagle file
+    zcat {input.beagle_file} | awk 'NR>1 {{for (i=4; i<=NF; i++) printf "%s%s", $i, (i==NF?"\\n":"\\t")}}' | gzip > {output.GL_file}
+
+    # Extract chromosome and position from the MAF file (no header)
+    zcat {input.mafs_file} | awk 'NR>1 {{print $1"\\t"$2}}' | gzip > {output.pos_file}
+
+
+    ngsLD --geno {output.GL_file} \
+    --probs 1 \
+    --n_ind {params.pop_size} \
+    --n_sites {params.n_sites} \
+    --pos {output.pos_file} \
+    --max_kb_dist 100 \
+    --out {output.ld_output} \
+    --n_threads {threads} \
+    --extend_out \
+    --verbose 1 \
+    &> {log}
+    """
+
+
+# identify linkage for pruning (necessary for by_popln) analyses
+# can add --weight_filter to filter edge weights, but need 4th column on weights
+# use pruned_list = SNPs remaining after pruning; pruned_SNPs = SNPs that were removed 
+rule prune_graph_by_popln:
+  input:
+    ld_input="results/ngsLD/hap{hap}/{population}_ld_output.ld"
+  output:
+    tsv_file="results/ngsLD/hap{hap}/by_popln/{population}_ld.tsv",
+    pruned_list="results/ngsLD/hap{hap}/by_popln/{population}_pruned_list.txt",
+    pruned_snps="results/ngsLD/hap{hap}/by_popln/{population}_pruned_snps.txt"
+  params:
+    prune_graph="/home/socamero/prune_graph/target/release/prune_graph"
+  log:
+    "results/logs/ngsLD/hap{hap}/by_popln/{population}_prune_graph.log"
+  shell:
+    """
+    # Extract snp1, snp2, r2 from ngsLD output (assumes tab-delimited with header)
+    awk 'NR>1 {{print $1"\\t"$2"\\t"$7}}' {input.ld_input} > {output.tsv_file}
+
+    # Run prune_graph to get list of pruned SNPs
+    {params.prune_graph} --in {output.tsv_file} \
+    --out {output.pruned_list} \
+    --out-excl {output.pruned_snps} \
+     &> {log}
+    """
+
+
+# Sample a fraction of the LD because there's about 1.5TB of data in total across all populations!
+rule sample_ld_values:
+  input:
+    ld = "results/ngsLD/hap2/{population}_ld_output.ld"
+  output:
+    sample = "results/ngsLD/hap2/by_popln/{population}_ld_random_sample.txt"
+  params:
+    frac= 0.001
+  shell:
+    """ 
+    # Skip header, sample column 7 (r2) with prob=frac
+    awk -v f={params.frac} 'NR>1 {{ if (rand() < f) print $7 }}' {input.ld} > {output.sample}
+    """
+
+rule sample_ld_pairs:
+  input:
+    ld="results/ngsLD/hap2/{population}_ld_output.ld"
+  output:
+    sample="results/ngsLD/hap2/by_popln/{population}_ld_pairs_sample.txt"
+  params:
+    frac=0.001
+  shell:
+    r"""
+    # NR>1 skip header; $3=dist(bp), $7=r2    awk -F '\t' -v f={params.frac} 'NR>1 {{ if (rand()<f) printf "%d\t%f\n", $3, $7 }}' {input.ld} > {output.sample}
+    """
+
+
+# NOTE: At some point this graph needs to incorporate the Hill & Weir (1988) model for expected LD, which accounts for popln size
+rule plot_ld_distribution:
+  input:
+    random_r2=expand("results/ngsLD/hap2/by_popln/{population}_ld_random_sample.txt", population = POPULATIONS)
+  output:
+    plot="results/plots/hap2/ngsLD/ld_distribution_by_popln.pdf"
+  params:
+    script="scripts/plot_LD_distribution.R"
+  log:
+    "results/logs/ngsLD/hap2/plot_ld_distribution.log"
+  threads: 2
+  envmodules:
+    "r/4.4.0"
+  shell:
+    """
+    Rscript {params.script} {input.random_r2} {output.plot} 2> {log}
+    """
+
+rule plot_ld_decay:
+  input:
+    random_r2_dist=expand("results/ngsLD/hap2/by_popln/{population}_ld_pairs_sample.txt", population = POPULATIONS)
+  output:
+    plot="results/plots/hap2/ngsLD/ld_decay_with_distance.pdf"
+  params:
+    script="scripts/plot_LD_decay.R"
+  log:
+    "results/logs/ngsLD/hap2/plot_ld_decay.log"
+  threads: 2
+  envmodules:
+    "r/4.4.0"
+  shell:
+    """
+    Rscript {params.script} {input.random_r2_dist} {output.plot} 2> {log}
+    """
+
+# We use the Hill and Weir (1988) model and account for population size
+# NOTE - This script will *attempt* to plot all of the LD data, but it might be massive depending on the species
+# For Lupine, we do NOT use this script. 
+# --vanilla for a clean R environment, --quiet to remove verbosity
+rule LD_decay_by_popln:
+  input:
+    bam_list="data/lists/hap2/{population}_realign_hap2.txt",
+    block_script="/home/socamero/ngsLD/scripts/fit_LDdecay.R",
+    ld_input="results/ngsLD/hap2/{population}_ld_output.ld"
+  output:
+    plot="results/plots/hap2/ngsLD/{population}_plot.pdf"
+  params:
+    pop_size=lambda wildcards: sum(1 for _ in open(f"data/lists/hap2/{wildcards.population}_realign_hap2.txt"))
+  envmodules:
+    "r/4.4.0"
+  shell:
+    """
+    Rscript --vanilla --quiet {input.block_script} \
+    --ld_files {input.ld_input} \
+    --out {output.plot} \
+    --n_ind {params.pop_size}
+    """
+
+# Indicate 1. scaffold name 2. starting position 3. end position
+rule LD_blocks_by_popln:
+  input:
+    block_script="/home/socamero/ngsLD/scripts/LD_blocks.sh",
+    ld_input="results/ngsLD/hap2/{population}_ld_output.ld"
+  output:
+    plot="results/plots/hap2/ngsLD/{population}_500k-2000k.pdf"
+  shell:
+    """
+    cat {input.ld_input} | bash {input.block_script} Scaffold_1__1_contigs__length_29266999 500000 2000000
+
+    mv *.pdf {wildcards.population}_500k-2000k.pdf
+    mv {wildcards.population}_500k-2000k.pdf /home/socamero/scratch/{output.plot}
+    """
+
+
+## ANALYSIS 9: Contemporary Effective Population Size
+
+# This analysis does not require Snakemake but uses NeEstimator2x
+# NeEstimator uses a GUI, although it is possible to access it through the binary 'Ne2L'
+# Use MobaXTerm to access the GUI. I currently have it accessible by mentioning 'ne2x' when module load java is invoked
+
+# Some criteria for NeEstimator:
+  # Since this LD method requires genotype calls, we filter out individuals with coverage lower than 8x
+  # We then filter out rare alleles and set a stringent call of removing alleles with <2% freq (-minMaf)
+  # We also only allow SNPs where 90% of all individuals are represented (-minInd)
+  # Only call genotypes if it reaches beyond 95% cutoff (-postCutoff)
+
+rule angsd_for_NeEstimator:
+  input:
+    bam_list="data/lists/hap2/{population}_realign_hap2.txt",
+    canonical_sites="results/bed/hap2/canonical_sites/filtered_dupHMM/{population}_filtered_sites_dupHMM_calcLR.txt",
+    bin_index="results/bed/hap2/canonical_sites/filtered_dupHMM/{population}_filtered_sites_dupHMM_calcLR.txt.bin",
+    fasta_fai="data/reference/hap2/lupinehap2.fasta.fai"
+  output:
+    arg_file="results/angsd/hap2/canonical/NeEstimator_input/{population}/{population}_canonical_SNPs.arg",
+    mafs_file="results/angsd/hap2/canonical/NeEstimator_input/{population}/{population}_canonical_SNPs.mafs.gz",
+    depth_sample="results/angsd/hap2/canonical/NeEstimator_input/{population}/{population}_canonical_SNPs.depthSample",
+    depth_global="results/angsd/hap2/canonical/NeEstimator_input/{population}/{population}_canonical_SNPs.depthGlobal",
+    bcf_file="results/angsd/hap2/canonical/NeEstimator_input/{population}/{population}_canonical_SNPs.bcf"
+  params:
+    ref="data/reference/hap2/lupinehap2.fasta",
+    file_name="results/angsd/hap2/canonical/NeEstimator_input/{population}/{population}_canonical_SNPs",
+    scaffolds="results/scaffolds/hap2_scaffolds.txt",
+    minInd=lambda wildcards, input: max(1, int(0.9 * sum(1 for _ in open(input.bam_list))))
+  log:
+    "results/logs/angsd/hap2/canonical/NeEstimator_input/{population}_angsd_canonical_SNPs.log"
+  envmodules:
+    "angsd/0.940"
+  threads: 12
+  shell:
+    """
+    angsd -bam {input.bam_list}\
+    -ref {params.ref}\
+    -out {params.file_name}\
+    -remove_bads 1\
+    -rf {params.scaffolds}\
+    -C 50\
+    -sites {input.canonical_sites}\
+    -setMinDepth 50\
+    -setMaxDepth 4000\
+    -minMapQ 30\
+    -minQ 20\
+    -minInd {params.minInd}\
+    -minMaf 0.02\
+    -baq 2\
+    -only_proper_pairs 1\
+    -nThreads {threads}\
+    -SNP_pval 1e-6\
+    -GL 1\
+    -doPost 1\
+    -doMajorMinor 1\
+    -doMaf 1\
+    -dobcf 1\
+    --ignore-RG 0\
+    -doGeno 2\
+    -doCounts 1\
+    -doDepth 1\
+    -postCutoff 0.95\
+    &> {log}
+    """
+
+rule convert_bcf_to_vcf:
+  input:
+    bcf="results/angsd/hap2/canonical/NeEstimator_input/{population}/{population}_canonical_SNPs.bcf"
+  output:
+    vcf="results/angsd/hap2/canonical/NeEstimator_input/{population}/{population}_canonical_SNPs.vcf.gz",
+    tbi="results/angsd/hap2/canonical/NeEstimator_input/{population}/{population}_canonical_SNPs.vcf.gz.tbi"
+  threads: 2
+  envmodules:
+    "bcftools/1.19"
+  shell:
+    """
+    # just convert the BCF (with GT) to compressed VCF - not necessary to use bcftools since not inferring GT from GL
+    bcftools view -Oz -o {output.vcf} {input.bcf}
+    bcftools index -f {output.vcf}
+    """
+
+
+rule convert_vcf_GP_to_GT:
+  input:
+    vcf="results/angsd/hap2/canonical/NeEstimator_input/{population}/{population}_canonical_SNPs.vcf.gz"
+  output:
+    vcf_GT="results/angsd/hap2/canonical/NeEstimator_input/{population}/{population}_canonical_SNPs_GT.vcf.gz",
+    vcf_tbi="results/angsd/hap2/canonical/NeEstimator_input/{population}/{population}_canonical_SNPs_GT.vcf.gz.tbi"
+  threads: 2
+  envmodules:
+    "bcftools/1.19"
+  shell:
+    """
+    bcftools +tag2tag {input.vcf} -Oz -o {output.vcf_GT} -- --GP-to-GT -t 0.95
+    bcftools index -f {output.vcf_tbi}
+    """
+
+
+rule convert_vcf_to_genepop:
+  input:
+    vcf="results/angsd/hap2/canonical/NeEstimator_input/{population}/{population}_canonical_SNPs.vcf.gz"
+  output:
+    gen="results/NeEstimator/hap2/{population}_data_input.gen"
+  log:
+    "results/logs/NeEstimator/hap2/{population}_convert_vcf_to_genepop.log"
+  threads: 2
+  envmodules:
+    "r/4.4.0"
+  shell:
+    """
+    mkdir -p $(dirname {output.gen})
+    Rscript scripts/convert_vcf_to_genepop.R {input.vcf} {output.gen} > {log} 2>&1
+    """
+
+
+## ANALYSIS 10: Genotype Environment Association Test
+
+# Data requirements include:
+  # (1) Allele frequencies by population
+  # (2) Historical and recent climate data
+  # (3) Soil data collected from the field
+  # (4)
+
+
+
+## ANALYSIS 11: Distribution of Fitness Effect (DFE)
+
+# Identify 4fold degenerate sites for inputs into ANGSD (which determines the SFS)
+rule find_4fold_degenerate_sites:
+  input:
+    gff="data/annotation/Lupinus_perennis_genes.gff3",
+    fasta="data/reference/hap2/lupinehap2.fasta"
+  output:
+    fourfold="results/DFE/sites_4D.txt",
+    other="results/DFE/sites_otherCDS.txt"
+  log:
+    "results/logs/DFE/find_4D_sites.log"
+  shell:
+    """
+    python scripts/find_4fold_degen.py {input.gff} {input.fasta} > {log} 2>&1
+    mv sites_4D.txt {output.fourfold}
+    mv sites_otherCDS.txt {output.other}
+    """
+
+rule convert_DFE_sites_txt_to_bed:
+  input:
+    fourfold="results/DFE/sites_4D.txt",
+    other="results/DFE/sites_otherCDS.txt"
+  output:
+    bed_4fold="results/DFE/sites_4D.BED",
+    bed_other="results/DFE/sites_CDSother.BED"
+  log:
+    "results/logs/bedtools/convert_4fold_and_CDS.log"
+  shell:
+    """
+    awk -F '[:]' '{{OFS="\\t"; print $1, $2-1, $2}}' {input.fourfold} > {output.bed_4fold} 2> {log}
+    awk -F '[:]' '{{OFS="\\t"; print $1, $2-1, $2}}' {input.other} > {output.bed_other} 2> {log}
+    """
+
+
+# Filter each population's site list with the 4D and CDS sites
+rule filter_by_popln_4D_and_CDS:
+  input:
+    fourfold="results/DFE/sites_4D.BED",
+    other="results/DFE/sites_otherCDS.BED",
+    filtered_dupHMM_bed="results/bed/hap{hap}/canonical_sites/filtered_dupHMM/{population}_filtered_sites_dupHMM_calcLR.BED",
+    filtered_dupHMM_txt="results/bed/hap{hap}/canonical_sites/filtered_dupHMM/{population}_filtered_sites_dupHMM_calcLR.txt"
+  output:
+    filtered_4D_bed="results/bed/hap{hap}/DFE_sites/{population}_4D_filtered.BED",
+    filtered_CDS_bed="results/bed/hap{hap}/DFE_sites/{population}_CDS_other_filtered.BED",
+    filtered_4D_txt="results/bed/hap{hap}/DFE_sites/{population}_4D_filtered.txt",
+    filtered_CDS_txt="results/bed/hap{hap}/DFE_sites/{population}_CDS_other_filtered.txt"
+  log:
+    dupHMM_log="results/logs/bedtools/hap{hap}/DFE_sites/{population}_filtered_DFE.log"
+  envmodules:
+    "bedtools/2.31.0"
+  shell:
+    """
+    # Intersect dupHMM-filtered regions with 4D and other CDS sites
+    bedtools intersect -a {input.filtered_dupHMM_bed} -b {input.fourfold_bed} > {output.filtered_4D_bed}
+    bedtools intersect -a {input.filtered_dupHMM_bed} -b {input.cds_bed} > {output.filtered_CDS_bed}
+
+    # Convert intersected BED files to ANGSD-compatible -sites txt files
+    awk '{{print $1, $3}}' {output.filtered_4D_bed} > {output.filtered_4D_txt}
+    awk '{{print $1, $3}}' {output.filtered_CDS_bed} > {output.filtered_CDS_txt}
+    """
+
+
+rule index_DFE_4fold_sites:
+  input: 
+    filtered_4D_txt="results/bed/hap2/DFE_sites/{population}_4D_filtered.txt"
+  output: 
+    bin_index="results/bed/hap2/DFE_sites/{population}_4D_filtered.txt.bin",
+    idx_index="results/bed/hap2/DFE_sites/{population}_4D_filtered.txt.idx"
+  envmodules:
+    "angsd/0.940"
+  shell: 
+    """
+    angsd sites index {input.filtered_4D_txt}
+    """
+
+
+rule index_DFE_CDS_other_sites:
+  input: 
+    filtered_CDS_txt="results/bed/hap2/DFE_sites/{population}_CDS_other_filtered.txt"
+  output: 
+    bin_index="results/bed/hap2/DFE_sites/{population}_CDS_other_filtered.txt.bin",
+    idx_index="results/bed/hap2/DFE_sites/{population}_CDS_other_filtered.txt.idx"
+  envmodules:
+    "angsd/0.940"
+  shell: 
+    """
+    angsd sites index {input.filtered_CDS_txt}
+    """
+
+
+rule angsd_for_DFE_4fold:
+  input:
+    bam_list="data/lists/hap2/{population}_realign_hap2.txt",
+    canonical_sites="results/bed/hap2/DFE_sites/{population}_4D_filtered.txt",
+    bin_index="results/bed/hap2/DFE_sites/{population}_4D_filtered.txt.bin",
+    fasta_fai="data/reference/hap2/lupinehap2.fasta.fai"
+  output:
+    arg_file="results/angsd/hap2/canonical/DFE/by_popln/{population}_4fold_sites.arg",
+    mafs_file="results/angsd/hap2/canonical/DFE/by_popln/{population}_4fold_sites.mafs.gz",
+    saf_1="results/angsd/hap2/canonical/DFE/by_popln/{population}_4fold_sites.saf.idx",
+    saf_2="results/angsd/hap2/canonical/DFE/by_popln/{population}_4fold_sites.saf.pos.gz",
+    saf_3="results/angsd/hap2/canonical/DFE/by_popln/{population}_4fold_sites.saf.gz",
+    glf_file="results/angsd/hap2/canonical/DFE/by_popln/{population}_4fold_sites.glf.gz"
+  params:
+    ref="data/reference/hap2/lupinehap2.fasta",
+    file_name="results/angsd/hap2/canonical/DFE/by_popln/{population}_4fold_sites",
+    scaffolds="results/scaffolds/hap2_scaffolds.txt",
+    minInd=lambda wildcards, input: max(1, int(0.8 * sum(1 for _ in open(input.bam_list))))
+  log:
+    "results/logs/angsd/hap2/canonical/DFE/by_popln/angsd_4fold_sites_hap2_{population}.log"
   envmodules:
     "angsd/0.940"
   threads: 8
@@ -3541,181 +4104,179 @@ rule angsd_for_GONE:
     -setMaxDepth 3500\
     -minMapQ 30\
     -minQ 20\
-    -minInd 20\
-    -minMaf 0.0001\
-    -minHWEpval 0.01\
-    -SNP_pval 1e-6\
+    -minInd {params.minInd}\
     -baq 2\
-    -only_proper_pairs 1\
     -nThreads {threads}\
+    -uniqueOnly 1\
     -doMajorMinor 1\
-    -doHWE 1\
     -doMaf 1\
     -doGlf 1\
+    -doSaf 1\
     -doCounts 1\
-    -doDepth 1\
-    -doBcf 1\
+    -anc {params.ref}\
     &> {log}
     """
 
-rule convert_bcf_to_vcf_for_Ne:
-  input:
-    bcf="results/angsd/hap{hap}/canonical/Ne/by_popln/{population}_canonical_sites.bcf"
-  output:
-    vcf="results/plink/hap{hap}/Ne_analysis/{population}_output.vcf.gz"
-  log:
-    "results/logs/bcftools/hap{hap}/Ne_analysis/{population}_bcf_to_vcf.log"
-  envmodules:
-    "bcftools/1.19"
-  shell:
-    """
-    bcftools view {input.bcf} -O z -o {output.vcf} &> {log}
-    """
 
-rule convert_vcf_to_plink_for_Ne:
+# We do not filter for MAFs
+rule angsd_for_DFE_CDS:
   input:
-    vcf="results/plink/hap{hap}/Ne_analysis/{population}_output.vcf.gz"
+    bam_list="data/lists/hap2/{population}_realign_hap2.txt",
+    canonical_sites="results/bed/hap2/DFE_sites/{population}_CDS_other_filtered.txt",
+    bin_index="results/bed/hap2/DFE_sites/{population}_CDS_other_filtered.txt.bin",
+    fasta_fai="data/reference/hap2/lupinehap2.fasta.fai"
   output:
-    ped="results/plink/hap{hap}/Ne_analysis/{population}/{population}_GONE.ped",
-    map="results/plink/hap{hap}/Ne_analysis/{population}/{population}_GONE.map"
+    arg_file="results/angsd/hap2/canonical/DFE/by_popln/{population}_CDS_other_sites.arg",
+    mafs_file="results/angsd/hap2/canonical/DFE/by_popln/{population}_CDS_other_sites.mafs.gz",
+    saf_1="results/angsd/hap2/canonical/DFE/by_popln/{population}_CDS_other_sites.saf.idx",
+    saf_2="results/angsd/hap2/canonical/DFE/by_popln/{population}_CDS_other_sites.saf.pos.gz",
+    saf_3="results/angsd/hap2/canonical/DFE/by_popln/{population}_CDS_other_sites.saf.gz",
+    glf_file="results/angsd/hap2/canonical/DFE/by_popln/{population}_CDS_other_sites.glf.gz"
   params:
-    filename="results/plink/hap{hap}/Ne_analysis/{population}/{population}_GONE"
+    ref="data/reference/hap2/lupinehap2.fasta",
+    file_name="results/angsd/hap2/canonical/DFE/by_popln/{population}_CDS_other_sites",
+    scaffolds="results/scaffolds/hap2_scaffolds.txt",
+    minInd=lambda wildcards, input: max(1, int(0.8 * sum(1 for _ in open(input.bam_list))))
   log:
-    "results/logs/plink/hap{hap}/Ne_analysis/{population}_vcf_to_plink.log"
-  envmodules:
-    "plink"  
-  shell:
-    """
-    plink --vcf {input.vcf} --recode ped --out {params.filename} &> {log}
-    """
-
-
-rule GONE_contemporary_Ne_analysis:
-  input:
-    map="results/plink/hap{hap}/Ne_analysis/{population}/{population}_GONE.map",
-    ped="results/plink/hap{hap}/Ne_analysis/{population}/{population}_GONE.ped",
-    params_file="results/plink/hap{hap}/Ne_analysis/{population}/INPUT_PARAMETERS_FILE"
-  output:
-    snp_summary="results/plink/hap{hap}/Ne_analysis/{population}/OUTPUT_{population}_GONE",
-    Ne_output="results/plink/hap{hap}/Ne_analysis/{population}/Output_Ne_{population}_GONE",
-    d2_output="results/plink/hap{hap}/Ne_analysis/{population}/Output_d2_{population}_GONE"
-  log:
-    "results/logs/plink/hap{hap}/Ne_analysis/{population}_GONE_output.log"
-  threads: 8
-  shell:
-    """
-    cp ../GONE/script_GONE.sh PROGRAMMES ../scratch/results/plink/hap{wildcards.hap}/Ne_analysis/{wildcards.population}/ -r
-
-    cd results/plink/hap{wildcards.hap}/Ne_analysis/{wildcards.population}
-    script_GONE.sh
-    """
-
-
-## ANALYSIS 8: Linkage Disequilibrium
-# NOTE: this step is necessary for LD pruning prior to the GEA analysis
-# PROGRAM: ngsLD
-
-# We use more stringent rules to call for genotype likelihoods -> minMaf = 0.001, minHWEpval = 0.05
-rule angsd_for_ngsLD:
-  input:
-    bam_list="data/lists/hap{hap}/{population}_realign_hap{hap}.txt",
-    canonical_sites="results/bed/hap{hap}/canonical_sites/filtered_dupHMM/{population}_filtered_sites_dupHMM_calcLR.txt",
-    bin_index="results/bed/hap{hap}/canonical_sites/filtered_dupHMM/{population}_filtered_sites_dupHMM_calcLR.txt.bin",
-    fasta_fai="data/reference/hap{hap}/lupinehap{hap}.fasta.fai"
-  output:
-    arg_file="results/angsd/hap{hap}/canonical/ngsLD/by_popln/{population}_canonical_sites.arg",
-    mafs_file="results/angsd/hap{hap}/canonical/ngsLD/by_popln/{population}_canonical_sites.mafs.gz",
-    glf_file="results/angsd/hap{hap}/canonical/ngsLD/by_popln/{population}_canonical_sites.glf.gz",
-    hwe_file="results/angsd/hap{hap}/canonical/ngsLD/by_popln/{population}_canonical_sites.hwe.gz"
-  params:
-    ref="data/reference/hap{hap}/lupinehap{hap}.fasta",
-    file_name="results/angsd/hap{hap}/canonical/ngsLD/by_popln/{population}_canonical_sites",
-    scaffolds="results/scaffolds/hap{hap}_scaffolds.txt"
-  log:
-    "results/logs/angsd/hap{hap}/canonical/ngsLD/by_popln/angsd_canonical_sites_hap{hap}_{population}.log"
+    "results/logs/angsd/hap2/canonical/DFE/by_popln/angsd_CDS_other_hap2_{population}.log"
   envmodules:
     "angsd/0.940"
   threads: 8
   shell:
     """
-    angsd -bam {input.bam_list} \
-    -ref {params.ref} \
-    -out {params.file_name} \
-    -remove_bads 1 \
-    -rf {params.scaffolds} \
-    -GL 2 \
-    -C 50 \
-    -sites {input.canonical_sites} \
-    -setMinDepth 25 \
-    -setMaxDepth 3500 \
-    -minMapQ 30 \
-    -minQ 20 \
-    -minInd 20 \
-    -minMaf 0.001 \
-    -minHWEpval 0.05 \
-    -SNP_pval 1e-6 \
-    -baq 2 \
-    -only_proper_pairs 1 \
-    -nThreads {threads} \
-    -doMajorMinor 1 \
-    -doHWE 1 \
-    -doMaf 1 \
-    -doGlf 2 \
-    -doCounts 1 \
-    -doDepth 1 \
+    angsd -bam {input.bam_list}\
+    -ref {params.ref}\
+    -out {params.file_name}\
+    -remove_bads 1\
+    -rf {params.scaffolds}\
+    -GL 2\
+    -C 50\
+    -sites {input.canonical_sites}\
+    -setMinDepth 25\
+    -setMaxDepth 3500\
+    -minMapQ 30\
+    -minQ 20\
+    -minInd {params.minInd}\
+    -baq 2\
+    -nThreads {threads}\
+    -uniqueOnly 1\
+    -doMajorMinor 1\
+    -doMaf 1\
+    -doGlf 1\
+    -doSaf 1\
+    -doCounts 1\
+    -anc {params.ref}\
     &> {log}
     """
+    
 
-
-rule ngsLD_analysis:
+rule SFS_4fold_by_population:
   input:
-    mafs_file="results/angsd/hap{hap}/canonical/ngsLD/by_popln/{population}_canonical_sites.mafs.gz",
-    glf_file="results/angsd/hap{hap}/canonical/ngsLD/by_popln/{population}_canonical_sites.glf.gz"
+    saf_idx="results/angsd/hap2/canonical/DFE/by_popln/{population}_4fold_sites.saf.idx",
+    canonical_sites="results/bed/hap2/DFE_sites/{population}_4D_filtered.txt",
+    ref="data/reference/hap2/lupinehap2.fasta"
   output:
-    ld_output="results/ngsLD/hap{hap}/{population}_ld_output.ld"
-  params:
-    max_sites=50000  # Set the maximum number of sites to analyze as recommended by ngsLD
+    sfs="results/realSFS/hap2/DFE/{population}_DFE_folded_4fold.sfs"
   log:
-    "results/logs/ngsLD/hap{hap}/{population}_ld_estimation.log"
+    "results/logs/realSFS/hap2/DFE/{population}_DFE_folded_4fold.log"
   envmodules:
-    "ngsLD/1.1.1"  # Make sure to adjust this based on the module available on your cluster
-  threads: 4
+    "angsd/0.940"
+  threads: 40
   shell:
     """
-    ngsLD --geno {input.glf_file} \
-    --probs 1 \
-    --n_ind $(zcat {input.bcf_file} | grep -m1 ^#CHROM | cut -f10- | wc -w) \
-    --pos {input.mafs_file} \
-    --max_kb_dist 50 \
-    --max_sites {params.max_sites} \
-    --out {output.ld_output} \
-    --n_threads {threads} \
-    &> {log}
+    realSFS {input.saf_idx}\
+    -P {threads}\
+    -seed 1\
+    -fold 1\
+    -anc {input.ref}\
+    > {output.sfs}\
+    2> {log}
     """
 
 
-## ANALYSIS 9: Mutation Screens
-
-# PROGRAM 1: dN/dS ratios
-# Utilizes custom scripts produced by Dan Schoen
-
-rule dN_dS_check:
+rule SFS_CDSother_by_population:
   input:
-    ref_fasta="data/reference/lupinehap2.fasta",
-    dNdS_script="scripts/dNdS_check_transcripts.py"
+    saf_idx="results/angsd/hap2/canonical/DFE/by_popln/{population}_CDS_other_sites.saf.idx",
+    canonical_sites="results/bed/hap2/DFE_sites/{population}_CDS_other_filtered.txt",
+    ref="data/reference/hap2/lupinehap2.fasta"
   output:
-    filtered_transcripts="results/mutations/hap2/dN_dS/saved_transcripts.fa",
-    transcript_proteins="results/mutations/hap2/dN_dS/translated_proteins.fa",
-    transcripts_wo_stops="results/mutations/hap2/dN_dS/transcripts_without_premature_stop_codons.fa",
-    transcripts_w_stops="results/mutations/hap2/dN_dS/transcripts_with_premature_stop_codons.fa"
+    sfs="results/realSFS/hap2/DFE/{population}_DFE_folded_CDS.sfs"
   log:
-    "results/logs/mutations/hap2/dN_dS_check.log"
+    "results/logs/realSFS/hap2/DFE/{population}_DFE_folded_CDS.log"
+  envmodules:
+    "angsd/0.940"
+  threads: 40
   shell:
     """
-    python {input.dNdS_script} \
-      --input_file {input.ref_fasta} \
-      --output_file_with_stops {output.transcripts_w_stops} \
-      --output_file_without_stops {output.transcripts_wo_stops} \
-      --output_file_protein {output.transcript_proteins} \
-      --output_file_saved_transcripts {output.filtered_transcripts}
+    realSFS {input.saf_idx}\
+    -P {threads}\
+    -seed 1\
+    -fold 1\
+    -anc {input.ref}\
+    > {output.sfs}\
+    2> {log}
+    """
+
+
+## ANALYSIS 12 : SIFT analysis for mutational load
+
+# NOTE: we restrict the analysis to the first 24 scaffolds
+# SNP‐calling rule, one job per population:
+rule bcftools_snp_call_by_population:
+  input:
+    ref     = "data/reference/hap2/lupinehap2.fasta",
+    bamlist = "data/lists/hap2/{population}_realign_hap2.txt",
+    scaffolds = "results/scaffolds/hap2_scaffolds.txt"
+  output:
+    vcf = "results/bcftools/hap2/vcf_by_popln/{population}.vcf.gz",
+    tbi = "results/bcftools/hap2/vcf_by_popln/{population}.vcf.gz.tbi"
+  log:
+    "results/logs/bcftools/SNP_call_{population}.log"
+  threads: 12
+  envmodules:
+    "bcftools/1.22"
+  shell:
+    """
+    bcftools mpileup -Ou \
+      -f {input.ref} \
+      --bam-list {input.bamlist} \
+      -q 5 \
+      --regions-file {input.scaffolds} \
+      -I \
+      -a FMT/AD,FMT/DP \
+    | bcftools call \
+      -V indels -f GQ -mv -Oz \
+      --threads {threads} \
+      -o {output.vcf} 2> {log}
+    tabix -f {output.vcf}
+    """
+
+# NOTE: we restrict the analysis to non-paralogous regions and the first 24 scaffolds
+rule bcftools_snp_call_canonical_by_population:
+  input:
+    ref     = "data/reference/hap2/lupinehap2.fasta",
+    bamlist = "data/lists/hap2/{population}_realign_hap2.txt",
+    canonical_sites = "results/bed/hap2/canonical_sites/filtered_dupHMM/{population}_filtered_sites_dupHMM_calcLR.BED"
+  output:
+    vcf = "results/bcftools/hap2/vcf_by_popln/{population}_canonical.vcf.gz",
+    tbi = "results/bcftools/hap2/vcf_by_popln/{population}_canonical.vcf.gz.tbi"
+  log:
+    "results/logs/bcftools/SNP_call_{population}_canonical.log"
+  threads: 12
+  envmodules:
+    "bcftools/1.22"
+  shell:
+    """
+    bcftools mpileup -Ou \
+      -f {input.ref} \
+      --bam-list {input.bamlist} \
+      -q 5 \
+      --regions-file {input.canonical_sites} \
+      -I \
+      -a FMT/AD,FMT/DP \
+    | bcftools call \
+      -V indels -f GQ -mv -Oz \
+      --threads {threads} \
+      -o {output.vcf} 2> {log}
+    tabix -f {output.vcf}
     """

@@ -1,0 +1,1022 @@
+###########################
+##    WILDCARDS SET-UP   ##
+###########################
+
+import os
+import glob
+import subprocess
+import pandas as pd
+import yaml
+import re
+import itertools
+from pathlib import Path
+
+
+
+
+
+
+#### Functions to set up samples list in config from different sequencing batches
+
+# In summary:
+  #{sample} refers to the sample name received from the sequencer. It includes replicates and other identifying info.
+  #{sample_prefix} refers to a trimmed sample name and merges replicates.
+
+# Rule to update the configuration file
+# The python script creates a list of sample names and their corresponding .fastq files for both reads R1 and R2
+rule update_config:
+  output:
+    "snakeprofile/config.yaml"
+  shell:
+    "python scripts/extract_lcWGS_samples.py"
+
+# Function to get samples from the config file
+def get_samples(batch):
+    with open("snakeprofile/config.yaml", 'r') as file:
+        config = yaml.safe_load(file)
+    return config['batches'][batch]
+
+# Function to get batches from the config file
+def get_batches():
+    with open("snakeprofile/config.yaml", 'r') as file:
+        config = yaml.safe_load(file)
+    return list(config['batches'].keys())
+
+# Function to get .fastq filenames from all 3 batches from the config file
+def get_fastq_paths(batch, sample, read):
+    with open("snakeprofile/config.yaml", 'r') as file:
+        config = yaml.safe_load(file)
+    if batch in config['batches'] and sample in config['batches'][batch]:
+        return config['batches'][batch][sample].get(read, f"data/{batch}/{sample}_L001_{read}_001.fastq.gz")
+    # Fallback for batch_1 and batch_2:
+    return f"data/{batch}/{sample}_L001_{read}_001.fastq.gz"
+
+# Ensure that the config is updated before any other rule runs
+# Get all batches from the config
+batches = get_batches()
+
+# Get samples for each batch
+samples_batch_1 = get_samples('batch_1')
+samples_batch_2 = get_samples('batch_2')
+samples_batch_3 = get_samples('batch_3')
+
+# Try using this for expand in rule all: 
+  #  [f"results/bam_raw/hap2/{batch}/{sample}_hap2.bam"
+  #   for batch in get_batches()
+  #   for sample in list(get_samples(batch).keys())],
+
+# Get basename of the fastq files
+def get_basename(batch, sample, read):
+    fastq_path = get_fastq_paths(batch, sample, read)
+    if fastq_path:
+        return os.path.basename(fastq_path).replace(".fastq.gz", "")
+    return f"{sample}_{read}"  # Fallback in case of missing file
+
+
+# Create list for fastqc outputs
+expected_fastqc_outputs = []
+
+for batch in get_batches():
+    for sample in get_samples(batch).keys():
+        # Compute the basenames from the full FASTQ paths.
+        # This should always return a non-None string.
+        r1_base = get_basename(batch, sample, "R1")
+        r2_base = get_basename(batch, sample, "R2")
+
+        expected_fastqc_outputs.extend([
+            f"results/fastqc_raw/{batch}/{r1_base}_fastqc.html",
+            f"results/fastqc_raw/{batch}/{r1_base}_fastqc.zip",
+            f"results/fastqc_raw/{batch}/{r2_base}_fastqc.html",
+            f"results/fastqc_raw/{batch}/{r2_base}_fastqc.zip"
+        ])
+
+
+
+#### Functions to set up lists of sample prefixes for merging .BAM files from different sequencing batches
+
+# List of haplotypes
+haps = ["1", "2"]
+
+# List of populations
+POPULATIONS = ["HPW", "IDNP-MW", "LCTGP", "MFNP", "PPP", "RLPLV", "SWCP", "APB", "BSL", "BSNA", "CPB", "FMB", "GRAY", "NBWA", "NGP", "PBBT", "RSB", "UWA"]
+
+def extract_sample_prefix(sample_name):
+    for pop in POPULATIONS:
+        if sample_name.startswith(pop + "-"):
+            # Get the portion before the first underscore.
+            prefix = sample_name.split("_")[0]
+            # If the prefix includes a replicate suffix, remove it.
+            if "-rep" in prefix:
+                prefix = prefix.split("-rep")[0]
+            return prefix
+    return sample_name
+
+# Find replicates across BAM files as inputs into merge_replicates rule
+def find_replicates(sample_prefix, hap):
+    """
+    Finds all BAM files corresponding to a given sample (using the unique sample_prefix)
+    across batches (batch_1, batch_2, batch_3). The function expects the BAM file names to
+    start exactly with sample_prefix and optionally a "-rep<number>" (for replicates), 
+    immediately followed by an underscore and then "hap{hap}".
+    """
+    # Broad glob pattern to capture candidates
+    pattern = f"results/bam_raw/hap{hap}/batch*/{sample_prefix}*_hap{hap}.bam"
+    files = glob.glob(pattern, recursive=True)
+    
+    # Compile a regex to match:
+    #   ^                 --> start of the filename
+    #   sample_prefix     --> exact sample prefix (escaped)
+    #   (?!\d)           --> not immediately followed by a digit (so "PPP-1" won't match "PPP-10")
+    #   (?:-rep\d+)?     --> optionally match a replicate indicator like "-rep2"
+    #   _hap             --> then an underscore and "hap..."
+    regex = re.compile(r'^' + re.escape(sample_prefix) + r'(?:-rep\d+)?_')
+
+    
+    # Filter files based on the regex match on the base name
+    filtered_files = [f for f in files if regex.search(os.path.basename(f))]
+    
+    # Write a debug file for inspection
+    debug_path = f"debug/debug_find_replicates_{sample_prefix}_hap{hap}.txt"
+    os.makedirs(os.path.dirname(debug_path), exist_ok=True)
+    with open(debug_path, "w") as f:
+        f.write(f"Pattern: {pattern}\n")
+        if filtered_files:
+            f.write("Found files:\n")
+            for file in filtered_files:
+                f.write(f"{file}\n")
+        else:
+            f.write("No files found.\n")
+    
+    return filtered_files
+
+
+# Get all unique sample prefixes by extracting from samples listed in config file
+def list_sample_prefixes():
+    samples_batch_1 = get_samples('batch_1')  # returns a dict of {sample_name: {...}}
+    samples_batch_2 = get_samples('batch_2')
+    samples_batch_3 = get_samples('batch_3')
+    # Combine sample names from all batches
+    all_samples = set(
+        list(samples_batch_1.keys()) +
+        list(samples_batch_2.keys()) +
+        list(samples_batch_3.keys())
+    )
+    # Now extract the prefix from each sample name using your extract_sample_prefix function.
+    sample_prefixes = {extract_sample_prefix(sample) for sample in all_samples}
+    return list(sample_prefixes)
+
+
+# List of sample prefixes
+sample_prefixes = list_sample_prefixes()
+   
+
+
+
+# Debugging: Write sample_prefixes and haps to files
+#with open("debug_sample_prefixes.txt", "w") as f:
+    #f.write("Sample Prefixes:\n")
+    #for sp in sample_prefixes:
+        #f.write(f"{sp}\n")
+
+#with open("debug_haps.txt", "w") as f:
+    #f.write("Haplotypes:\n")
+    #for hap in haps:
+        #f.write(f"{hap}\n")
+
+# Use sample prefixes and designate to a particular population
+def get_population_sample_prefixes(population):
+    # Get all sample prefixes from the existing list_sample_prefixes function
+    all_sample_prefixes = list_sample_prefixes()
+    # Filter the sample prefixes based on the population
+    population_sample_prefixes = [prefix for prefix in all_sample_prefixes if prefix.startswith(population)]
+    return population_sample_prefixes
+
+
+
+
+
+#### Functions to create scaffold names list per scaffold
+# Get first 24 scaffold names to later estimate LD per scaffold
+# Not using other scaffolds as they don't quite align to the expected 24 chromosomes
+
+rule get_scaffold_names:
+  input:
+    "data/reference/lupinehap1.fasta",
+    "data/reference/lupinehap2.fasta"
+  output:
+    "results/scaffolds/hap1_scaffolds.txt",
+    "results/scaffolds/hap2_scaffolds.txt"
+  shell:
+    """
+    python scripts/extract_24_scaffold_names_by_hap.py
+    """
+
+with open("results/scaffolds/hap1_scaffolds.txt", "r") as file:
+    HAP1SCAFFOLDS = [line.strip() for line in file.readlines()]
+
+with open("results/scaffolds/hap2_scaffolds.txt", "r") as file:
+    HAP2SCAFFOLDS = [line.strip() for line in file.readlines()]
+
+# Split scaffold names by comma and create a list
+HAP1SCAFFOLDS = [name.strip() for name in HAP1SCAFFOLDS]
+HAP2SCAFFOLDS = [name.strip() for name in HAP2SCAFFOLDS]
+HAP1SCAFFOLD_PREFIXES = [s.split("__")[0] for s in HAP1SCAFFOLDS]
+HAP2SCAFFOLD_PREFIXES = [s.split("__")[0] for s in HAP2SCAFFOLDS]
+
+# Function give full scaffold name given prefix of scaffold
+def map_prefix_to_full_scaffold(prefix, hap_type):
+    scaffold_list = HAP1SCAFFOLDS if hap_type == 1 else HAP2SCAFFOLDS
+    for scaffold in scaffold_list:
+        if scaffold.startswith(prefix):
+            return scaffold
+    return None  
+# Return None or an appropriate default if not found
+
+
+
+#### Bunch of parameters for using ngsParalog, Fst, ANGSD, etc
+
+# Varying levels of Bonferroni-Hotchberg correction for ngsParalog
+BH_VARS=[50,40,30,20,10,5]
+
+# Varying levels of site depth to check filter levels
+depth_params = [(50, 1500), (50, 2000), (50, 2500), (50, 3000), (100, 1500), (100, 2000), (100, 2500), (100, 3000)]
+
+# Varying levels of minor allele frequency cutoffs
+minMAF_params = [0.01, 0.001, 0.0001, 0.00001]
+
+# For identifying populatio pairs for Fst analysis
+POP_COMBINATIONS = list(itertools.combinations(POPULATIONS, 2))
+
+# Varying levels of K for admixture analyses
+K_values = [16,17,18,19,20]
+
+# These functions are necessary for bcftools/roh because it calls for specific .vcf files pertaining to each population. 
+# Function to expand VCF file paths
+def generate_vcf_files():
+    vcf_files = []
+    for population in POPULATIONS:
+        sample_prefixes = get_population_sample_prefixes(population)
+        vcf_files.extend(
+            [f"results/angsd/hap2/canonical/bcfROH_input/{population}/{prefix}_canonical_SNPs.vcf.gz" for prefix in sample_prefixes]
+        )
+    return vcf_files
+
+# Function to generate annotated BCF file paths
+def generate_annotated_vcfs():
+    annotated_vcfs = []
+    for population in POPULATIONS:
+        sample_prefixes = get_population_sample_prefixes(population)
+        annotated_vcfs.extend(
+            [f"results/bcftools/hap2/roh_analysis/{population}/{prefix}_annotated.vcf.gz" for prefix in sample_prefixes]
+        )
+    return annotated_vcfs
+
+# Use *generate_vcf_files() or *generate_annotated_vcfs()
+
+###########################
+## BEGINNING OF WORKFLOW ##
+###########################
+
+
+# Expand the final files using the updated configuration
+rule all:
+  input:
+    expand("results/bam_clipped/hap2/{sample_prefix}_hap2_clipped.bam", sample_prefix = sample_prefixes)
+
+
+
+##########################
+#### DATA PREPARATION ####
+##########################
+
+# Trim adapter ends off each sequence file using Trimmomatic
+rule trim_reads:
+  input:
+    r1=lambda wildcards: get_fastq_paths(wildcards.batch, wildcards.sample, "R1"),
+    r2=lambda wildcards: get_fastq_paths(wildcards.batch, wildcards.sample, "R2")
+  output:
+    r1="results/fastq_trimmed/{batch}/{sample}_R1.fastq.gz",
+    r1_unp="results/fastq_trimmed/{batch}/{sample}_R1_unpaired.fastq.gz",
+    r2="results/fastq_trimmed/{batch}/{sample}_R2.fastq.gz",
+    r2_unp="results/fastq_trimmed/{batch}/{sample}_R2_unpaired.fastq.gz"
+  log:
+    "results/logs/trim_reads/{batch}/{sample}.log"
+  envmodules:
+    "trimmomatic/0.39"
+  params:
+    adapters="$EBROOTTRIMMOMATIC/adapters/TruSeq3-PE-2.fa"
+  shell:
+    "java -jar $EBROOTTRIMMOMATIC/trimmomatic-0.39.jar PE {input.r1} {input.r2} "
+    "{output.r1} {output.r1_unp} {output.r2} {output.r2_unp} "
+    "ILLUMINACLIP:{params.adapters}:2:30:10:1 " #previously had ':True' but this failed even though there's documentation of this online
+    "LEADING:3 "
+    "TRAILING:3 "
+    "SLIDINGWINDOW:4:15 " # removes low quality bases
+    "MINLEN:36 2> {log}"
+
+# Creating faidx index for reference genome
+rule faidx_reference:
+  input:
+    "data/reference/hap{hap}/lupinehap{hap}.fasta"
+  output:
+    "data/reference/hap{hap}/lupinehap{hap}.fasta.fai"
+  log:
+    "results/logs/refgen/lupinehap{hap}_faidx.log"
+  envmodules:
+    "samtools/1.20"
+  shell:
+    "samtools faidx {input} 2> {log}"
+
+# Rules for indexing reference genomes (haplotypes 1 and 2)
+rule index_reference:
+  input:
+    "data/reference/hap{hap}/lupinehap{hap}.fasta"
+  output:
+    multiext("data/reference/hap{hap}/lupinehap{hap}.fasta", ".amb", ".ann", ".bwt", ".pac", ".sa")
+  log:
+    "results/logs/refgen/lupinehap{hap}_bwa_index.log"
+  envmodules:
+    "bwa/0.7.18"
+  shell:
+    "bwa index {input} 2> {log}"
+
+# Rules for creating dictionary files
+rule create_dict:
+  input:
+    "data/reference/hap{hap}/lupinehap{hap}.fasta"
+  output:
+    "data/reference/hap{hap}/lupinehap{hap}.dict"
+  log:
+    "results/logs/refgen/hap{hap}_dict.log"
+  envmodules:
+    "samtools/1.20"
+  shell:
+    "samtools dict {input} > {output} 2> {log}"
+
+# Removing reads smaller than 70bp so 'bwa mem' works better
+# Note for a read to be kept, it must be greater than 70bp in BOTH read 1 and 2.
+# There are some tools available in envmodules 'seqkit', but I found none that were compatible
+rule filter_short_reads_with_seqkit:
+  input:
+    r1="results/fastq_trimmed/{batch}/{sample}_R1.fastq.gz",
+    r2="results/fastq_trimmed/{batch}/{sample}_R2.fastq.gz"
+  output:
+    r1_filtered="results/fastq_filtered/{batch}/{sample}_R1_filtered.fastq.gz",
+    r2_filtered="results/fastq_filtered/{batch}/{sample}_R2_filtered.fastq.gz"
+  envmodules:
+    "StdEnv/2020",
+    "seqkit/2.3.1"
+  log:
+    "results/logs/filter_fastq_70bp/{batch}/{sample}_filter_fastq.log"
+  shell:
+    """
+    seqkit seq -m 70 {input.r1} | gzip > {output.r1_filtered}
+    seqkit seq -m 70 {input.r2} | gzip > {output.r2_filtered}
+    """
+
+# Pair filtered reads back together
+# Note: naming convention stays the same! Just different folder
+rule pair_filtered_reads:
+  input:
+    r1_filtered="results/fastq_filtered/{batch}/{sample}_R1_filtered.fastq.gz",
+    r2_filtered="results/fastq_filtered/{batch}/{sample}_R2_filtered.fastq.gz"
+  output:
+    r1_paired="results/fastq_paired/{batch}/{sample}_R1_filtered.fastq.gz",
+    r2_paired="results/fastq_paired/{batch}/{sample}_R2_filtered.fastq.gz"
+  envmodules:
+    "StdEnv/2020",
+    "seqkit/2.3.1"
+  log:
+    "results/logs/pair_fastq_70bp/{batch}/{sample}_pair_fastq.log"
+  shell:
+    """
+    seqkit pair \
+    -1 {input.r1_filtered} \
+    -2 {input.r2_filtered} \
+    -O results/fastq_paired/{wildcards.batch}
+    """
+
+# NOTE: Prior to mapping, some people like to merge fastqs from the same individual/library and remove PCR duplicates prior to mapping using SuperDeduper from HTStream (last used 2020)
+# This might be helpful in reducing heterozygote excess, however I have opted NOT to do this as it may be outdated.
+
+# Mapping/Aligning reads to reference haplotypes
+rule map_reads:
+  input:
+    r1="results/fastq_paired/{batch}/{sample}_R1_filtered.fastq.gz",
+    r2="results/fastq_paired/{batch}/{sample}_R2_filtered.fastq.gz",
+    genome="data/reference/hap{hap}/lupinehap{hap}.fasta",
+    idx=multiext("data/reference/hap{hap}/lupinehap{hap}.fasta", ".amb", ".ann", ".bwt", ".pac", ".sa")
+  output:
+    "results/bam_raw/hap{hap}/{batch}/{sample}_hap{hap}.bam"
+  log:
+    "results/logs/map_reads/hap{hap}/{batch}/{sample}_hap{hap}.log"
+  envmodules:
+    "bwa/0.7.18",
+    "samtools/1.20"
+  threads: 12 
+  params:
+    RG="-R '@RG\\tID:{sample}\\tSM:{sample}\\tPL:ILLUMINA' "
+  shell:
+    """
+    bwa mem {params.RG} -t {threads} {input.genome} {input.r1} {input.r2} |\
+    samtools view -u |\
+    samtools sort - > {output}) 2> {log}
+    """
+
+# We add metadata associated with each .bam file since there are differences in sequencing platforms, etc. 
+# This is implemented for RepAdapt data but NOT for past L. perennis analyses
+# Batch_1 and Batch_2 were created from the same libraries, so no information is lost when merging!
+rule add_read_groups:
+  input:
+    bam="results/bam_raw/hap{hap}/{batch}/{sample}_hap{hap}.bam"
+  output:
+    bam="results/bam_raw/hap{hap}/{batch}_RG/{sample}_hap{hap}_RG.bam"
+  params:
+    # Use the sample name from the wildcard for all read group fields
+    rgid=lambda wildcards: wildcards.sample,
+    rglb=lambda wildcards: f"{wildcards.sample}_LB",
+    rgpl="ILLUMINA",
+    rgpu=lambda wildcards: wildcards.batch,
+    rgsm=lambda wildcards: wildcards.sample
+  log:
+    "results/logs/add_read_groups/hap{hap}/{batch}/{sample}_hap{hap}_RG.log"
+  envmodules:
+    "picard/3.1.0"
+  shell:
+    """
+    java -jar $EBROOTPICARD/picard.jar AddOrReplaceReadGroups \
+      I={input.bam} \
+      O={output.bam} \
+      RGID={params.rgid} \
+      RGLB={params.rglb} \
+      RGPL={params.rgpl} \
+      RGPU={params.rgpu} \
+      RGSM={params.rgsm} \
+      2> {log}
+    """
+# ID = unique ID | LB = library | PL = platform | PU = platform unit | SM = sample
+
+
+# To call 'raw' .bam files, we use the get_fastq_paths function in previous rules because the naming conventions are different between batch_1/batch_2 and batch_3. 
+# In rule all, you can call:
+    #[f"results/bam_raw/hap2/{batch}_RG/{sample}_hap2_RG.bam"
+     #for batch in get_batches()
+     #for sample in list(get_samples(batch).keys())],
+
+####################################
+#### FastQC and MultiQC Reports ####
+####################################
+
+# Unzip trimmed files as fastqc 0.12.0 cannot properly read compressed files. 
+# Tried with 0.12.1 and it works!
+rule unzip_files:
+  input:
+    zipped_r1="results/fastq_trimmed/{batch}/{sample}_R1.fastq.gz",
+    zipped_r2="results/fastq_trimmed/{batch}/{sample}_R2.fastq.gz"
+  output: 
+    unzipped_r1="results/fastq_trimmed_unzip/{batch}/{sample}_R1.fastq",
+    unzipped_r2="results/fastq_trimmed_unzip/{batch}/{sample}_R2.fastq"
+  shell:
+    "gunzip -c {input.zipped_r1} > {output.unzipped_r1} && gunzip -c {input.zipped_r2} > {output.unzipped_r2}"
+
+# Run FastQC per each trimmed sequence file
+# Attempting zipped files since using fastqc/0.12.1
+rule fastqc:
+  input:
+    fastq_r1="results/fastq_trimmed/{batch}/{sample}_R1.fastq.gz",
+    fastq_r2="results/fastq_trimmed/{batch}/{sample}_R2.fastq.gz"
+  output:
+    html_report_r1="results/fastqc/{batch}/{sample}_R1_fastqc.html",
+    zip_report_r1="results/fastqc/{batch}/{sample}_R1_fastqc.zip",
+    html_report_r2="results/fastqc/{batch}/{sample}_R2_fastqc.html",
+    zip_report_r2="results/fastqc/{batch}/{sample}_R2_fastqc.zip"
+  log:
+    path="results/logs/fastQC/{batch}/{sample}.log"
+  envmodules:
+    "fastqc/0.12.1"
+  shell:
+    "fastqc {input.fastq_r1} {input.fastq_r2} --outdir results/fastqc/{wildcards.batch} 2> {log.path}"
+
+# A little different from above because using the raw fastq paths as well as deriving the filenames to get expected fastqc outputs
+# Call in rule all with: expected_fastqc_outputs (this is a predetermined list from above)
+rule fastqc_raw:
+  input:
+    fastq_r1=lambda wildcards: get_fastq_paths(wildcards.batch, wildcards.sample, "R1"),
+    fastq_r2=lambda wildcards: get_fastq_paths(wildcards.batch, wildcards.sample, "R2")
+  output:
+    html_report_r1="results/fastqc_raw/{batch}/{sample}_R1_fastqc.html",
+    zip_report_r1="results/fastqc_raw/{batch}/{sample}_R1_fastqc.zip",
+    html_report_r2="results/fastqc_raw/{batch}/{sample}_R2_fastqc.html",
+    zip_report_r2="results/fastqc_raw/{batch}/{sample}_R2_fastqc.zip"
+  params:
+    # Compute the default names produced by fastqc from the full input filenames.
+    r1_default=lambda wildcards: os.path.basename(get_fastq_paths(wc.batch, wc.sample, "R1")).replace(".fastq.gz", ""),
+    r2_default=lambda wildcards: os.path.basename(get_fastq_paths(wc.batch, wc.sample, "R2")).replace(".fastq.gz", "")
+  log:
+    path="results/logs/fastQC_raw/{batch}/{sample}.log"
+  envmodules:
+    "fastqc/0.12.1"
+  shell:
+    """
+    # Run FastQC: it will produce files named like:
+    #   {params.r1_default}_fastqc.html and {params.r1_default}_fastqc.zip
+    #   for read 1, and similarly for read 2.
+    fastqc {input.fastq_r1} {input.fastq_r2} --outdir results/fastqc_raw/{wildcards.batch} 2> {log.path}
+    
+    # Rename the outputs to use your config sample name (the shortened version)
+    mv results/fastqc_raw/{wildcards.batch}/{params.r1_default}_fastqc.html {output.html_report_r1}
+    mv results/fastqc_raw/{wildcards.batch}/{params.r1_default}_fastqc.zip  {output.zip_report_r1}
+    mv results/fastqc_raw/{wildcards.batch}/{params.r2_default}_fastqc.html {output.html_report_r2}
+    mv results/fastqc_raw/{wildcards.batch}/{params.r2_default}_fastqc.zip  {output.zip_report_r2}
+    """
+
+# Create an aggregated FastQC report using MultiQC.
+# Note that we create separate MultiQC reports for batch 1 to 3; and .fastqc files must exist prior to calling it on snakemake
+rule multiqc_trimmed:
+  input:
+    fastqc_dir="results/fastqc/{batch}"
+  output:
+    html_report="results/multiqc/multiqc_report_trimmed_{batch}.html"
+  log:
+    path="results/logs/multiqc/{batch}.log"
+  params:
+    fastqc_dir="results/fastqc/{batch}"
+  shell:
+    "multiqc -n {output.html_report} {input.fastqc_dir} 2> {log.path}"
+
+rule multiqc_raw:
+  input:
+    fastqc_dir="results/fastqc_raw/{batch}"
+  output:
+    html_report="results/multiqc_raw/multiqc_report_raw_{batch}.html"
+  log:
+    path="results/logs/multiqc_raw/{batch}.log"
+  params:
+    fastqc_dir="results/fastqc_raw/{batch}"
+  shell:
+    "multiqc -n {output.html_report} {input.fastqc_dir} 2> {log.path}"
+
+
+##############################
+#### DATA QUALITY CONTROL ####
+##############################
+
+# Steps in QC :
+  # 1. Remove PCR and optical duplicates
+  # 2. Identify paralogous regions causing mapping problems
+      # - Requires ngsParalog and 1st run of ANGSD
+      # - ANGSD: SNP call and input SNPs (aka polymorphic sites) into ngsParalog
+      # - ngsParalog: probablistic call of paralogous regions
+      # - After ngsParalog, calculate p-values based on chi-sq df = 1 with Benjamini-Hochberg correction
+      # NOTE: This script is NOT shown, but can be provided. It was previously run on another analysis and so the output SNPs are provided.
+
+
+## STEP 1: MERGE REPLICATES & REMOVE PCR & OPTICAL DUPLICATES 
+
+# merge replicates if found, otherwise rename and move to hap{hap}/merged/
+# NEW: added rm results/bam_raw/hap{hap}/merged/*rep2*.bam because the file remained in the folder. 
+# NOTE: merge_replicates must be called before any downstream rules!
+rule merge_replicates:
+  input:
+    lambda wildcards: find_replicates(wildcards.sample_prefix, wildcards.hap)
+  output:
+    "results/bam_raw/hap{hap}/merged/{sample_prefix}_hap{hap}.bam"
+  log:
+    "results/logs/merge_replicates/hap{hap}/{sample_prefix}_hap{hap}.log"
+  envmodules:
+    "samtools/1.17"
+  shell:
+    """
+    module load StdEnv/2020
+    module load samtools/1.17
+    echo "Input files: {input}" >> {log}
+    echo "Output file: {output}" >> {log}
+    
+    # If no input files are found, exit with an error.
+    if [ -z "$(echo {input} | tr -d '[:space:]')" ]; then
+      echo "No files found for {wildcards.sample_prefix} in hap{wildcards.hap}" >> {log}
+      exit 1
+    # If there's only one file, just copy it.
+    elif [ $(echo {input} | wc -w) -eq 1 ]; then
+      echo "Single file found for {wildcards.sample_prefix} in hap{wildcards.hap}, copying to merged folder." >> {log}
+      cp {input} {output}
+    else
+      echo "Multiple files found for {wildcards.sample_prefix} in hap{wildcards.hap}. Merging..." >> {log}
+      samtools merge -f -o {output} {input} 2>> {log}
+    fi
+    sync
+
+    rm -f results/bam_raw/hap{wildcards.hap}/merged/*rep2*.bam
+    """
+
+
+# Marking and removing PCR duplicates + index
+# Note that: /bam_mkdup/ is where marked duplicates are marked AND removed.
+# marked duplicates here are now removed (updated March 26, 2025)
+rule mark_remove_duplicates:
+  input:
+    raw_bam="results/bam_raw/hap{hap}/merged/{sample_prefix}_hap{hap}_RG.bam"
+  output:
+    bam="results/bam_mkdup/hap{hap}/{sample_prefix}_hap{hap}_mkdup.bam",
+    bai="results/bam_mkdup/hap{hap}/{sample_prefix}_hap{hap}_mkdup.bai",
+    metrics="results/qc/mkdup_metrics/{sample_prefix}_hap{hap}.metrics"
+  log:
+    "results/logs/mark_remove_duplicates/hap{hap}/{sample_prefix}_hap{hap}.log"
+  envmodules:
+    "gatk/4.4.0.0"
+  shell:
+    """
+    gatk MarkDuplicates \
+    --CREATE_INDEX \
+    -I {input.raw_bam} \
+    -O {output.bam} \
+    -M {output.metrics} \
+    --REMOVE_DUPLICATES true \
+    2> {log}
+    """
+
+# Clip overlapping reads
+# Previous we loaded packages nixpkgs/16.09 intel/2018.3 to run bamutil/1.0.14 but these might be depreciated with new changes to the Supercomputer
+# We use samtools/1.18 because it is compatible with the output of bamutil/1.0.14
+rule clip_overlapping_reads:
+  input:
+    bam="results/bam_mkdup/hap{hap}/{sample_prefix}_hap{hap}_mkdup.bam"
+  output:
+    clipped_bam="results/bam_clipped/hap{hap}/{sample_prefix}_hap{hap}_clipped.bam",
+    clipped_index="results/bam_clipped/hap{hap}/{sample_prefix}_hap{hap}_clipped.bai"
+  log:
+    "results/logs/clip_overlap/hap{hap}/{sample_prefix}_clip_overlapping_reads.log"
+  shell:
+    """
+    module --force purge
+    module load StdEnv/2020
+    module load bamutil/1.0.14
+    bam clipOverlap --in {input.bam} --out {output.clipped_bam} 2> {log} || true
+    module --force purge
+    module load StdEnv/2023 samtools/1.18
+    samtools index -b {output.clipped_bam} -o {output.clipped_index} --threads 4
+    module --force purge
+    """
+
+# After downstream analyses (admixture), it appears that LCTGP-19 and SWCP-19 are mislabeled and need to swap names.
+# The first and second raw reads (fastq files) for both SWCP-19 and LCTGP-19 still match. It was just mislabelled at the sequencing step!
+# NOTE: The metadata in the RG group is incorrect still and hasn't been updated!
+rule rename_specific_bam_files:
+  input:
+    lctgp_bam="results/bam_clipped/hap{hap}/LCTGP-19_hap{hap}_clipped.bam",
+    lctgp_bai="results/bam_clipped/hap{hap}/LCTGP-19_hap{hap}_clipped.bai",
+    swcp_bam="results/bam_clipped/hap{hap}/SWCP-19_hap{hap}_clipped.bam",
+    swcp_bai="results/bam_clipped/hap{hap}/SWCP-19_hap{hap}_clipped.bai"
+  output:
+    checkpoint="results/checkpoints/hap{hap}/rename_specific_files_checkpoint.txt"
+  log:
+    "results/logs/rename_specific_files/hap{hap}/rename_specific_files.log"
+  shell:
+    """
+    # Temporary files to avoid overwriting
+    tmp_lctgp_bam="results/bam_clipped/hap{wildcards.hap}/LCTGP-19_temp.bam"
+    tmp_lctgp_bai="results/bam_clipped/hap{wildcards.hap}/LCTGP-19_temp.bai"
+    tmp_swcp_bam="results/bam_clipped/hap{wildcards.hap}/SWCP-19_temp.bam"
+    tmp_swcp_bai="results/bam_clipped/hap{wildcards.hap}/SWCP-19_temp.bai"
+
+    # Copy the files to temporary locations
+    cp {input.lctgp_bam} $tmp_lctgp_bam
+    cp {input.lctgp_bai} $tmp_lctgp_bai
+    cp {input.swcp_bam} $tmp_swcp_bam
+    cp {input.swcp_bai} $tmp_swcp_bai
+
+    # Rename LCTGP-19 to SWCP-19 and vice versa using the temporary files
+    mv $tmp_lctgp_bam results/bam_clipped/hap{wildcards.hap}/SWCP-19_hap{wildcards.hap}_clipped.bam
+    mv $tmp_lctgp_bai results/bam_clipped/hap{wildcards.hap}/SWCP-19_hap{wildcards.hap}_clipped.bai
+    mv $tmp_swcp_bam results/bam_clipped/hap{wildcards.hap}/LCTGP-19_hap{wildcards.hap}_clipped.bam
+    mv $tmp_swcp_bai results/bam_clipped/hap{wildcards.hap}/LCTGP-19_hap{wildcards.hap}_clipped.bai
+
+    # Remove the temporary files
+    rm -f $tmp_lctgp_bam $tmp_lctgp_bai $tmp_swcp_bam $tmp_swcp_bai
+
+    # Create a checkpoint file to indicate renaming is complete
+    echo "LCTGP-19 and SWCP-19 file names successfully swapped and renamed!" > {output.checkpoint}
+    """
+
+# Create bam list per population for entry into realign indels 
+# Set for haplotype 2
+rule generate_clipped_bam_list_per_population:
+  input:
+    expand("results/bam_clipped/hap2/{sample_prefix}_hap2_clipped.bam", sample_prefix=sample_prefixes),
+    checkpoint="results/checkpoints/hap2/rename_specific_files_checkpoint.txt"
+  output:
+    "data/lists/hap2/{population}_clipped_hap2.list"
+  wildcard_constraints:
+    population="|".join(POPULATIONS)
+  run:
+    bam_files = input
+    output_file = output[0]
+    population = wildcards.population
+
+    with open(output_file, "w") as output:
+        for bam_file in bam_files:
+            if population in bam_file and f"_hap2_" in bam_file:
+                output.write(f"{bam_file}\n")
+
+# Create interval list of indels
+# NOTE: We turn the badmate filter OFF! (-drf BadMate) because our genome assembly is scaffold-based and so there may be reads mapped on different areas than their mate. 
+# NOTE: We establish targets by a per-sample basis, rather than identifying realignment targets by population. This differs from the original approach!
+rule indel_list_per_sample:
+  input:
+    bam = "results/bam_clipped/hap{hap}/{sample_prefix}_hap{hap}_clipped.bam",
+    ref = "data/reference/hap{hap}/lupinehap{hap}.fasta"
+  output:
+    intervals = "data/lists/hap{hap}/{sample_prefix}_hap{hap}_indels.intervals"
+  log:
+    "results/logs/indel_list/hap{hap}/{sample_prefix}_hap{hap}_indel_list.log"
+  threads: 2
+  shell: 
+    """
+    module --force purge
+    module load nixpkgs/16.09 gatk/3.8
+    java -jar $EBROOTGATK/GenomeAnalysisTK.jar \
+      -T RealignerTargetCreator \
+      -R {input.ref} \
+      -I {input.bam} \
+      -o {output.intervals} \
+      &> {log}
+
+    module --force purge
+    """
+
+# Realign reads around indels - not entirely necessary if using ANGSD
+rule realign_indels:
+  input:
+    bam="results/bam_clipped/hap{hap}/{sample_prefix}_hap{hap}_clipped.bam",
+    ref="data/reference/hap{hap}/lupinehap{hap}.fasta",
+    intervals="data/lists/hap{hap}/{sample_prefix}_hap{hap}_indels.intervals"
+  output:
+    realigned_bam="results/bam_realign/hap{hap}/{sample_prefix}_hap{hap}_realign.bam"
+  log:
+    "results/logs/realign_indels/hap{hap}/{sample_prefix}_hap{hap}_realign_indels.log"
+  shell:
+    """
+    module --force purge
+    module load nixpkgs/16.09 gatk/3.8
+    java -Xmx16g \
+    -jar $EBROOTGATK/GenomeAnalysisTK.jar \
+    -T IndelRealigner \
+    -I {input.bam} \
+    -R {input.ref} \
+    -targetIntervals {input.intervals} \
+    --consensusDeterminationModel USE_READS \
+    -o {output.realigned_bam} \
+    &> {log}
+    module --force purge
+    """
+
+# Rule to create .txt file of BAM files for each haplotype
+# Only applies to hap2
+rule generate_bam_list_per_haplotype:
+  input:
+    expand("results/bam_realign/hap2/{sample_prefix}_hap2_realign.bam", sample_prefix=sample_prefixes)
+  output:
+    "data/lists/hap2/all_realign_hap2.txt"
+  run:
+    bam_files = input
+    output_file = output[0]
+
+    with open(output_file, "w") as output:
+        for bam_file in bam_files:
+            if f"_hap2_" in bam_file:
+                output.write(f"{bam_file}\n")
+
+# Merge bams into batches 1+2 and 3 because of different sequencing platforms
+# Only applies to hap2
+rule generate_bam_list_per_round:
+  input:
+    expand("results/bam_realign/hap2/{sample_prefix}_hap2_realign.bam", sample_prefix=sample_prefixes)
+  output:
+    first_round="data/lists/hap2/first_round_hap2.txt",
+    second_round="data/lists/hap2/second_round_hap2.txt"
+  run:
+    first_round_bams = []
+    second_round_bams = []
+
+    # Define sequencing rounds
+    first_round_populations = {"HPW", "IDNP-MW", "LCTGP", "MFNP", "PPP", "RLPLV", "SWCP"}
+    
+    # Extract population name dynamically
+    def extract_population(sample_prefix):
+        for pop in POPULATIONS:
+            if sample_prefix.startswith(pop):
+                return pop  # Return the correct population name
+        return None  # If no match is found, which should not happen
+
+    for bam_file in input:
+        sample_prefix = bam_file.split("/")[-1].split("_hap")[0]  # Extract sample prefix
+        population = extract_population(sample_prefix)  # Get correct population
+
+        if population in first_round_populations:
+            first_round_bams.append(bam_file)
+        else:
+            second_round_bams.append(bam_file)
+
+    # Write BAM lists for each sequencing round
+    with open(output.first_round, "w") as f:
+        for bam in first_round_bams:
+            f.write(f"{bam}\n")
+
+    with open(output.second_round, "w") as f:
+        for bam in second_round_bams:
+            f.write(f"{bam}\n")
+
+
+####################################
+#### ESTIMATE DEPTH OF COVERAGE ####
+####################################
+
+## ESTIMATE DEPTH USING RepAdapt Scripts (credit Gabriele Nocchi)
+# See: https://github.com/RepAdapt/snp_calling_simple_bcftools_slurm/blob/main/08_cnv_2.sh
+
+# The gene annotation is based on haplotype 2, so we use haplotype2
+rule prepare_depth_files:
+  input:
+    fai="data/reference/hap2/lupinehap2.fasta.fai",
+    fasta="data/reference/hap2/lupinehap2.fasta",
+    gff="data/annotation/MCG3698_Lupinus_perennis.annotation.gff"
+  output:
+    genome_bed="data/reference/hap2/lupinus_perennis_genome.bed",
+    windows_bed="data/reference/hap2/lupinus_perennis_windows.bed",
+    windows_list="data/reference/hap2/lupinus_perennis_windows.list",
+    genes_bed="data/reference/hap2/lupinus_perennis_genes.bed",
+    genes_list="data/reference/hap2/lupinus_perennis_genes.list"
+  shell:
+    """
+    # Create a genome file for bedtools (chromosome and length)
+    awk '{{print $1"\\t"$2}}' {input.fai} > {output.genome_bed}
+    
+    # Create a BED file of 5000 bp windows using the FAI file
+    awk -v w=5000 '{{chr = $1; chr_len = $2;
+      for (start = 0; start < chr_len; start += w) {{
+          end = ((start + w) < chr_len ? (start + w) : chr_len);
+          print chr "\\t" start "\\t" end;
+      }}
+    }}' {input.fai} > {output.windows_bed}
+    
+    # Create a sorted list of window locations
+    awk -F "\\t" '{{print $1":"$2"-"$3}}' {output.windows_bed} | sort -k1,1 > {output.windows_list}
+    
+    # Create a BED file for each gene using the GFF file
+    awk '$3 == "gene" {{print $1"\\t"$4"\\t"$5}}' {input.gff} | uniq > {output.genes_bed}
+    
+    # Sort the gene BED file based on the order of the reference (from the FAI)
+    cut -f1 {input.fai} | while read chr; do 
+        awk -v chr="$chr" '$1 == chr {{print $0}}' {output.genes_bed} | sort -k2,2n; 
+    done > genes.sorted.bed
+    mv genes.sorted.bed {output.genes_bed}
+    
+    # Create a sorted list of gene locations
+    awk -F "\\t" '{{print $1":"$2"-"$3}}' {output.genes_bed} | sort -k1,1 > {output.genes_list}
+    """
+
+rule estimate_depth_RepAdapt:
+  input:
+    bam="results/bam_realign/hap2/{sample_prefix}_hap2_realign.bam"
+  output:
+    temp_depth="results/depths/RepAdapt_temp/{sample_prefix}.depth"
+  log:
+    "results/logs/create_temp_depth/{sample_prefix}.log"
+  envmodules:
+    "samtools/1.20"
+  shell:
+    """
+    samtools depth --reference {input.fasta} -aa {input.bam} > {output.temp_depth}
+    """
+
+rule estimate_depth_RepAdapt_stats:
+  input:
+    temp_depth="results/depths/RepAdapt_temp/{sample_prefix}.depth",
+    genome_bed="data/reference/hap2/lupinus_perennis_genome.bed",
+    windows_bed="data/reference/hap2/lupinus_perennis_windows.bed",
+    windows_list="data/reference/hap2/lupinus_perennis_windows.list",
+    genes_bed="data/reference/hap2/lupinus_perennis_genes.bed",
+    genes_list="data/reference/hap2/lupinus_perennis_genes.list"
+  output:
+    wg="results/depths/RepAdapt_method/{sample_prefix}-wg.txt",
+    genes_sorted="results/depths/RepAdapt_method/{sample_prefix}-genes.sorted.tsv",
+    windows_sorted="results/depths/RepAdapt_method/{sample_prefix}-windows.sorted.tsv"
+  params:
+    temp_window="results/depths/RepAdapt_temp/{sample_prefix}-windows.tsv",
+    temp_genes="results/depths/RepAdapt_temp/{sample_prefix}-genes.tsv"
+  log:
+    "results/logs/estimate_depth_RepAdapt/{sample_prefix}.log"
+  envmodules:
+    "samtools/1.20",
+    "bedtools/2.31.0"
+  shell:
+    """
+    set +o pipefail #we force the rule because we tested it line by line and it works, just somehow not in one rule
+
+    # Gene depth analysis: compute the mean depth per gene
+    awk '{{print $1"\\t"$2"\\t"$2"\\t"$3}}' {input.temp_depth} | bedtools map -a {input.genes_bed} -b stdin -c 4 -o mean -null 0 -g {input.genome_bed} | awk -F "\\t" '{{print $1":"$2"-"$3"\\t"$4}}' | sort -k1,1 > {params.temp_genes} || true
+
+    join -a 1 -e 0 -o '1.1 2.2' -t $'\\t' {input.genes_list} {params.temp_genes} > {output.genes_sorted} || true
+
+    # Window depth analysis: compute the mean depth per window
+    awk '{{print $1"\\t"$2"\\t"$2"\\t"$3}}' {input.temp_depth} | bedtools map -a {input.windows_bed} -b stdin -c 4 -o mean -null 0 -g {input.genome_bed} | awk -F "\\t" '{{print $1":"$2"-"$3"\\t"$4}}' | sort -k1,1 > {params.temp_window} || true
+
+    join -a 1 -e 0 -o '1.1 2.2' -t $'\\t' {input.windows_list} {params.temp_window} > {output.windows_sorted} || true
+
+    # Overall genome depth (average depth across all positions)
+    awk '{{sum += $3; count++}} END {{if (count > 0) print sum/count; else print "No data"}}' {input.temp_depth} > {output.wg}
+
+    # Cleanup temporary files
+    rm -f {input.temp_depth} {params.temp_genes} {params.temp_window}
+    """
+
+
+rule combine_depth_RepAdapt:
+  input:
+    wg=expand("results/depths/RepAdapt_method/{sample_prefix}-wg.txt", sample_prefix=sample_prefixes),
+    genes=expand("results/depths/RepAdapt_method/{sample_prefix}-genes.sorted.tsv", sample_prefix=sample_prefixes),
+    windows=expand("results/depths/RepAdapt_method/{sample_prefix}-windows.sorted.tsv", sample_prefix=sample_prefixes)
+  output:
+    combined_windows="results/depths/RepAdapt_method/combined_windows.tsv",
+    combined_genes="results/depths/RepAdapt_method/combined_genes.tsv",
+    combined_wg="results/depths/RepAdapt_method/combined_wg.tsv"
+  params:
+    depth_header="results/depths/RepAdapt_temp/depthheader.txt",
+    samples_list="results/depths/RepAdapt_temp/samples.txt",
+    genes_temp="results/depths/RepAdapt_temp/combined-genes.temp",
+    windows_temp="results/depths/RepAdapt_temp/combined-windows.temp",
+    # Create a newline-separated string of sample names from your Python variable.
+    sample_names="\n".join(sample_prefixes)
+  log:
+    "results/logs/estimate_depth_RepAdapt/combine_depths.log"
+  shell:
+    """
+    set -o pipefail
+
+    # Ensure temporary directory exists.
+    mkdir -p results/depths/RepAdapt_temp
+
+    # Create a file with the sample names using the Python-provided list.
+    echo -e "{params.sample_names}" > {params.samples_list}
+
+    # Create a header using the sample names.
+    # Replace newlines with tabs for the header.
+    echo -e "location\\t$(cat {params.samples_list} | tr '\n' '\\t')" > {params.depth_header}
+
+    # Combine window depth results:
+    while read samp; do 
+      cut -f2 results/depths/RepAdapt_method/${{samp}}-windows.sorted.tsv > results/depths/RepAdapt_method/${{samp}}-windows.depthcol; 
+    done < {params.samples_list}
+    first_sample=$(head -n1 {params.samples_list})
+    paste results/depths/RepAdapt_method/${{first_sample}}-windows.sorted.tsv $(tail -n +2 {params.samples_list} | sed 's/.*/results\/depths\/RepAdapt_method\/&-windows.depthcol/') > {params.windows_temp}
+    cat {params.depth_header} {params.windows_temp} > {output.combined_windows}
+
+    # Combine gene depth results:
+    while read samp; do 
+      cut -f2 results/depths/RepAdapt_method/${{samp}}-genes.sorted.tsv > results/depths/RepAdapt_method/${{samp}}-genes.depthcol; 
+    done < {params.samples_list}
+    first_sample=$(head -n1 {params.samples_list})
+    paste results/depths/RepAdapt_method/${{first_sample}}-genes.sorted.tsv $(tail -n +2 {params.samples_list} | sed 's/.*/results\/depths\/RepAdapt_method\/&-genes.depthcol/') > {params.genes_temp}
+    cat {params.depth_header} {params.genes_temp} > {output.combined_genes}
+
+    # Combine whole-genome depth results:
+    while read samp; do 
+      echo -e "${{samp}}\t$(cat results/depths/RepAdapt_method/${{samp}}-wg.txt)"; 
+    done < {params.samples_list} > {output.combined_wg}
+    """
+
+
+####################################
+#### SNP calling using bcftools ####
+####################################
+
+# NOTE:  Ignore a ploidy map because L. perennis is diploid and the default setting is diploid
+# SNP‐calling rule, one job per scaffold:
+rule bcftools_snp_call_by_scaffold:
+  input:
+    ref     = "data/reference/hap2/lupinehap2.fasta",
+    bamlist = "data/lists/hap2/all_realign_hap2.txt"
+  output:
+    vcf = "results/bcftools/hap2/vcf_by_scaffold/{hap2scaffolds}.vcf.gz"
+    tbi = "results/bcftools/hap2/vcf_by_scaffold/{hap2scaffolds}.vcf.gz.tbi"
+  log:
+    "results/logs/bcftools/SNP_call/{hap2scaffolds}.log"
+  params:
+    scaffolds = {hap2scaffolds}
+  threads: 4
+  envmodules:
+    "bcftools/1.19"
+  shell:
+    """
+    bcftools mpileup -Ou \
+      -f {input.ref} \
+      --bam-list {input.bamlist} \
+      -q 5 -r {params.scaffolds} -I \
+      -a FMT/AD,FMT/DP \
+    | bcftools call \
+      -G - -f GQ -mv -Ov -o \
+    > {output.vcf} 2> {log}
+    tabix -f {output.vcf}
+    """
+

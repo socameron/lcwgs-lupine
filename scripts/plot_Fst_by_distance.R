@@ -96,13 +96,38 @@ custom_theme <- theme(panel.border = element_blank(),
                       legend.text = element_text(size=12), 
                       legend.title = element_text(size=10))
 
+#ggplot(fst_data, aes(x = Distance, y = Fst, color = PairType)) +
+  #geom_point(size = 3, alpha = 0.7) +
+  #geom_smooth(method = "lm", se = FALSE, color = "black", linetype = "dashed", linewidth = 1) +
+  #scale_color_manual(values = c("Edge-Core" = "#E3AF41", "Core-Core" = "#9932CC", "Edge-Edge" = "00868B")) +
+  #labs(title = "Fst vs. Geographic Distance", x = "Geographic Distance (km)", y = "Weighted Fst") +
+  #custom_theme +
+  #theme(legend.title = element_blank(), legend.position = "top")
+
 ggplot(fst_data, aes(x = Distance, y = Fst, color = PairType)) +
   geom_point(size = 3, alpha = 0.7) +
-  geom_smooth(method = "lm", se = FALSE, color = "black", linetype = "dashed", size = 1) +
-  scale_color_manual(values = c("Edge-Core" = "#E3AF41", "Core-Core" = "#9932CC", "Edge-Edge" = "00868B")) +
-  labs(title = "Fst vs. Geographic Distance", x = "Geographic Distance (km)", y = "Weighted Fst") +
+  geom_smooth(aes(group = 1),
+              method   = "lm",
+              se       = FALSE,
+              color    = "black",
+              linetype = "solid",
+              linewidth     = 1) +
+  geom_smooth(aes(group = PairType),
+              method   = "lm",
+              se       = FALSE,
+              linetype = "dashed",
+              linewidth     = 1) +
+  scale_color_manual(values = c(
+    "Edge-Core" = "#E3AF41",
+    "Core-Core" = "#9932CC",
+    "Edge-Edge" =  "#00868B")) +
+  labs(
+    title    = "Fst vs. Geographic Distance",
+    x        = "Geographic Distance (km)",
+    y        = "Weighted Fst") +
   custom_theme +
-  theme(legend.title = element_blank(), legend.position = "top")
+  theme(legend.title    = element_blank(), legend.position = "top")
+
 
 
 # Save the plot
