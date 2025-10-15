@@ -9,14 +9,17 @@ This is a Snakemake workflow for running the population genetic analyses on low 
 5. Thetas for Taijama's D, nucleotide diversity, and Watterson's theta (software [ANGSD](https://github.com/ANGSD/angsd) with command `thetaStat`) 
 6. Population-level pairwise Fst and Fst by Distance (IBD) (software [ANGSD](https://github.com/ANGSD/angsd) with command `realSFS`)
 7. Linkage disequilibrium (software [ngsLD](https://github.com/fgvieira/ngsLD))
+8. Contemporary effective population size (software [currentNe2](https://github.com/esrud/currentNe2))
+9. Distribution of fitness effects (software [fastdfe](https://fastdfe.readthedocs.io/en/latest/))
+10. Genotype-environment associations (software [Redundancy Analysis](https://github.com/Capblancq/RDA-landscape-genomics))
 
 Some analyses will be implemented include:
 
-1. Contemporary effective population size (software [NeEstimator v2](https://github.com/bunop/NeEstimator2.X) and [GONE](https://github.com/esrud/GONE))
-2. Mutation screens (dN/dS) (custom software, email dan.schoen@mcgill.ca for info)
-3. Genotype-environment associations (software [Redundancy Analysis](https://github.com/Capblancq/RDA-landscape-genomics))
-4. Genetic off-sets (software TBD)
-5. Demographic histories (software Dadi)
+1. Mutation screens (dN/dS) (custom software, email dan.schoen@mcgill.ca for info)
+2. Genetic off-sets (software [Redundancy Analysis](https://github.com/Capblancq/RDA-landscape-genomics))
+3. Demographic histories (software [dadi](https://dadi.readthedocs.io/en/latest/))
+
+NOTE: since there are so many analyses, one day I'll break up the Snakefile into separate components per each analysis.
 
 ## About the _Lupinus perennis_ dataset
 
@@ -30,7 +33,7 @@ Populations are distinguished based on their geographical position relative to t
 
 ## Quality control prior to analyses
 
-Before running any analyses, I mapped my reads to a scaffold-based reference genome. Since I'm using ANGSD for a majority of my analyses, I also clipped overlapping reads with `bamutil/1.0.14` and realigned around indels using `gatk/3.8`. I then filtered out potential paralogs using [ngsParalog](https://github.com/tplinderoth/ngsParalog) and its internal program called `dupHMM`. Any downstream analyses then underwent its own filtering criteria, but was required to constrain the analysis to the first 24 scaffolds of our reference assembly, as these in theory should represent the 24 chromosomes of _Lupinus perennis_. In the future, we'll likely utilize our Hi-C data to construct a chromosome-based reference assembly. 
+Before running any analyses, I mapped my reads to a scaffold-based reference genome. Since I'm using ANGSD for a majority of my analyses, I also clipped overlapping reads with `bamutil/1.0.14`. Previously I realigned reads around indels using `gatk/3.8` but I no longer include this into my workflow. Realignment around indels is dealt with during ANGSD calls with `-baq 2`. I then filtered out potential paralogs using [ngsParalog](https://github.com/tplinderoth/ngsParalog) and its internal program called `dupHMM`. Please see the file 'Snakefile_dataprep'. Any downstream analyses then underwent its own filtering criteria, but was required to constrain the analysis to the first 24 scaffolds of our reference assembly, as these in theory should represent the 24 chromosomes of _Lupinus perennis_. In the future, we might utilize our Hi-C data to construct a chromosome-based reference assembly. 
 
 ## Snakemake
 
