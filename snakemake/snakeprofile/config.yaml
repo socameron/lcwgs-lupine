@@ -2078,7 +2078,7 @@ set-resources:
   bcftools_snp_call_canonical_by_population:
     mem_mb: 34400
     threads: 24
-    time: 900
+    time: 2160
   clip_overlapping_reads:
     mem_mb: 13800
     threads: 4
@@ -2096,9 +2096,9 @@ set-resources:
     threads: 2
     time: 360
   convert_vcf_to_genepop:
-    mem_mb: 13800
+    mem_mb: 34400
     threads: 2
-    time: 360
+    time: 520
   combine_raw_sites_scaffolds:
     mem_mb: 68800
     threads: 4
@@ -2126,7 +2126,7 @@ set-resources:
     mem_mb: 9200
     time: 180
   estimate_average_coverage_per_population:
-    mem_mb: 9200
+    mem_mb: 13800
     threads: 4
     time: 540
   estimate_coverage_per_population_and_scaffold_hap1:
@@ -2193,6 +2193,10 @@ set-resources:
     mem_mb: 13800
     threads: 2
     time: 180
+  filter_and_subsample_vcf_for_neestimator:
+    mem_mb: 13800
+    threads: 2
+    time: 240
   filter_by_popln_4D_and_CDS:
     mem_mb: 48000
     threads: 2
@@ -2208,6 +2212,8 @@ set-resources:
   find_4fold_degenerate_sites:
     mem_mb: 13800
     threads: 2
+  fix_sm_lb_per_bam:
+    time: 240
   fold_global_SFS_by_population:
     mem_mb: 149500
     threads: 40
@@ -2409,7 +2415,7 @@ set-resources:
     time: 1000
   preprocess_bed_files_all_populations:
     mem_mb: 6900
-    time: 120
+    time: 360
   prepare_depth_files:
     time: 360
   realign_indels:
