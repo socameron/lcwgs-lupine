@@ -204,17 +204,17 @@ rule get_scaffold_names:
     "data/reference/lupinehap1.fasta",
     "data/reference/lupinehap2.fasta"
   output:
-    "results/scaffolds/hap1_scaffolds.txt",
-    "results/scaffolds/hap2_scaffolds.txt"
+    "results/scaffolds/hap1_all_scaffolds.txt",
+    "results/scaffolds/hap2_all_scaffolds.txt"
   shell:
     """
-    python scripts/extract_24_scaffold_names_by_hap.py
+    python scripts/extract_all_scaffold_names_by_hap.py
     """
 
-with open("results/scaffolds/hap1_scaffolds.txt", "r") as file:
+with open("results/scaffolds/hap1_all_scaffolds.txt", "r") as file:
     HAP1SCAFFOLDS = [line.strip() for line in file.readlines()]
 
-with open("results/scaffolds/hap2_scaffolds.txt", "r") as file:
+with open("results/scaffolds/hap2_all_scaffolds.txt", "r") as file:
     HAP2SCAFFOLDS = [line.strip() for line in file.readlines()]
 
 # Split scaffold names by comma and create a list
@@ -282,7 +282,9 @@ def generate_annotated_vcfs():
 # Expand the final files using the updated configuration
 rule all:
   input:
-    expand("results/bam_clipped/hap2/{sample_prefix}_hap2_clipped.bam", sample_prefix = sample_prefixes)
+    expand("results/bcftools/hap2/vcf_by_scaffold/{hap2scaffolds}.vcf.gz", hap2scaffolds = HAP2SCAFFOLDS),
+    "results/bcftools/hap2/all_scaffolds.vcf.gz",
+    "results/bcftools/hap2/all_scaffolds.vcf.gz.tbi"
 
 
 
@@ -722,54 +724,90 @@ rule generate_clipped_bam_list_per_population:
 # Create interval list of indels
 # NOTE: We turn the badmate filter OFF! (-drf BadMate) because our genome assembly is scaffold-based and so there may be reads mapped on different areas than their mate. 
 # NOTE: We establish targets by a per-sample basis, rather than identifying realignment targets by population. This differs from the original approach!
-rule indel_list_per_sample:
+# Create interval list of indels
+# We use apptainer, since I've had issues running gatk/3.8 with simply module load on the DRAC clusters
+# MUST PRE-INSTALL gatk/3.8 container in login node
+# apptainer pull gatk3.sif docker://broadinstitute/gatk3:3.8-1
+rule indel_list:
   input:
-    bam = "results/bam_clipped/hap{hap}/{sample_prefix}_hap{hap}_clipped.bam",
-    ref = "data/reference/hap{hap}/lupinehap{hap}.fasta"
+    bam_list = "data/lists/hap{hap}/{population}_clipped_hap{hap}.list",
+    reference = "data/reference/hap{hap}/lupinehap{hap}.fasta",
   output:
-    intervals = "data/lists/hap{hap}/{sample_prefix}_hap{hap}_indels.intervals"
+    intervals = "data/lists/hap{hap}/{population}_hap{hap}_indels.intervals",
   log:
-    "results/logs/indel_list/hap{hap}/{sample_prefix}_hap{hap}_indel_list.log"
-  threads: 2
-  shell: 
-    """
-    module --force purge
-    module load nixpkgs/16.09 gatk/3.8
-    java -jar $EBROOTGATK/GenomeAnalysisTK.jar \
-      -T RealignerTargetCreator \
-      -R {input.ref} \
-      -I {input.bam} \
-      -o {output.intervals} \
-      &> {log}
-
-    module --force purge
-    """
-
-# Realign reads around indels - not entirely necessary if using ANGSD
-rule realign_indels:
-  input:
-    bam="results/bam_clipped/hap{hap}/{sample_prefix}_hap{hap}_clipped.bam",
-    ref="data/reference/hap{hap}/lupinehap{hap}.fasta",
-    intervals="data/lists/hap{hap}/{sample_prefix}_hap{hap}_indels.intervals"
-  output:
-    realigned_bam="results/bam_realign/hap{hap}/{sample_prefix}_hap{hap}_realign.bam"
-  log:
-    "results/logs/realign_indels/hap{hap}/{sample_prefix}_hap{hap}_realign_indels.log"
+    "results/logs/indel_list/hap{hap}/{population}_hap{hap}_indel_list.log",
+  threads: 4
+  envmodules:
+    "apptainer/1.3.5",
   shell:
     """
-    module --force purge
-    module load nixpkgs/16.09 gatk/3.8
-    java -Xmx16g \
-    -jar $EBROOTGATK/GenomeAnalysisTK.jar \
-    -T IndelRealigner \
-    -I {input.bam} \
-    -R {input.ref} \
-    -targetIntervals {input.intervals} \
-    --consensusDeterminationModel USE_READS \
-    -o {output.realigned_bam} \
-    &> {log}
-    module --force purge
+    set -euo pipefail
+    mkdir -p "$(dirname {output.intervals})" "$(dirname {log})"
+
+    # Resolve your host scratch root (e.g., /home/socamero/links/scratch)
+    HOST_SCRATCH="$(readlink -f /home/socamero/links/scratch)"
+
+    if [[ ! -d "$HOST_SCRATCH" ]]; then
+        echo "Host scratch path not found: $HOST_SCRATCH" >&2
+        exit 1
+    fi
+
+    # Bind current project dir (for relative paths) AND map host scratch -> /links/scratch inside container
+    env -u JAVA_TOOL_OPTIONS \
+    apptainer exec --cleanenv \
+      -B "$PWD:$PWD","$HOST_SCRATCH:/links/scratch" \
+      --pwd "$PWD" \
+      /home/socamero/gatk3.sif \
+      java -Xms2g -Xmx16g -jar /usr/GenomeAnalysisTK.jar \
+        -T RealignerTargetCreator \
+        -R {input.reference} \
+        -I {input.bam_list} \
+        -o {output.intervals} \
+        -drf BadMate \
+        -nt {threads} \
+      2> {log}
     """
+
+rule realign_indels:
+  input:
+    bam = "results/bam_clipped/hap{hap}/{sample_prefix}_hap{hap}_clipped.bam",
+    ref = "data/reference/hap{hap}/lupinehap{hap}.fasta",
+    intervals = lambda wildcards: "data/lists/hap" + wildcards.hap + "/" + next(pop for pop in POPULATIONS if pop in wildcards.sample_prefix) + f"_hap{wildcards.hap}_indels.intervals",
+  output:
+    realigned_bam = "results/bam_realign/hap{hap}/{sample_prefix}_hap{hap}_realign.bam",
+  log:
+    "results/logs/realign_indels/hap{hap}/{sample_prefix}_hap{hap}_realign_indels.log",
+  envmodules:
+    "apptainer/1.3.5",
+  shell:
+    """
+    set -euo pipefail
+    mkdir -p "$(dirname {input.intervals})" "$(dirname {log})"
+
+    # Resolve your host scratch root (e.g., /home/socamero/links/scratch)
+    HOST_SCRATCH="$(readlink -f /home/socamero/links/scratch)"
+
+    if [[ ! -d "$HOST_SCRATCH" ]]; then
+        echo "Host scratch path not found: $HOST_SCRATCH" >&2
+        exit 1
+    fi
+
+    # Bind your current project dir (for relative paths) + /links/scratch (for any absolute paths in lists)
+    env -u JAVA_TOOL_OPTIONS \
+    apptainer exec --cleanenv \
+      -B "$PWD:$PWD","$HOST_SCRATCH:/links/scratch" \
+      --pwd "$PWD" \
+      /home/socamero/gatk3.sif \
+      java -Xms2g -Xmx16g -jar /usr/GenomeAnalysisTK.jar \
+        -T IndelRealigner \
+        -R {input.ref} \
+        -I {input.bam} \
+        -targetIntervals {input.intervals} \
+        -o {output.realigned_bam} \
+        -drf BadMate \
+      &> {log}
+    """
+
 
 # Rule to create .txt file of BAM files for each haplotype
 # Only applies to hap2
@@ -998,7 +1036,7 @@ rule bcftools_snp_call_by_scaffold:
     ref     = "data/reference/hap2/lupinehap2.fasta",
     bamlist = "data/lists/hap2/all_realign_hap2.txt"
   output:
-    vcf = "results/bcftools/hap2/vcf_by_scaffold/{hap2scaffolds}.vcf.gz"
+    vcf = "results/bcftools/hap2/vcf_by_scaffold/{hap2scaffolds}.vcf.gz",
     tbi = "results/bcftools/hap2/vcf_by_scaffold/{hap2scaffolds}.vcf.gz.tbi"
   log:
     "results/logs/bcftools/SNP_call/{hap2scaffolds}.log"
@@ -1006,7 +1044,7 @@ rule bcftools_snp_call_by_scaffold:
     scaffolds = {hap2scaffolds}
   threads: 4
   envmodules:
-    "bcftools/1.19"
+    "bcftools/1.22"
   shell:
     """
     bcftools mpileup -Ou \
@@ -1015,8 +1053,44 @@ rule bcftools_snp_call_by_scaffold:
       -q 5 -r {params.scaffolds} -I \
       -a FMT/AD,FMT/DP \
     | bcftools call \
-      -G - -f GQ -mv -Ov -o \
-    > {output.vcf} 2> {log}
+      -G - -f GQ -mv -Ov -o {output.vcf} \
+      --threads {threads} 2> {log}
     tabix -f {output.vcf}
+    """
+
+rule concat_scaffold_vcfs:
+  input:
+    ref_list = SCF_LIST,
+    vcfs = expand("results/bcftools/hap2/vcf_by_scaffold/{hap2scaffolds}.vcf.gz", hap2scaffolds=HAP2SCAFFOLDS),
+    tbi  = expand("results/bcftools/hap2/vcf_by_scaffold/{hap2scaffolds}.vcf.gz.tbi", hap2scaffolds=HAP2SCAFFOLDS)
+  output:
+    vcf = "results/bcftools/hap2/all_scaffolds.vcf.gz",
+    tbi = "results/bcftools/hap2/all_scaffolds.vcf.gz.tbi"
+  threads: 8
+  envmodules:
+    "bcftools/1.22"
+  log:
+    "results/logs/bcftools/concat/all_scaffolds_concat.log"
+  shell:
+    """
+    set -euo pipefail
+    mkdir -p "$(dirname {output.vcf})" "$(dirname {log})"
+
+    # Create a filelist in reference order
+    FILELIST="$(dirname {log})/vcf_filelist.txt"
+    awk '{{printf "results/bcftools/hap2/vcf_by_scaffold/%s.vcf.gz\n", $0}}' {input.ref_list} > "$FILELIST"
+
+    # Optional: sanity check all files exist & are non-empty
+    while read -r f; do
+      if [[ ! -s "$f" ]]; then
+        echo "Missing or empty VCF: $f" >&2
+        exit 1
+      fi
+    done < "$FILELIST"
+
+    # Concatenate (non-overlapping contigs), preserving header and order
+    bcftools concat --threads {threads} -f "$FILELIST" -Oz -o {output.vcf} > {log} 2>&1
+
+    tabix -f {output.vcf} 2>> {log}
     """
 

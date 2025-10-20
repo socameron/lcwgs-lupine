@@ -200,8 +200,9 @@ def get_population_sample_prefixes(population):
 #### Functions to create scaffold names list per scaffold
 # Get first 24 scaffold names to later estimate LD per scaffold
 # Not using other scaffolds as they don't quite align to the expected 24 chromosomes
+# Use snakemake -j 1 "results ..." to extract scaffold names once.
 
-rule get_scaffold_names:
+rule get_24_scaffold_names:
   input:
     "data/reference/lupinehap1.fasta",
     "data/reference/lupinehap2.fasta"
@@ -213,10 +214,23 @@ rule get_scaffold_names:
     python scripts/extract_24_scaffold_names_by_hap.py
     """
 
-with open("results/scaffolds/hap1_scaffolds.txt", "r") as file:
+rule get_all_scaffold_names:
+  input:
+    "data/reference/lupinehap1.fasta",
+    "data/reference/lupinehap2.fasta"
+  output:
+    "results/scaffolds/hap1_all_scaffolds.txt",
+    "results/scaffolds/hap2_all_scaffolds.txt"
+  shell:
+    """
+    python scripts/extract_all_scaffold_names_by_hap.py
+    """
+
+# NOTE: we only use the first 24 scaffolds as these are supposedly the chromosomes.
+with open("results/scaffolds/hap1_24_scaffolds.txt", "r") as file:
     HAP1SCAFFOLDS = [line.strip() for line in file.readlines()]
 
-with open("results/scaffolds/hap2_scaffolds.txt", "r") as file:
+with open("results/scaffolds/hap2_24_scaffolds.txt", "r") as file:
     HAP2SCAFFOLDS = [line.strip() for line in file.readlines()]
 
 # Split scaffold names by comma and create a list
@@ -2381,7 +2395,7 @@ rule angsd_for_ngsRelate:
     -minQ 20\
     -minInd {params.minInd}\
     -minHWEpval 0.01\
-    -minMaf 0.0001\
+    -minMaf 0.01\
     -baq 2\
     -only_proper_pairs 1\
     -nThreads {threads}\
@@ -2511,9 +2525,6 @@ rule angsd_for_ngsF:
     arg_file="results/angsd/hap{hap}/canonical/ngsF_input/by_popln/{population}_canonical_SNPs.arg",
     mafs_file="results/angsd/hap{hap}/canonical/ngsF_input/by_popln/{population}_canonical_SNPs.mafs.gz",
     hwe_file="results/angsd/hap{hap}/canonical/ngsF_input/by_popln/{population}_canonical_SNPs.hwe.gz",
-    saf_1="results/angsd/hap{hap}/canonical/ngsF_input/by_popln/{population}_canonical_SNPs.saf.idx",
-    saf_2="results/angsd/hap{hap}/canonical/ngsF_input/by_popln/{population}_canonical_SNPs.saf.pos.gz",
-    saf_3="results/angsd/hap{hap}/canonical/ngsF_input/by_popln/{population}_canonical_SNPs.saf.gz",
     glf_gz="results/angsd/hap{hap}/canonical/ngsF_input/by_popln/{population}_canonical_SNPs.glf.gz",
     glf_pos="results/angsd/hap{hap}/canonical/ngsF_input/by_popln/{population}_canonical_SNPs.glf.pos.gz"
   params:
@@ -2541,7 +2552,7 @@ rule angsd_for_ngsF:
     -minMapQ 30\
     -minQ 20\
     -minInd {params.minInd}\
-    -minMaf 0.0001\
+    -minMaf 0.01\
     -baq 2\
     -only_proper_pairs 1\
     -nThreads {threads}\
@@ -2549,7 +2560,6 @@ rule angsd_for_ngsF:
     -doHWE 1\
     -doMajorMinor 1\
     -doMaf 1\
-    -doSaf 1\
     -doCounts 1\
     -anc {params.ref}\
     -doGlf 3\
@@ -2677,9 +2687,171 @@ rule plot_ngsF_HMM:
 
 
 
+## ANALYSIS 3: Runs of Homozygosity (ROH) to look at longer regions of inbreeding across the genome
+# PROGRAM 1: RZooRoH | https://cran.r-project.org/web/packages/RZooRoH/vignettes/zooroh-vignette.pdf
 
 
-## ANALYSIS 3: PCA for population structure + Admixture
+
+# We call for .beagle.gz and .bcf files
+# .beagle is based on genotype likelihoods (GL) and .bcf -> .vcf *can* create genotype probabilities, both of which are acceptable for RZooROH
+# For this analysis, we use GLs from .beagle.gz. It is also zipped and takes less space. 
+# REVIEW IF .BEAGLE.GZ IS BASED ON GL IF -DoGeno 1 (samples Genotype from posterior) 
+rule angsd_for_RZooROH:
+  input: 
+    bam_list="data/lists/hap{hap}/{population}_realign_hap{hap}.txt",
+    canonical_sites="results/bed/hap{hap}/canonical_sites/filtered_dupHMM/{population}_filtered_sites_dupHMM_calcLR.txt",
+    bin_index="results/bed/hap{hap}/canonical_sites/filtered_dupHMM/{population}_filtered_sites_dupHMM_calcLR.txt.bin",
+    fasta_fai="data/reference/hap{hap}/lupinehap{hap}.fasta.fai"
+  output:
+    arg_file="results/angsd/hap{hap}/canonical/RZooROH_input/{population}/{population}_canonical_SNPs.arg",
+    mafs_file="results/angsd/hap{hap}/canonical/RZooROH_input/{population}/{population}_canonical_SNPs.mafs.gz",
+    hwe_file="results/angsd/hap{hap}/canonical/RZooROH_input/{population}/{population}_canonical_SNPs.hwe.gz",
+    depth_sample="results/angsd/hap{hap}/canonical/RZooROH_input/{population}/{population}_canonical_SNPs.depthSample",
+    depth_global="results/angsd/hap{hap}/canonical/RZooROH_input/{population}/{population}_canonical_SNPs.depthGlobal",
+    beagle="results/angsd/hap{hap}/canonical/RZooROH_input/{population}/{population}_canonical_SNPs.beagle.gz"
+  params:
+    ref="data/reference/hap{hap}/lupinehap{hap}.fasta",
+    file_name="results/angsd/hap{hap}/canonical/RZooROH_input/{population}/{population}_canonical_SNPs",
+    scaffolds="results/scaffolds/hap{hap}_scaffolds.txt",
+    minInd=lambda wildcards, input: max(1, int(0.8 * sum(1 for _ in open(input.bam_list))))
+  log:
+    "results/logs/angsd/hap{hap}/canonical/RZooROH_input/{population}_angsd_canonical_SNPs.log"
+  envmodules:
+    "angsd/0.940"
+  threads: 12
+  shell:
+    """
+    angsd -bam {input.bam_list}\
+    -ref {params.ref}\
+    -out {params.file_name}\
+    -remove_bads 1\
+    -rf {params.scaffolds}\
+    -GL 1\
+    -C 50\
+    -sites {input.canonical_sites}\
+    -setMinDepth 25\
+    -setMaxDepth 3500\
+    -minMapQ 30\
+    -minQ 20\
+    -minInd {params.minInd}\
+    -minMaf 0.01\
+    -baq 2\
+    -only_proper_pairs 1\
+    -nThreads {threads}\
+    -SNP_pval 1e-6\
+    -doHWE 1\
+    -doMajorMinor 1\
+    -doMaf 1\
+    -doPost 1\
+    -doCounts 1\
+    -doGlf 2\
+    -doDepth 1\
+    &> {log}
+    """
+
+
+rule RZooROH_get_sample_names:
+  input:
+    bam_list="data/lists/hap2/{population}_clipped_hap2.txt"
+  output:
+    sample_names="data/lists/hap2/{population}_sample_names.txt"
+  shell:
+    r"""
+    awk -F'/' '{{ f=$NF; sub(/_hap2_realign\.bam$/, "", f); print f }}' {input.bam_list} > {output.sample_names}
+    """
+
+
+rule RZooROH_extract_allele_freq:
+  input:
+    mafs="results/angsd/hap2/canonical/RZooROH_input/{population}/{population}_canonical_SNPs.mafs.gz"
+  output:
+    allelefreq="results/angsd/hap2/canonical/RZooROH_input/{population}/{population}_allelefreq.txt"
+  shell:
+    """
+    # Skip the header line and print only the sixth column (adjust the column number as required)
+    zcat {input.mafs} | awk 'NR>1 {{print $6}}' > {output.allelefreq}
+    """
+
+
+# Convert .beagle.gz files in Oxford Gen format for input into RZooROH
+rule RZooROH_prep:
+  input:
+    beagle_file="results/angsd/hap2/canonical/RZooROH_input/{population}/{population}_canonical_SNPs.beagle.gz",
+    script="scripts/convert_beagle_to_rzooroh.py"
+  output:
+    zoo_txt="results/angsd/hap2/canonical/RZooROH_input/{population}/{population}_Zoo_format.txt"
+  envmodules:
+    "python/3.11.5"
+  shell:
+    "python {input.script} {input.beagle_file} {output.zoo_txt}"
+
+
+# Rscript to run RZooRoH
+rule RZooROH_analysis:
+  input:
+    zoo_txt      = "results/angsd/hap2/canonical/RZooROH_input/{population}/{population}_Zoo_format.txt",
+    sample_names = "data/lists/hap2/{population}_sample_names.txt",
+    allele_freq  = "results/angsd/hap2/canonical/RZooROH_input/{population}/{population}_allelefreq.txt"
+  output:
+    placeholder = "results/RZooROH/hap2/RZooROH_analysis/{population}/{population}_placeholder.txt"
+  log:
+    "results/logs/RZooROH/hap2/{population}_RZooROH_analysis.log"
+  envmodules:
+    "r/4.4.0"
+  params:
+    outbase = "results/RZooROH/hap2/RZooROH_analysis/{population}/{population}_summary"
+  threads: 4
+  shell:
+    """
+    Rscript scripts/estimate_RZooRoH.R \
+      {input.zoo_txt} \
+      {input.sample_names} \
+      {input.allele_freq} \
+      {params.outbase} \
+      {wildcards.population} \
+      {threads}
+    touch {output.placeholder}
+    """
+
+
+# Plot RZooRoH results!
+# We plot F (recent) vs F (ancient) with the K value cutoff of 512 for 'recent' inbreeding and anything bigger than K=512 (or smaller fragment) as ancient inbreeding
+# We use model 6a from every RZooRoH population run since it was significant!
+rule plot_RZooROH_results:
+  input:
+    realized = expand("results/RZooROH/hap2/RZooROH_analysis/{population}/{population}_realized_MixKR_6a.csv", population = POPULATIONS),
+    meta     = "data/lists/hap2/all_popln_geo_coord.csv",
+    script   = "scripts/plot_RZooROH.R"
+  params:
+    recent_thr = 64
+  output:
+    pdf        = "results/plots/hap2/RZooROH/compare_inbreeding_6a.pdf",
+    png_recent = "results/plots/hap2/RZooROH/compare_inbreeding_6a_Frecent.png",
+    png_ancient= "results/plots/hap2/RZooROH/compare_inbreeding_6a_Fancient.png",
+    png_scatter= "results/plots/hap2/RZooROH/compare_inbreeding_6a_scatter.png"
+  threads: 2
+  envmodules:
+    "r/4.4.0"
+  shell:
+    """
+    Rscript {input.script} \
+      {input.realized} \
+      {input.meta} \
+      {params.recent_thr} \
+      {output.pdf} \
+      results/plots/hap2/RZooROH/compare_inbreeding_6a
+    """
+
+
+
+
+
+
+
+
+
+
+## ANALYSIS 4: PCA for population structure + Admixture
 # PROGRAM: PCAngsd | https://github.com/Rosemeis/pcangsd
 # PROGRAM 2: EMU | https://github.com/Rosemeis/emu
   # EMU takes into account of non-random missing data long the genome. Since I previously masked paralogs, this could be these regions. 
@@ -2901,7 +3073,7 @@ rule angsd_for_PCAngsd:
     -minQ 20\
     -minInd 100\
     -minHWEpval 0.01\
-    -minMaf 0.0001\
+    -minMaf 0.01\
     -baq 2\
     -only_proper_pairs 1\
     -nThreads {threads}\
@@ -3259,7 +3431,7 @@ rule angsd_for_EMU:
     -minQ 20\
     -minInd 100\
     -minHWEpval 0.01\
-    -minMaf 0.0001\
+    -minMaf 0.01\
     -geno_minDepth 4\
     -baq 2\
     -only_proper_pairs 1\
@@ -3278,160 +3450,6 @@ rule angsd_for_EMU:
     &> {log}
     """
 
-## ANALYSIS 4: Runs of Homozygosity (ROH) to look at longer regions of inbreeding across the genome
-# PROGRAM 1: RZooRoH | https://cran.r-project.org/web/packages/RZooRoH/vignettes/zooroh-vignette.pdf
-
-
-
-# We call for .beagle.gz and .bcf files
-# .beagle is based on genotype likelihoods (GL) and .bcf -> .vcf *can* create genotype probabilities, both of which are acceptable for RZooROH
-# For this analysis, we use GLs from .beagle.gz. It is also zipped and takes less space. 
-# REVIEW IF .BEAGLE.GZ IS BASED ON GL IF -DoGeno 1 (samples Genotype from posterior) 
-rule angsd_for_RZooROH:
-  input: 
-    bam_list="data/lists/hap{hap}/{population}_realign_hap{hap}.txt",
-    canonical_sites="results/bed/hap{hap}/canonical_sites/filtered_dupHMM/{population}_filtered_sites_dupHMM_calcLR.txt",
-    bin_index="results/bed/hap{hap}/canonical_sites/filtered_dupHMM/{population}_filtered_sites_dupHMM_calcLR.txt.bin",
-    fasta_fai="data/reference/hap{hap}/lupinehap{hap}.fasta.fai"
-  output:
-    arg_file="results/angsd/hap{hap}/canonical/RZooROH_input/{population}/{population}_canonical_SNPs.arg",
-    mafs_file="results/angsd/hap{hap}/canonical/RZooROH_input/{population}/{population}_canonical_SNPs.mafs.gz",
-    hwe_file="results/angsd/hap{hap}/canonical/RZooROH_input/{population}/{population}_canonical_SNPs.hwe.gz",
-    depth_sample="results/angsd/hap{hap}/canonical/RZooROH_input/{population}/{population}_canonical_SNPs.depthSample",
-    depth_global="results/angsd/hap{hap}/canonical/RZooROH_input/{population}/{population}_canonical_SNPs.depthGlobal",
-    beagle="results/angsd/hap{hap}/canonical/RZooROH_input/{population}/{population}_canonical_SNPs.beagle.gz"
-  params:
-    ref="data/reference/hap{hap}/lupinehap{hap}.fasta",
-    file_name="results/angsd/hap{hap}/canonical/RZooROH_input/{population}/{population}_canonical_SNPs",
-    scaffolds="results/scaffolds/hap{hap}_scaffolds.txt",
-    minInd=lambda wildcards, input: max(1, int(0.8 * sum(1 for _ in open(input.bam_list))))
-  log:
-    "results/logs/angsd/hap{hap}/canonical/RZooROH_input/{population}_angsd_canonical_SNPs.log"
-  envmodules:
-    "angsd/0.940"
-  threads: 12
-  shell:
-    """
-    angsd -bam {input.bam_list}\
-    -ref {params.ref}\
-    -out {params.file_name}\
-    -remove_bads 1\
-    -rf {params.scaffolds}\
-    -GL 1\
-    -C 50\
-    -sites {input.canonical_sites}\
-    -setMinDepth 25\
-    -setMaxDepth 4000\
-    -minMapQ 30\
-    -minQ 20\
-    -minInd {params.minInd}\
-    -minMaf 0.0001\
-    -baq 2\
-    -only_proper_pairs 1\
-    -nThreads {threads}\
-    -SNP_pval 1e-6\
-    -doHWE 1\
-    -doMajorMinor 1\
-    -doMaf 1\
-    -doPost 1\
-    -doCounts 1\
-    -doGlf 2\
-    -doDepth 1\
-    &> {log}
-    """
-
-
-rule RZooROH_get_sample_names:
-  input:
-    bam_list="data/lists/hap2/{population}_clipped_hap2.txt"
-  output:
-    sample_names="data/lists/hap2/{population}_sample_names.txt"
-  shell:
-    r"""
-    awk -F'/' '{{ f=$NF; sub(/_hap2_realign\.bam$/, "", f); print f }}' {input.bam_list} > {output.sample_names}
-    """
-
-
-rule RZooROH_extract_allele_freq:
-  input:
-    mafs="results/angsd/hap2/canonical/RZooROH_input/{population}/{population}_canonical_SNPs.mafs.gz"
-  output:
-    allelefreq="results/angsd/hap2/canonical/RZooROH_input/{population}/{population}_allelefreq.txt"
-  shell:
-    """
-    # Skip the header line and print only the sixth column (adjust the column number as required)
-    zcat {input.mafs} | awk 'NR>1 {{print $6}}' > {output.allelefreq}
-    """
-
-
-# Convert .beagle.gz files in Oxford Gen format for input into RZooROH
-rule RZooROH_prep:
-  input:
-    beagle_file="results/angsd/hap2/canonical/RZooROH_input/{population}/{population}_canonical_SNPs.beagle.gz",
-    script="scripts/convert_beagle_to_rzooroh.py"
-  output:
-    zoo_txt="results/angsd/hap2/canonical/RZooROH_input/{population}/{population}_Zoo_format.txt"
-  envmodules:
-    "python/3.11.5"
-  shell:
-    "python {input.script} {input.beagle_file} {output.zoo_txt}"
-
-
-# Rscript to run RZooRoH
-rule RZooROH_analysis:
-  input:
-    zoo_txt      = "results/angsd/hap2/canonical/RZooROH_input/{population}/{population}_Zoo_format.txt",
-    sample_names = "data/lists/hap2/{population}_sample_names.txt",
-    allele_freq  = "results/angsd/hap2/canonical/RZooROH_input/{population}/{population}_allelefreq.txt"
-  output:
-    placeholder = "results/RZooROH/hap2/RZooROH_analysis/{population}/{population}_placeholder.txt"
-  log:
-    "results/logs/RZooROH/hap2/{population}_RZooROH_analysis.log"
-  envmodules:
-    "r/4.4.0"
-  params:
-    outbase = "results/RZooROH/hap2/RZooROH_analysis/{population}/{population}_summary"
-  threads: 4
-  shell:
-    """
-    Rscript scripts/estimate_RZooRoH.R \
-      {input.zoo_txt} \
-      {input.sample_names} \
-      {input.allele_freq} \
-      {params.outbase} \
-      {wildcards.population} \
-      {threads}
-    touch {output.placeholder}
-    """
-
-
-# Plot RZooRoH results!
-# We plot F (recent) vs F (ancient) with the K value cutoff of 512 for 'recent' inbreeding and anything bigger than K=512 (or smaller fragment) as ancient inbreeding
-# We use model 6a from every RZooRoH population run since it was significant!
-rule plot_RZooROH_results:
-  input:
-    realized = expand("results/RZooROH/hap2/RZooROH_analysis/{population}/{population}_realized_MixKR_6a.csv", population = POPULATIONS),
-    meta     = "data/lists/hap2/all_popln_geo_coord.csv",
-    script   = "scripts/plot_RZooROH.R"
-  params:
-    recent_thr = 64
-  output:
-    pdf        = "results/plots/hap2/RZooROH/compare_inbreeding_6a.pdf",
-    png_recent = "results/plots/hap2/RZooROH/compare_inbreeding_6a_Frecent.png",
-    png_ancient= "results/plots/hap2/RZooROH/compare_inbreeding_6a_Fancient.png",
-    png_scatter= "results/plots/hap2/RZooROH/compare_inbreeding_6a_scatter.png"
-  threads: 2
-  envmodules:
-    "r/4.4.0"
-  shell:
-    """
-    Rscript {input.script} \
-      {input.realized} \
-      {input.meta} \
-      {params.recent_thr} \
-      {output.pdf} \
-      results/plots/hap2/RZooROH/compare_inbreeding_6a
-    """
 
 
 
@@ -3711,7 +3729,7 @@ rule plot_fst_by_distance:
     "Rscript scripts/plot_Fst_by_distance.R"
 
 
-## ANALYSIS 8: Linkage Disequilibrium Decay
+## ANALYSIS 7: Linkage Disequilibrium Decay
 # NOTE: this step is necessary for LD pruning prior to the GEA analysis and PCA
 # PROGRAM: ngsLD
 
@@ -3936,7 +3954,7 @@ rule LD_blocks_by_popln:
     """
 
 
-## ANALYSIS 9: Contemporary Effective Population Size
+## ANALYSIS 8: Contemporary Effective Population Size
 
 # This analysis uses CurrentNe2, which builds upon the theory presented by commonly used NeEstimator
 # CurrentNe accounts for full-siblings contributing to LD, while CurrentNe accounts for 
@@ -4318,23 +4336,7 @@ rule currentne2_x:
 
 
 
-
-
-
-
-
-
-## ANALYSIS 10: Genotype Environment Association Test
-
-# Data requirements include:
-  # (1) Allele frequencies by population
-  # (2) Historical and recent climate data
-  # (3) Soil data collected from the field
-  # (4)
-
-
-
-## ANALYSIS 11: Distribution of Fitness Effect (DFE)
+## ANALYSIS 9: Distribution of Fitness Effect (DFE)
 
 # Identify 4fold degenerate sites for inputs into ANGSD (which determines the SFS)
 rule find_4fold_degenerate_sites:
@@ -4620,6 +4622,22 @@ rule fastdfe_by_population:
     """
 
 
+
+
+
+## ANALYSIS 10: Genotype Environment Association Test
+
+# Data requirements include:
+  # (1) Allele frequencies by population
+  # (2) Historical and recent climate data
+  # (3) Soil data collected from the field
+  # (4)
+
+
+
+
+
+
 ## ANALYSIS 12 : SIFT analysis for mutational load
 
 rule make_ploidy_from_bamlist:
@@ -4758,7 +4776,7 @@ rule angsd_for_phylotree:
     -minQ 20\
     -minInd 100\
     -minHWEpval 0.01\
-    -minMaf 0.0001\
+    -minMaf 0.01\
     -baq 2\
     -only_proper_pairs 1\
     -nThreads {threads}\
