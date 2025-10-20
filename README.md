@@ -63,11 +63,9 @@ RColorBrewer
 ```
 
 
-## Some other notes
+## Snakemake organization
 
-I use an `all` rule in Snakemake so I don't have to specify a file to request. Rather, I expand all of the files that I'm requesting in rule `all`. It also makes it easier to type in the command line.
-
-In case you're also new to the world of bioinformatics, I also use Cyberduck to access my data plus VS Code to edit code directly on DRAC servers.  
+Each analysis is written in separate `.smk` files (e.g `01_ngsRelate_relatedness.smk`), which are then compiled into the working `Snakefile`. This reduces the length of code in a single script. I also use an `all` rule to expand the number of files that I'd like to create.
 
 ## Installing PCAngsd
 
@@ -88,8 +86,6 @@ There are also a lot of other packages that need custom installation. If you nee
 ## Additional resources and references
 
 [A beginner's guide to low-coverage whole genome sequencing for population genomics](https://onlinelibrary.wiley.com/doi/abs/10.1111/mec.16077)
-
-[PCAngsd Version 1.2](https://github.com/Rosemeis/pcangsd)
 
 [My Website](https://www.cameronso.ca)
 
