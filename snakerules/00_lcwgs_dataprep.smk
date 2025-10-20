@@ -562,7 +562,7 @@ rule generate_bam_list_clipped:
 # Only applies to hap2
 rule generate_bam_list_per_round:
   input:
-    expand("results/bam_realign/hap2/{sample_prefix}_hap2_realign.bam", sample_prefix=sample_prefixes)
+    expand("results/bam_clipped/hap2/{sample_prefix}_hap2_clipped.bam", sample_prefix=sample_prefixes)
   output:
     first_round="data/lists/hap2/first_round_hap2.txt",
     second_round="data/lists/hap2/second_round_hap2.txt"
@@ -602,7 +602,7 @@ rule generate_bam_list_per_round:
 # Merge all bams to estimate per sample depth
 rule merge_bams:
   input:
-    bam_list="data/lists/hap{hap}/all_realign_hap{hap}.txt"
+    bam_list="data/lists/hap{hap}/all_clipped_hap{hap}.txt"
   output:
     merged_bam="results/bam_merge/hap{hap}/merged_hap{hap}.bam"
   log:
@@ -824,9 +824,9 @@ rule plot_aggregate_depths_hap2:
 # Rule to create .txt file of BAM files per population
 rule generate_bam_hap2_list_per_population:
   input:
-    expand("results/bam_realign/hap2/{sample_prefix}_hap2_realign.bam", sample_prefix=sample_prefixes),
+    expand("results/bam_clipped/hap2/{sample_prefix}_hap2_clipped.bam", sample_prefix=sample_prefixes),
   output:
-    "data/lists/hap2/{population}_realign_hap2.txt"
+    "data/lists/hap2/{population}_clipped_hap2.txt"
   wildcard_constraints:
     population="|".join(POPULATIONS)
   run:
@@ -843,9 +843,9 @@ rule generate_bam_hap2_list_per_population:
 
 rule generate_bam_hap1_list_per_population:
   input:
-    expand("results/bam_realign/hap1/{sample_prefix}_hap1_realign.bam", sample_prefix=sample_prefixes),
+    expand("results/bam_clipped/hap1/{sample_prefix}_hap1_clipped.bam", sample_prefix=sample_prefixes),
   output:
-    "data/lists/hap1/{population}_realign_hap1.txt"
+    "data/lists/hap1/{population}_clipped_hap1.txt"
   wildcard_constraints:
     population="|".join(POPULATIONS)
   run:
@@ -864,7 +864,7 @@ rule generate_bam_hap1_list_per_population:
 
 rule angsd_SFS_control_by_population_on_all_sites:
   input:
-    bam_list="data/lists/hap{hap}/{population}_realign_hap{hap}.txt"
+    bam_list="data/lists/hap{hap}/{population}_clipped_hap{hap}.txt"
   output:
     arg_file="results/angsd/hap{hap}/raw/by_popln/{population}_raw_sites_control_minMAF{min_MAF}.arg",
     mafs_file="results/angsd/hap{hap}/raw/by_popln/{population}_raw_sites_control_minMAF{min_MAF}.mafs.gz",
@@ -965,7 +965,7 @@ rule global_SFS_control_by_population_plots:
 # Running ANGSD HWE analysis with different depth settings
 rule angsd_HWE_by_population_on_control_SNPs:
   input:
-    bam_list="data/lists/hap{hap}/{population}_realign_hap{hap}.txt",
+    bam_list="data/lists/hap{hap}/{population}_clipped_hap{hap}.txt",
     fasta_fai="data/reference/hap{hap}/lupinehap{hap}.fasta.fai"
   output:
     arg_file="results/angsd/hap{hap}/raw/by_popln/{population}_raw_SNPs_control_min{min_depth}_max{max_depth}.arg",
@@ -1038,12 +1038,12 @@ rule hwe_histogram_control:
 
 ## STEP 3: IDENTIFY PARALOGOUS REGIONS 
 
-rule generate_clipped_bam_hap2_list_per_population:
+rule generate_clipped_bam_hap1_list_per_population:
   input:
-    expand("results/bam_clipped/hap2/{sample_prefix}_hap2_clipped.bam", sample_prefix=sample_prefixes),
-    checkpoint="results/checkpoints/hap2/rename_specific_files_checkpoint.txt"
+    expand("results/bam_clipped/hap1/{sample_prefix}_hap1_clipped.bam", sample_prefix=sample_prefixes),
+    checkpoint="results/checkpoints/hap1/rename_specific_files_checkpoint.txt"
   output:
-    "data/lists/hap2/{population}_clipped_hap2.txt"
+    "data/lists/hap1/{population}_clipped_hap1.txt"
   wildcard_constraints:
     population="|".join(POPULATIONS)
   run:
@@ -1053,7 +1053,7 @@ rule generate_clipped_bam_hap2_list_per_population:
 
     with open(output_file, "w") as output:
         for bam_file in bam_files:
-            if population in bam_file and f"_hap2_" in bam_file:
+            if population in bam_file and f"_hap1_" in bam_file:
                 output.write(f"{bam_file}\n")
 
 rule generate_clipped_bam_hap2_list_per_population:
@@ -1703,7 +1703,7 @@ rule index_all_sites_by_popln_dupHMM:
 # Previously attempted just calcLR outputs but this did not remove paralogs. We now incorporate dupHMM and calcLR
 rule angsd_SFS_by_population_on_all_sites:
   input:
-    bam_list="data/lists/hap{hap}/{population}_realign_hap{hap}.txt",
+    bam_list="data/lists/hap{hap}/{population}_clipped_hap{hap}.txt",
     canonical_sites="results/bed/hap{hap}/canonical_sites/filtered_dupHMM/{population}_filtered_sites_dupHMM_calcLR.txt",
     bin_index="results/bed/hap{hap}/canonical_sites/filtered_dupHMM/{population}_filtered_sites_dupHMM_calcLR.txt.bin"
   output:
@@ -1802,7 +1802,7 @@ rule global_SFS_by_population_plots:
 # To check F distribution on filtered SNPs using dupHMM and calcLR
 rule angsd_HWE_by_population_on_dupHMM_SNPs:
   input:
-    bam_list="data/lists/hap{hap}/{population}_realign_hap{hap}.txt",
+    bam_list="data/lists/hap{hap}/{population}_clipped_hap{hap}.txt",
     canonical_sites="results/bed/hap{hap}/canonical_sites/filtered_dupHMM/{population}_filtered_sites_dupHMM_calcLR.txt",
     bin_index="results/bed/hap{hap}/canonical_sites/filtered_dupHMM/{population}_filtered_sites_dupHMM_calcLR.txt.bin",
     fasta_fai="data/reference/hap{hap}/lupinehap{hap}.fasta.fai"
@@ -1923,7 +1923,7 @@ rule prepare_depth_files:
 
 rule estimate_depth_RepAdapt:
   input:
-    bam="results/bam_realign/hap2/{sample_prefix}_hap2_realign.bam"
+    bam="results/bam_clipped/hap2/{sample_prefix}_hap2_clipped.bam"
   output:
     temp_depth="results/depths/RepAdapt_temp/{sample_prefix}.depth"
   log:
@@ -2033,11 +2033,12 @@ rule combine_depth_RepAdapt:
 
 
 
-#
+# Generate filtered dupHMM file using all populations
+# Necessary for PCAngsd and other downstream analyses
 
 rule generate_bam_list_all_populations:
   input:
-    expand("results/bam_realign/hap2/{sample_prefix}_hap2_realign.bam", sample_prefix=sample_prefixes)
+    expand("results/bam_clipped/hap2/{sample_prefix}_hap2_clipped.bam", sample_prefix=sample_prefixes)
   output:
     "data/lists/hap2/all_populations_clipped_hap2.txt"
   run:
@@ -2054,7 +2055,7 @@ rule combine_population_calcLR_bed_files:
   input:
     lambda wildcards: expand("results/bed/hap2/deviant_SNPs/{population}_deviant_SNPs_calcLR_BH_corrected.BED", population=POPULATIONS)
   output:
-    "results/bed/hap2/deviant_sites/hap2_combined_deviant_SNPs_realign_BH_correction.BED"
+    "results/bed/hap2/deviant_sites/hap2_combined_deviant_SNPs_clipped_BH_correction.BED"
   envmodules:
     "bedtools/2.31.0"
   shell:
@@ -2138,7 +2139,7 @@ rule combine_raw_sites_scaffolds:
 rule filter_all_sites_all_populations_calcLR:
   input:
     all_sites_bed="results/bed/hap2/raw_sites/all_poplns/all_sites.BED",
-    deviant_snps="results/bed/hap2/deviant_sites/hap2_combined_deviant_SNPs_realign_BH_correction.BED"
+    deviant_snps="results/bed/hap2/deviant_sites/hap2_combined_deviant_SNPs_clipped_BH_correction.BED"
   output:
     filtered_sites_bed="results/bed/hap2/canonical_sites/filtered_calcLR/calcLR_filtered_sites.BED",
     filtered_sites_txt="results/bed/hap2/canonical_sites/filtered_calcLR/calcLR_filtered_sites.txt"
