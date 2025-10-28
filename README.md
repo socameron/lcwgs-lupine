@@ -2,7 +2,7 @@
 
 This is a Snakemake workflow for running the population genetic analyses on low to medium coverage data (ranges from 2x to 20x, with mean 10x). It primarily uses genotype likelihoods (estimated from ANGSD) rather than genotype calls (e.g PLINK or bcftools). It includes the following analyses:
 
-1. Ortholog finder between _L. perennis_ and _L. mutabilis_ (to include _L. polyphyllus_ when available) plus alignment (software [OrthoFinder](https://github.com/davidemms/OrthoFinder) and [MUMer](https://mummer4.github.io/)
+1. Ortholog finder between _L. perennis_ and _L. mutabilis_* plus WG alignment (software [OrthoFinder](https://github.com/davidemms/OrthoFinder) and [MUMer](https://mummer4.github.io/)
 2. Relatedness structure for identifying clones (software [ngsRelate](https://github.com/ANGSD/NgsRelate))
 3. Individual-level inbreeding coefficients (software [ngsF-HMM](https://github.com/fgvieira/ngsF-HMM))
 4. Runs of Homozygosity (ROH) for inbreeding (software [RZooRoH](https://cran.r-project.org/web/packages/RZooRoH/index.html))
@@ -13,6 +13,9 @@ This is a Snakemake workflow for running the population genetic analyses on low 
 9. Contemporary effective population size (software [currentNe2](https://github.com/esrud/currentNe2))
 10. Distribution of fitness effects (software [fastdfe](https://fastdfe.readthedocs.io/en/latest/))
 11. Genotype-environment associations (software [Redundancy Analysis](https://github.com/Capblancq/RDA-landscape-genomics))
+
+*(to include _L. polyphyllus_ when available)
+
 
 Some analyses will be implemented include:
 
