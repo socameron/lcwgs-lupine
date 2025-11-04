@@ -759,6 +759,87 @@ rule estimate_depth_round_2_per_scaffold:
     """
 
 
+# Merge bams by population
+rule merge_bams_by_popln:
+  input:
+    bam_list="data/lists/hap2/{population}_clipped_hap2.list"
+  output:
+    merged_bam="results/bam_merge/hap2/{population}_merged.bam"
+  log:
+    "results/logs/merge_bams/merge_bam_{population}.log"
+  envmodules:
+    "samtools/1.20"
+  shell:
+    """
+    samtools merge -b {input.bam_list} {output.merged_bam} -@ 8 2> {log}
+    """
+
+rule index_bams_by_popln:
+  input:
+    merged_bam="results/bam_merge/hap2/{population}_merged.bam"
+  output:
+    merged_bai="results/bam_merge/hap2/{population}_merged.bam.bai"
+  log:
+    "results/logs/merged_bams/index_bai_{population}.log"
+  envmodules:
+    "samtools/1.20"
+  shell:
+    """
+    samtools index {input.merged_bam} {output.merged_bai} 2> {log}
+    """
+
+
+rule estimate_depth_by_popln:
+  input:
+    bam="results/bam_merge/hap2/{population}_merged.bam",
+    bai="results/bam_merge/hap2/{population}_merged.bam.bai",
+    ref="data/reference/hap2/lupinehap2.fasta"
+  output:
+    depth="results/depths/hap2/all_by_popln/{population}/{population}_{hap2scaffold_prefix}_depth_est.txt.gz"
+  params:
+    hap2scaffold=lambda wildcards: map_prefix_to_full_scaffold(wildcards.hap2scaffold_prefix, 2)
+  envmodules:
+    "samtools/1.20"
+  shell:
+    """
+    bamstats {input.bam} -r {params.hap2scaffold} \
+    -A -d 77000000 -q 0 -Q 0 --ff UNMAP,SECONDARY,QCFAIL,DUP \
+    -s -aa -f {input.ref} | gzip > {output.depth}
+    """
+
+rule plot_depth_by_popln_by_scaffold:
+  input:
+    depth_file="results/depths/hap2/all_by_popln/{population}/{population}_{hap2scaffold_prefix}_depth_est.txt.gz"
+  output:
+    plot="results/plots/hap2/depths/all_by_popln/{population}/{population}_{hap2scaffold_prefix}_depth_histogram.png"
+  envmodules:
+    "python/3.13.2"
+  log:
+    "results/logs/depths/plot_{population}_{hap2scaffold_prefix}.log"
+  shell:
+    """
+    python scripts/plot_depths.py {input.depth_file} {output.plot}
+    """
+
+rule extract_depth_cutoffs_by_popln:
+  input:
+    expand("results/depths/hap2/all_by_popln/{pop}/{pop}_{scf}_depth_est.txt.gz", pop=POPULATIONS, scf=HAP2SCAFFOLD_PREFIXES)
+  output:
+    csv = "results/depths/hap2/cutoffs/depth_cutoffs_by_population.csv"
+  params:
+    script="scripts/extract_depth_summary.py"
+  envmodules:
+    "python/3.13.2"
+  log:
+    "results/logs/depths/cutoffs_by_population.log"
+  shell:
+    """
+    python {params.script} --out {output.csv} {input} > {log} 2>&1
+    """
+
+
+
+
 
 # Plot aggregated depths per sequencing rounds/platform
 rule plot_depth_per_round:
@@ -767,14 +848,14 @@ rule plot_depth_per_round:
     second_round_depth=expand("results/depths/hap2/round_2/{hap2scaffold_prefix}_depth_est.txt.gz", hap2scaffold_prefix=HAP2SCAFFOLD_PREFIXES)
   output:
     plot="results/plots/hap2/depths/depth_by_round_boxplot.png"
+  envmodules:
+    "python/3.13.2"
   log:
-    "results/logs/plot_depth_per_round.log"
+    "results/logs/depths/plot_depth_per_round.log"
   shell:
     """
     python scripts/plot_depths_by_round.py {input.first_round_depth} {input.second_round_depth} {output.plot} > {log} 2>&1
     """
-
-
 
 # Plot aggregate depths per population
 rule plot_depth_per_scaffold_hap1:
@@ -825,6 +906,7 @@ rule plot_aggregate_depths_hap2:
 rule generate_bam_hap2_list_per_population:
   input:
     expand("results/bam_clipped/hap2/{sample_prefix}_hap2_clipped.bam", sample_prefix=sample_prefixes),
+    checkpoint="results/checkpoints/hap1/rename_specific_files_checkpoint.txt"
   output:
     "data/lists/hap2/{population}_clipped_hap2.txt"
   wildcard_constraints:
@@ -844,6 +926,7 @@ rule generate_bam_hap2_list_per_population:
 rule generate_bam_hap1_list_per_population:
   input:
     expand("results/bam_clipped/hap1/{sample_prefix}_hap1_clipped.bam", sample_prefix=sample_prefixes),
+    checkpoint="results/checkpoints/hap1/rename_specific_files_checkpoint.txt"
   output:
     "data/lists/hap1/{population}_clipped_hap1.txt"
   wildcard_constraints:
@@ -861,6 +944,10 @@ rule generate_bam_hap1_list_per_population:
 
 # ANGSD by population:  To calculate SFS without ngsParalog filtering
 # We try different depth levels to get a better distribution of HWE. 
+
+
+# Varying levels of minor allele frequency cutoffs
+minMAF_params = [0.01, 0.001, 0.0001, 0.00001]
 
 rule angsd_SFS_control_by_population_on_all_sites:
   input:
@@ -961,6 +1048,8 @@ rule global_SFS_control_by_population_plots:
     Rscript scripts/SFS_1D_graph.R {input.unfolded_sfs} {output.unfolded_plot}
     """
 
+# Varying levels of site depth to check filter levels
+depth_params = [(50, 1500), (50, 2000), (50, 2500), (50, 3000), (100, 1500), (100, 2000), (100, 2500), (100, 3000)]
 
 # Running ANGSD HWE analysis with different depth settings
 rule angsd_HWE_by_population_on_control_SNPs:
@@ -1038,44 +1127,6 @@ rule hwe_histogram_control:
 
 ## STEP 3: IDENTIFY PARALOGOUS REGIONS 
 
-rule generate_clipped_bam_hap1_list_per_population:
-  input:
-    expand("results/bam_clipped/hap1/{sample_prefix}_hap1_clipped.bam", sample_prefix=sample_prefixes),
-    checkpoint="results/checkpoints/hap1/rename_specific_files_checkpoint.txt"
-  output:
-    "data/lists/hap1/{population}_clipped_hap1.txt"
-  wildcard_constraints:
-    population="|".join(POPULATIONS)
-  run:
-    bam_files = input
-    output_file = output[0]
-    population = wildcards.population
-
-    with open(output_file, "w") as output:
-        for bam_file in bam_files:
-            if population in bam_file and f"_hap1_" in bam_file:
-                output.write(f"{bam_file}\n")
-
-rule generate_clipped_bam_hap2_list_per_population:
-  input:
-    expand("results/bam_clipped/hap2/{sample_prefix}_hap2_clipped.bam", sample_prefix=sample_prefixes),
-    checkpoint="results/checkpoints/hap2/rename_specific_files_checkpoint.txt"
-  output:
-    "data/lists/hap2/{population}_clipped_hap2.txt"
-  wildcard_constraints:
-    population="|".join(POPULATIONS)
-  run:
-    bam_files = input
-    output_file = output[0]
-    population = wildcards.population
-
-    with open(output_file, "w") as output:
-        for bam_file in bam_files:
-            if population in bam_file and f"_hap2_" in bam_file:
-                output.write(f"{bam_file}\n")
-
-
-
 # Call SNPs with liberal rules for input to ngsParalog
 # NOTE: -SNP_pvalue 0.05 so very liberal SNP calls
 # NOTE: NO filters applied to gather as much as data as possible as input for ngsParalog, except we put missing data to 20% of individuals
@@ -1114,7 +1165,6 @@ rule angsd_raw_SNP:
     -baq 2\
     -only_proper_pairs 1\
     -P {threads}\
-    -doHWE 1\
     -doCounts 1\
     -doDepth 1\
     -doMajorMinor 1\
@@ -1205,7 +1255,8 @@ rule ngsParalog_false_pos:
     Rscript scripts/ngs_paralog_false_pos.R {input.lr_file} {output.deviant_snps} {output.deviant_snps_bp1}
     """
 
-
+# Varying levels of Bonferroni-Hotchberg correction for ngsParalog
+BH_VARS=[50,40,30,20,10,5]
 # Identify false positives for varying levels of Benjamini Hochberg critical values
 rule ngsParalog_false_pos_BH:
   input:

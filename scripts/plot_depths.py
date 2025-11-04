@@ -31,7 +31,7 @@ if __name__ == "__main__":
 
     # Plotting the histogram with increased bin size and limited x-axis
     plt.figure(figsize=(10, 6))
-    plt.hist(aggregated_depths, bins=100, color='skyblue', edgecolor='black', range=(0, 5000))  # Adjust bin size and range
+    plt.hist(aggregated_depths, bins=100, color='skyblue', edgecolor='black', range=(0, 1000))  # Adjust bin size and range
     plt.axvline(bottom_10_cutoff, color='red', linestyle='--', label=f'Bottom 10% cutoff: {bottom_10_cutoff:.2f}')
     plt.axvline(top_2_cutoff, color='red', linestyle='--', label=f'Top 2% cutoff: {top_2_cutoff:.2f}')
     plt.title('Histogram of Depth for Scaffold')

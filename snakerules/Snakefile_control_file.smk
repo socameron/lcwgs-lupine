@@ -92,7 +92,6 @@ for batch in get_batches():
         ])
 
 
-
 #### Functions to set up lists of sample prefixes for merging .BAM files from different sequencing batches
 
 # List of haplotypes
@@ -150,7 +149,6 @@ def find_replicates(sample_prefix, hap):
     
     return filtered_files
 
-
 # Get all unique sample prefixes by extracting from samples listed in config file
 def list_sample_prefixes():
     samples_batch_1 = get_samples('batch_1')  # returns a dict of {sample_name: {...}}
@@ -166,24 +164,9 @@ def list_sample_prefixes():
     sample_prefixes = {extract_sample_prefix(sample) for sample in all_samples}
     return list(sample_prefixes)
 
-
 # List of sample prefixes
 sample_prefixes = list_sample_prefixes()
    
-
-
-
-# Debugging: Write sample_prefixes and haps to files
-#with open("debug_sample_prefixes.txt", "w") as f:
-    #f.write("Sample Prefixes:\n")
-    #for sp in sample_prefixes:
-        #f.write(f"{sp}\n")
-
-#with open("debug_haps.txt", "w") as f:
-    #f.write("Haplotypes:\n")
-    #for hap in haps:
-        #f.write(f"{hap}\n")
-
 # Use sample prefixes and designate to a particular population
 def get_population_sample_prefixes(population):
     # Get all sample prefixes from the existing list_sample_prefixes function
@@ -191,10 +174,6 @@ def get_population_sample_prefixes(population):
     # Filter the sample prefixes based on the population
     population_sample_prefixes = [prefix for prefix in all_sample_prefixes if prefix.startswith(population)]
     return population_sample_prefixes
-
-
-
-
 
 #### Functions to create scaffold names list per scaffold
 # Get first 24 scaffold names to later estimate LD per scaffold
@@ -250,44 +229,6 @@ def map_prefix_to_full_scaffold(prefix, hap_type):
 
 #### Bunch of parameters for using ngsParalog, Fst, ANGSD, etc
 
-# Varying levels of Bonferroni-Hotchberg correction for ngsParalog
-BH_VARS=[50,40,30,20,10,5]
-
-# Varying levels of site depth to check filter levels
-depth_params = [(50, 1500), (50, 2000), (50, 2500), (50, 3000), (100, 1500), (100, 2000), (100, 2500), (100, 3000)]
-
-# Varying levels of minor allele frequency cutoffs
-minMAF_params = [0.01, 0.001, 0.0001, 0.00001]
-
-# For identifying populatio pairs for Fst analysis
-POP_COMBINATIONS = list(itertools.combinations(POPULATIONS, 2))
-
-# Varying levels of K for admixture analyses
-K_values = [16,17,18,19,20]
-
-# These functions are necessary for bcftools/roh because it calls for individual .vcf files within each popln. 
-# Function to expand VCF file paths
-def generate_vcf_files():
-    vcf_files = []
-    for population in POPULATIONS:
-        sample_prefixes = get_population_sample_prefixes(population)
-        vcf_files.extend(
-            [f"results/angsd/hap2/canonical/bcfROH_input/{population}/{prefix}_canonical_SNPs.vcf.gz" for prefix in sample_prefixes]
-        )
-    return vcf_files
-
-# Function to generate annotated BCF file paths
-def generate_annotated_vcfs():
-    annotated_vcfs = []
-    for population in POPULATIONS:
-        sample_prefixes = get_population_sample_prefixes(population)
-        annotated_vcfs.extend(
-            [f"results/bcftools/hap2/roh_analysis/{population}/{prefix}_annotated.vcf.gz" for prefix in sample_prefixes]
-        )
-    return annotated_vcfs
-
-# Use *generate_vcf_files() or *generate_annotated_vcfs()
-
 # Function to check if bams exist
 def bams_to_fix():
     pops = ["HPW","LCTGP","IDNP-MW","RLPLV","PPP","MFNP","SWCP","APB","BSL","BSNA","CPB","FMB","GRAY","NBWA","NGP","PBBT","RSB","UWA"]
@@ -301,15 +242,6 @@ def bams_to_fix():
                 if p: bams.append(p)
     return bams
 
-# Store genome size (# of chromosomes) in config
-GENOME_MORGANS = config.get("genome_morgans")
-
-# Grid of K values for currentNe2
-K_GRID = [x for x in str(config.get("k_grid", "0,0.2,0.33,0.5,1.0")).split(",") if x != ""]
-
-# allow values like 0, 0.2, 1.0, etc.
-wildcard_constraints:
-    k = r"[0-9.]+"
 
 
 ###########################
@@ -320,10 +252,13 @@ wildcard_constraints:
 # Expand the final files using the updated configuration
 rule all:
   input:
-    expand("results/plots/hap2/depths/all_rounds/{hap2scaffold_prefix}_depth_histogram.png", hap2scaffold_prefix=HAP2SCAFFOLD_PREFIXES)
+    expand("results/plots/hap2/depths/all_rounds/{hap2scaffold_prefix}_depth_histogram.png", hap2scaffold_prefix=HAP2SCAFFOLD_PREFIXES),
+    "data/lists/hap2/all_populations_realign_hap2.txt"
 
     # inbreeding coefficents
-    
+    #expand("results/ngsF/hap2/by_popln/{population}_ngsF_inbreeding_final.lrt", population = POPULATIONS),
+    #"results/plots/hap2/ngsF/ngsF-HMM_inbreeding_coeff.tiff"
+
 
 
 
@@ -339,10 +274,11 @@ rule all:
     #expand("results/currentNe2/hap2/{population}/{population}_x_currentNe2_OUTPUT.txt", population=POPULATIONS)
 
 
-include: "snakerules/01_lcwgs_dataprep.smk"
-include: "snakerules/02_ngsRelate_relatedness.smk"
-include: "snakerules/03_ngsF-HMM_individual_inbreeding.smk"
-include: "snakerules/04_RZooROH_runs_of_homozygosity.smk"
+include: "snakerules/00_lcwgs_dataprep.smk"
+include: "snakerules/01_ngsRelate_relatedness.smk"
+include: "snakerules/02_ngsF-HMM_individual_inbreeding.smk"
+include: "snakerules/03_RZooROH_runs_of_homozygosity.smk"
+include: "snakerules/04_PCAngsd_population_structure.smk"
 include: "snakerules/05_ANGSD_diversity_stats.smk"
 include: "snakerules/06_ANGSD_Fst_and_IBD.smk"
 include: "snakerules/07_ngsLD_linkage_disequilibrium.smk"
